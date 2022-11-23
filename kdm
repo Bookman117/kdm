@@ -1,6 +1,6 @@
 #!/bin/bash
 #Program:
-#Deploy kubernetes on ubuntu server 20.04/22.04 LTS & Rocky Linux.
+#Deploy kubernetes on ubuntu server 20.04/22.04 LTS & Rocky Linux 8 & 9.
 #Create-Date:
 #2022-08-10
 
@@ -32,10 +32,10 @@ os-check
 
 # == Variables
 # version control
-export CRI_RELEASE=1.25
-export CRI_SUBVER=${CRI_RELEASE}.0
-export KUBE_RELEASE=1.25
-export KUBE_SUBVER=${KUBE_RELEASE}.0
+export CRI_RELEASE=1.24
+export CRI_SUBVER=${CRI_RELEASE}.3
+export KUBE_RELEASE=1.24
+export KUBE_SUBVER=${KUBE_RELEASE}.3
 export KUBE_INIT_VER=v${KUBE_SUBVER}
 export ROOK_TAG=v1.10.6
 export PACKAGE_LIST="kubeadm kubectl kubelet podman helm cri-o"
@@ -93,15 +93,15 @@ function start-info() {
       echo -e "${YELLOW} [Input parameter \"help\" display more information]${NC}"
       echo -e "  └─ Active nodes"
       echo ${cluster_list} | grep '\-m' &> /dev/null
-      [ $? == 0 ] && echo "     └─ control-plane nodes   | `echo ${cluster_list} | tr -s ' ' '\n' | grep '\-m' | tr -s '\n' ' '`" || echo "     └─ control-plane nodes   | --"
+      [ $? == 0 ] && echo -e "     └─ control-plane nodes   | ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-m' | tr -s '\n' ' '`${NC}" || echo "     └─ control-plane nodes   | --"
       echo ${cluster_list} | grep '\-w' &> /dev/null
-      [ $? == 0 ] && echo -e "     └─ worker nodes          | `echo ${cluster_list} | tr -s ' ' '\n' | grep '\-w' | tr -s '\n' ' '`\n" || echo -e "     └─ worker nodes          | --\n"
+      [ $? == 0 ] && echo -e "     └─ worker nodes          | ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-w' | tr -s '\n' ' '`${NC}\n" || echo -e "     └─ worker nodes          | --\n"
     else
       echo -en "${YELLOW}○${NC} Kubernetes not detected"
       echo -e "${YELLOW} [Input parameter \"help\" display more information]${NC}"
       echo -e "  └─ Plan list"
-      echo "     └─ control-plane nodes   | `echo ${CP_NODES}`"
-      echo -e "     └─ worker nodes          | `echo ${WK_NODES}`\n"
+      echo -e "     └─ control-plane nodes   | ${YELLOW}`echo -e "${CP_NODES}"`${NC}"
+      echo -e "     └─ worker nodes          | ${YELLOW}`echo ${WK_NODES}`${NC}\n"
 
   fi
 }
@@ -162,7 +162,10 @@ EOF"'
   [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${mwlist} "echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list" &> /dev/null
   
   #update list
-  [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${mwlist} "sudo dnf update --refresh -y" &> /dev/null
+  [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${mwlist} "sudo dnf clean all" &> /dev/null
+  [ $? == 0 ] && echo -e " ${GREEN}●${NC} dnf cache cleanup"
+  [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${mwlist} "sudo dnf update --refresh" &> /dev/null
+  [ $? == 0 ] && echo -e " ${GREEN}●${NC} dnf cache updated"
   [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${mwlist} "sudo apt-get -qy update" &> /dev/null
   #sudo rm /etc/yum.repos.d/devel:*
 }
@@ -204,7 +207,10 @@ EOF"'
   [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${mwlist} "echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list" &> /dev/null
   
   #update list
-  [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${mwlist} "sudo dnf update --refresh -y" &> /dev/null
+  [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${mwlist} "sudo dnf clean all" &> /dev/null
+  [ $? == 0 ] && echo -e " ${GREEN}●${NC} dnf cache cleanup"
+  [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${mwlist} "sudo dnf update --refresh" &> /dev/null
+  [ $? == 0 ] && echo -e " ${GREEN}●${NC} dnf cache updated"
   [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${mwlist} "sudo apt-get -qy update" &> /dev/null
   #sudo rm /etc/yum.repos.d/devel:*
 }
@@ -512,7 +518,7 @@ system-conf) #Configure file & directory.
   [ $? != 0 ] && mkdir yaml
   
   [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && sudo dnf update -y && sudo dnf upgrade -y
-  [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && sudo dnf install -y nano tree curl
+  [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && sudo dnf install -y nano tree curl epel-release
   [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && sudo dnf install -y systemd-timesyncd && sudo systemctl enable --now systemd-timesyncd.service && sudo timedatectl set-ntp true && sudo timedatectl set-timezone Asia/Taipei
 
   [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && sudo apt-get -qy update && sudo apt-get -qy upgrade
@@ -675,7 +681,7 @@ package-version) #Check package repositories.
     do
       echo -e "${YELLOW}= ${plist} package-version:${NC}"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && echo ${plist} | grep -v 'kube' &> /dev/null && sudo dnf provides ${plist} 2> /dev/null | grep 'Provide'
-      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && echo ${plist} | grep 'kube' &> /dev/null && sudo dnf provides ${plist} --disableexcludes=kubernetes epel-release 2> /dev/null | grep 'Provide' | grep -E '1.24|1.25'
+      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && echo ${plist} | grep 'kube' &> /dev/null && sudo dnf provides ${plist} --disableexcludes=kubernetes 2> /dev/null | grep 'Provide' | grep -E '1.24|1.25'
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && sudo apt-cache madison ${plist} | head -n 5
     done; echo
 ;;
@@ -687,16 +693,16 @@ package-repo) #Setup package repositories. [ add-all | add | remove ]
       echo "= Prepare to add package repositories."
       for mwlist in ${CP_NODES} ${WK_NODES}
         do
+          echo " - ${mwlist} adding package repositories."
           package-repo-add-all
-          echo " - ${mwlist} package repositories added."
         done; echo
     elif [ "${2}" == "add" ]
       then
         echo "= Prepare to add package repositories."
         for mwlist in ${CP_NODES} ${WK_NODES}
           do
+            echo " - ${mwlist} adding package repositories."
             package-repo-add
-            echo " - ${mwlist} package repositories added."
           done; echo
     elif [ "${2}" == "remove" ]
       then
@@ -820,7 +826,7 @@ package-install) #Install basic package & setup environment.
       [ $? == 0 ] && install="1" || install="0"
       if [ "${install}" == "1" ]
         then
-          [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${mwlist} "sudo dnf install -y kubelet-${KUBE_SUBVER} kubeadm-${KUBE_SUBVER} kubectl-${KUBE_SUBVER} --disableexcludes=kubernetes epel-release" &> /dev/null
+          [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${mwlist} "sudo dnf install -y kubelet-${KUBE_SUBVER} kubeadm-${KUBE_SUBVER} kubectl-${KUBE_SUBVER} --disableexcludes=kubernetes" &> /dev/null
           [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${mwlist} "sudo dnf versionlock add kubelet kubeadm kubectl" &> /dev/null
 
           [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${mwlist} "sudo apt-get install -qy kubeadm=${KUBE_SUBVER}-00 kubelet=${KUBE_SUBVER}-00 kubectl=${KUBE_SUBVER}-00" &> /dev/null
@@ -835,7 +841,7 @@ package-install) #Install basic package & setup environment.
       if [ "${install}" == "1" ]
         then
           #install kube-package
-          [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${mwlist} "sudo dnf install -y kubelet-${KUBE_SUBVER} kubeadm-${KUBE_SUBVER} kubectl-${KUBE_SUBVER} --disableexcludes=kubernetes epel-release" &> /dev/null
+          [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${mwlist} "sudo dnf install -y kubelet-${KUBE_SUBVER} kubeadm-${KUBE_SUBVER} kubectl-${KUBE_SUBVER} --disableexcludes=kubernetes" &> /dev/null
           [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${mwlist} "sudo dnf versionlock add kubelet kubeadm kubectl" &> /dev/null
 
           [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${mwlist} "sudo apt-get install -qy kubeadm=${KUBE_SUBVER}-00 kubelet=${KUBE_SUBVER}-00 kubectl=${KUBE_SUBVER}-00" &> /dev/null
@@ -1741,7 +1747,7 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
       fi
       echo "= ${FCP} | upgrade processing"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${FCP} "sudo dnf versionlock delete kubeadm"
-      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${FCP} "sudo dnf install -y kubeadm-${KUBE_SUBVER} --disableexcludes=kubernetes epel-release" 2> /dev/null
+      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${FCP} "sudo dnf install -y kubeadm-${KUBE_SUBVER} --disableexcludes=kubernetes" 2> /dev/null
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${FCP} "sudo dnf versionlock add kubeadm"
 
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${FCP} "sudo apt-mark unhold kubeadm"
@@ -1754,7 +1760,7 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
       kubectl drain ${FCP} --ignore-daemonsets
 
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${FCP} "sudo dnf versionlock delete kubelet kubectl"
-      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${FCP} "sudo dnf install -y kubelet-${KUBE_SUBVER} kubectl-${KUBE_SUBVER} --disableexcludes=kubernetes epel-release" 2> /dev/null
+      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${FCP} "sudo dnf install -y kubelet-${KUBE_SUBVER} kubectl-${KUBE_SUBVER} --disableexcludes=kubernetes" 2> /dev/null
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${FCP} "sudo dnf versionlock add kubelet kubectl"
 
       #[ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${FCP} "curl https://raw.githubusercontent.com/cri-o/cri-o/main/scripts/get | sudo bash -s -- -t v${CRI_SUBVER}"
@@ -1787,7 +1793,7 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
       fi
       echo "= ${OCP} | upgrade processing"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${OCP} "sudo dnf versionlock delete kubeadm"
-      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${OCP} "sudo dnf install -y kubeadm-${KUBE_SUBVER} --disableexcludes=kubernetes epel-release" 2> /dev/null
+      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${OCP} "sudo dnf install -y kubeadm-${KUBE_SUBVER} --disableexcludes=kubernetes" 2> /dev/null
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${OCP} "sudo dnf versionlock add kubeadm"
 
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${OCP} "sudo apt-get update"
@@ -1801,7 +1807,7 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
       kubectl drain ${OCP} --ignore-daemonsets
 
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${OCP} "sudo dnf versionlock delete kubelet kubectl"
-      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${OCP} "sudo dnf install -y kubelet-${KUBE_SUBVER} kubectl-${KUBE_SUBVER} --disableexcludes=kubernetes epel-release" 2> /dev/null
+      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${OCP} "sudo dnf install -y kubelet-${KUBE_SUBVER} kubectl-${KUBE_SUBVER} --disableexcludes=kubernetes" 2> /dev/null
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${OCP} "sudo dnf versionlock add kubelet kubectl"
       
       #[ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${FCP} "curl https://raw.githubusercontent.com/cri-o/cri-o/main/scripts/get | sudo bash -s -- -t v${CRI_SUBVER}"
@@ -1834,7 +1840,7 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
       fi
       echo "= ${wlist} | upgrade processing"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${OCP} "sudo dnf versionlock delete kubeadm"
-      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${OCP} "sudo dnf install -y kubeadm-${KUBE_SUBVER} --disableexcludes=kubernetes epel-release" 2> /dev/null
+      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${OCP} "sudo dnf install -y kubeadm-${KUBE_SUBVER} --disableexcludes=kubernetes" 2> /dev/null
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${OCP} "sudo dnf versionlock add kubeadm"
 
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${wlist} "sudo apt-get update"
@@ -1845,7 +1851,7 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
 
       kubectl drain ${wlist} --ignore-daemonsets
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${wlist} "sudo dnf versionlock delete kubelet kubectl"
-      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${wlist} "sudo dnf install -y kubelet-${KUBE_SUBVER} kubectl-${KUBE_SUBVER} --disableexcludes=kubernetes epel-release" 2> /dev/null
+      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${wlist} "sudo dnf install -y kubelet-${KUBE_SUBVER} kubectl-${KUBE_SUBVER} --disableexcludes=kubernetes" 2> /dev/null
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${wlist} "sudo dnf versionlock add kubelet kubectl"
       
       #[ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${FCP} "curl https://raw.githubusercontent.com/cri-o/cri-o/main/scripts/get | sudo bash -s -- -t v${CRI_SUBVER}"
