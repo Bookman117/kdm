@@ -1670,7 +1670,7 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
   fi
 ;;
 
-controller-deploy) #Deploy basic service. [ metallb & nginx-ingress ] [ controller-deploy <Start> <End> [ Detect NETID just input xxx xxx ] ]
+controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NETID just input xxx xxx ]
   if [ -z ${2} ]
     then
 
