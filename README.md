@@ -2,7 +2,7 @@
 
 Deploy kubernetes on ubuntu server 20.04/22.04 LTS & Rocky Linux 8/9 & RHEL 8/9.  
   
-System-setup  
+System-setup | 20  
  > system-info: Show host basic information.  
  > system-var: Check script variables.  
  > system-conf: Configure file & directory.  
@@ -12,6 +12,7 @@ System-setup
  > set-hosts: Setup hosts. [ hosts "m" "Start" "End" "w" "Start" "End" [ Detect NETID just input xxx xxx ] ]  
  > set-ip: Setup IP Address. [ set-ip "IP/NETMASK" [ Detect NETID just input xxx/XX ] ]  
  > set-hostname: Setup hostname. [ hostname [ name ] ]  
+ > set-ver: Set kube*、cri-o package version  
  > sync-ssh: scp .ssh to every nodes.  
  > sync-kdm: scp kdm to every nodes.  
  > sync-yaml: scp yaml to every nodes.  
@@ -23,7 +24,7 @@ System-setup
  > k9s-install: Install k9s.  
  > k9s-delete: Delete k9s.  
 
-Kubernetes-deploy  
+Kubernetes-deploy | 13  
   └─cp-init "" cp-join "" wk-join "" dns-rollout "" controller-deploy "" metrics-deploy "" csi-deploy  
  > cp-init: Init first control-plane node & deploy CNI. [ calico | flannel ]  
  > cp-join:  Let control-plane nodes join cluster. [ "hosts" | "node-name" ... ]  
@@ -39,7 +40,7 @@ Kubernetes-deploy
  > metrics-deploy: Deploy metrics-server.  
  > metrics-delete: Delete metrics-server.  
 
-Kubernetes-functions  
+Kubernetes-functions | 18  
  > "project-name"-deploy: Deploy Kubenetes projects. [ jenkins | quay | grafana | landlord  ]  
  > "project-name"-delete: Delete Kubenetes projects. [ jenkins | quay | grafana | landlord  ]  
  > cp-join:  Let control-plane nodes join cluster. [ "hosts" | "node-name" ... ]  
