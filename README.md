@@ -24,7 +24,7 @@ System-setup | 20
  > k9s-install: Install k9s.  
  > k9s-delete: Delete k9s.  
 
-Kubernetes-deploy | 13  
+Kubernetes-deploy | 17  
   └─cp-init "" cp-join "" wk-join "" dns-rollout "" controller-deploy "" metrics-deploy "" csi-deploy  
  > cp-init: Init first control-plane node & deploy CNI. [ calico | flannel ]  
  > cp-join:  Let control-plane nodes join cluster. [ "hosts" | "node-name" ... ]  
@@ -39,6 +39,10 @@ Kubernetes-deploy | 13
  > controller-delete: Delete basic service. [ metallb & nginx-ingress ]  
  > metrics-deploy: Deploy metrics-server.  
  > metrics-delete: Delete metrics-server.  
+ > prometheus-deploy: Deploy prometheus.  
+ > prometheus-delete: Delete prometheus.  
+ > grafana-deploy: Deploy grafana on kubernetes.  
+ > grafana-delete: Delete grafana on kubernetes.  
 
 Kubernetes-functions | 18  
  > "project-name"-deploy: Deploy Kubenetes projects. [ jenkins | quay | grafana | landlord  ]  
