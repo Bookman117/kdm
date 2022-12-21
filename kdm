@@ -96,7 +96,7 @@ export NAME_SPACE_6="gf" #grafana
 export NAME_SPACE_7="landlord"
 # kubernetes project storageclass
 export STORAGE_CLASS="rook-cephfs"
-#STORAGE_CLASS="local-path"
+#export STORAGE_CLASS="local-path"
 # ---
 
 # functions >>>
@@ -508,7 +508,8 @@ function helm-repo-add () {
     do
       echo -e "${YELLOW}${clist} helm repositories${NC}"
       ssh ${clist} "helm repo add projectcalico https://projectcalico.docs.tigera.io/charts &> /dev/null" && echo -e "${YELLOW} > helm repository \"projectcalico\" added${NC}" || echo -e "${RED} > helm repository \"projectcalico\" not add${NC}"
-      ssh ${clist} "helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server &> /dev/null" && echo -e "${YELLOW} > helm repository \"metrics-server\" added${NC}\n" || echo -e "${RED} > helm repository \"metrics-server\" not add${NC}"
+      ssh ${clist} "helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server &> /dev/null" && echo -e "${YELLOW} > helm repository \"metrics-server\" added${NC}" || echo -e "${RED} > helm repository \"metrics-server\" not add${NC}"
+      ssh ${clist} "helm repo add prometheus-community https://prometheus-community.github.io/helm-charts &> /dev/null" && echo -e "${YELLOW} > helm repository \"prometheus\" added${NC}\n" || echo -e "${RED} > helm repository \"prometheus\" not add${NC}"
     done
 }
 
@@ -1706,6 +1707,21 @@ metrics-delete) #Delete metrics-server.
   #kubectl delete -f yaml/metrics.yaml
 ;;
 
+prometheus-deploy) #Deploy prometheus.
+  #追加並更新 helm repository
+  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+  helm repo update
+
+  #部署 operator 並驗證
+  helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace
+;;
+
+prometheus-delete) #Delete prometheus.
+  helm delete kube-prometheus-stack -n monitoring
+  helm repo remove prometheus-community
+  helm repo update
+;;
+
 jenkins-deploy) #Deploy jenkins on kubernetes.
   kubectl create ns ${NAME_SPACE_4}
   kubectl create secret generic kubeconfig --from-file=/home/bigred/.kube/config -n ${NAME_SPACE_4}
@@ -2437,7 +2453,7 @@ help) #Show script parameters information.
   cat ${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)/:/g' | sed 's/^/ > /' | sed 's/#//g' | grep -E "${list}"; echo
   echo -en "${NC}"
 
-  list=" > cp-| > wk-| > cni-| > csi-| > dns-| > controller-| > metrics-"
+  list=" > cp-| > wk-| > cni-| > csi-| > dns-| > controller-| > metrics-| > prometheus-| > grafana-"
   number=$(cat ${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)/:/g' | sed 's/^/ > /' | sed 's/#//g' | grep -E "${list}" | wc -l)
   echo -e "${RED}Kubernetes-deploy | ${number}${NC}"
   echo "  └─cp-init >> cp-join >> wk-join >> dns-rollout >> controller-deploy >> metrics-deploy >> csi-deploy"
