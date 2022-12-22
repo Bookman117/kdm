@@ -45,7 +45,7 @@ export CRI_SUBVER=${CRI_RELEASE}.1
 export KUBE_RELEASE=1.24
 export KUBE_SUBVER=${KUBE_RELEASE}.1
 export KUBE_INIT_VER=v${KUBE_SUBVER}
-export ROOK_TAG=v1.10.7
+export ROOK_TAG=v1.10.8
 export PACKAGE_LIST="cri-o kubeadm kubectl kubelet podman helm"
 count=0
 cat /dev/null > /tmp/buffer
@@ -94,6 +94,7 @@ export NAME_SPACE_4="jenkins"
 export NAME_SPACE_5="quay"
 export NAME_SPACE_6="gf" #grafana
 export NAME_SPACE_7="landlord"
+export NAME_SPACE_8="rook-ceph"
 # kubernetes project storageclass
 export STORAGE_CLASS="rook-cephfs"
 #export STORAGE_CLASS="local-path"
@@ -138,7 +139,8 @@ function system-variable () {
   echo -e " > CRI_SUBVER: ${YELLOW}${CRI_SUBVER}${NC}"
   echo -e " > KUBE_RELEASE: ${YELLOW}${KUBE_RELEASE}${NC}"
   echo -e " > KUBE_SUBVER: ${YELLOW}${KUBE_SUBVER}${NC}"
-  echo -e " > CRI_ALL_VERSION: ${YELLOW}${CRI_ALL_VERSION}${NC}"; echo
+  echo -e " > CRI_ALL_VERSION: ${YELLOW}${CRI_ALL_VERSION}${NC}"
+  echo -e " > ROOK_TAG: ${YELLOW}${ROOK_TAG}${NC}"; echo
   echo -e " > KUBE_VIP: ${YELLOW}${KUBE_VIP}${NC}"
   echo -e " > KUBE_INTERFACE: ${YELLOW}${KUBE_INTERFACE}${NC}"
   echo -e " > IP: ${YELLOW}${IP}${NC}"
@@ -804,7 +806,7 @@ set-ver) #Set kube*、cri-o package version.
 
   sed -i "s|^export VER_SWITCH=[a-z]*|export VER_SWITCH=${2}|g" ~/bin/kdm
   cat ~/bin/kdm | grep '^export VER_SWITCH=[a-z]*' | grep -v 'sed'
-  echo -e "${NC}"
+  echo -en "${NC}"
   system-variable
 ;;
 
@@ -1290,11 +1292,11 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico | flannel ]
   [ "${2}" == "flannel" ] && ls ${HOME}/.kube/config &> /dev/null
   [ "${2}" == "flannel" ] && kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/kube-flannel.yml
   #[ $? != 0 ] && echo -e "kubeadm init failure.\n" && exit
-  echo -e "${GREEN}"
+  echo -en "${GREEN}"
   kubectl taint node `hostname` node-role.kubernetes.io/control-plane:NoSchedule-
   echo "${KUBE_INIT_VER}" | grep '1.25' &> /dev/null
   [ $? != 0 ] && kubectl taint node `hostname` node-role.kubernetes.io/master:NoSchedule- 
-  echo -e "${NC}"
+  echo -en "${NC}"
   echo && k9s -c pods -A
 ;;
 
@@ -1326,11 +1328,11 @@ cp-join) # Let control-plane nodes join cluster. [ <hosts> | <node-name> ... ]
       [ $? != 0 ] && ssh ${clist} "mkdir yaml"
       scp yaml/kube-vip-arp.yaml ${clist}:yaml/
       ssh ${clist} "${JOIN} --control-plane --certificate-key ${certs} --v=5"
-      echo -e "${GREEN}"
+      echo -en "${GREEN}"
       kubectl taint node ${clist} node-role.kubernetes.io/control-plane:NoSchedule-
       echo "${KUBE_INIT_VER}" | grep '1.25' &> /dev/null
       [ $? != 0 ] && kubectl taint node ${clist} node-role.kubernetes.io/master:NoSchedule-
-      echo -e "${NC}"
+      echo -en "${NC}"
       ssh ${clist} "ls /etc/kubernetes/manifests" &> /dev/null
       [ $? != 0 ] && ssh ${clist} "sudo mkdir -p /etc/kubernetes/manifests"
       ssh ${clist} "sudo cp yaml/kube-vip-arp.yaml /etc/kubernetes/manifests/kube-vip-arp.yaml"
@@ -1414,7 +1416,7 @@ dns-rollout) #Rollout coredns & calico-api-server. [ if pod present ]
     do
       kubectl get pods -n kube-system | grep 'coredns' | awk '{ print $3 }' | grep -v 'Running'
       [ $? != 0 ] && break || clear
-      echo -e "${YELLOW}"
+      echo -en "${YELLOW}"
       echo -n "Waiting coredns rollout"
       echo -n ".";sleep 0.5
       echo -n ".";sleep 0.5
@@ -1428,7 +1430,7 @@ dns-rollout) #Rollout coredns & calico-api-server. [ if pod present ]
     do
       kubectl get pods -n calico-apiserver | grep 'calico-apiserver' | awk '{ print $3 }' | grep -v 'Running'
       [ $? != 0 ] && break || clear
-      echo -e "${YELLOW}"
+      echo -en "${YELLOW}"
       echo -n "Waiting calico-apiserver rollout"
       echo -n ".";sleep 0.5
       echo -n ".";sleep 0.5
@@ -1506,7 +1508,7 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
         echo -e "${YELLOW}deshboard ingress created${NC}"
         echo -e "\n${YELLOW}rook-ceph deployed, please wait OSDs deploy.${NC}"
         sleep 3
-        k9s -c pods -n rook-ceph
+        k9s -c pods -n ${NAME_SPACE_8}
   fi
 ;;
 
@@ -1537,19 +1539,19 @@ csi-delete) #Delete kubernetes CSI. [ local-path | rook-ceph ]
         message="${RED}Please confirm this command will destruction CSI ${YELLOW}${2} ${RED}!${NC}"
         interrupt ${message}
         #helm rook-ceph delete
-        #helm delete rook-ceph -n rook-ceph
+        #helm delete rook-ceph -n ${NAME_SPACE_8}
         #kubectl delete namespace rook-ceph
         #helm repo remove rook-release
-        kubectl -n rook-ceph patch cephcluster rook-ceph --type merge -p '{"spec":{"cleanupPolicy":{"confirmation":"yes-really-destroy-data"}}}'
-        kubectl delete CephBlockPool/replicapool -n rook-ceph
-        kubectl delete CephFilesystem/myfs -n rook-ceph
-        kubectl -n rook-ceph delete cephcluster rook-ceph
+        kubectl -n ${NAME_SPACE_8} patch cephcluster rook-ceph --type merge -p '{"spec":{"cleanupPolicy":{"confirmation":"yes-really-destroy-data"}}}'
+        kubectl delete CephBlockPool/replicapool -n ${NAME_SPACE_8}
+        kubectl delete CephFilesystem/myfs -n ${NAME_SPACE_8}
+        kubectl -n ${NAME_SPACE_8} delete cephcluster rook-ceph
 
         kubectl delete -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/ceph-deshboard.yaml
         kubectl delete -f ~/yaml/rook/storageclass.yaml
         kubectl delete -f ~/yaml/rook/toolbox.yaml; sleep 3
-        kubectl delete -f ~/yaml/rook/pool.yaml; sleep 3
-        kubectl delete -f ~/yaml/rook/cluster.yaml; sleep 3
+        #kubectl delete -f ~/yaml/rook/pool.yaml; sleep 3
+        #kubectl delete -f ~/yaml/rook/cluster.yaml; sleep 3
         kubectl delete -f ~/yaml/rook/operator.yaml; sleep 3
         kubectl delete -f ~/yaml/rook/common.yaml; sleep 3
         kubectl delete -f ~/yaml/rook/crds.yaml; sleep 3
@@ -1561,27 +1563,34 @@ csi-delete) #Delete kubernetes CSI. [ local-path | rook-ceph ]
 csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | lvm-status | wipe-data ]
   if [ "$2" == "" ]
     then
-      echo -e "Please input parameter [ status | fix-mon | dashboard-pw | data-check | lvm-status | wipe-data ]"
+      echo -e "${YELLOW}Please input parameter [ status | fix-mon | dashboard-pw | data-check | lvm-status | wipe-data ]${NC}"
   elif [ "$2" == "status" ]
     then
-      echo -e "${GREEN}"
-      kubectl -n rook-ceph get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
-      [ $? == 0 ] && echo "`kubectl -n rook-ceph exec -it $(kubectl -n rook-ceph get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph --version | awk '{ print $1,$2,$3 }'`"
-      [ $? == 0 ] && kubectl -n rook-ceph exec -it $(kubectl -n rook-ceph get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph -s || echo -e "- rook-ceph not detected\n"
-      echo -e "${NC}"
-      echo -e "${YELLOW}"
-      kubectl -n rook-ceph get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
-      [ $? == 0 ] && kubectl -n rook-ceph exec -it $(kubectl -n rook-ceph get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph osd status && echo || echo -e "- rook-ceph not detected\n"
-      echo -e "${NC}"
+      #rook version
+      echo -en "${RED}"
+      ROOK_GIT_VER=$(kubectl -n ${NAME_SPACE_8} get jobs -o jsonpath='{range .items[*]}{.metadata.name}{"  \tsucceeded: "}{.status.succeeded}{"      \trook-version="}{.metadata.labels.rook-version}{"\n"}{end}' | awk '{ print $4 }' | cut -d '=' -f 2 | grep "^v" | head -n 1)
+      echo "Rook-ceph version: ${ROOK_GIT_VER}"
+      POD_NAME=$(kubectl -n ${NAME_SPACE_8} get pod -o custom-columns=name:.metadata.name --no-headers | grep rook-ceph-mon-b)
+      kubectl -n ${NAME_SPACE_8} get pod ${POD_NAME} -o jsonpath='{.spec.containers[0].image}'; echo -n " | "
+      kubectl -n ${NAME_SPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
+      [ $? == 0 ] && echo -e "`kubectl -n ${NAME_SPACE_8} exec -it $(kubectl -n ${NAME_SPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph --version | awk '{ print $1,$2,$3 }'`${NC}\n" && echo -en "${GREEN}"
+      
+      #rook status
+      [ $? == 0 ] && kubectl -n ${NAME_SPACE_8} exec -it $(kubectl -n ${NAME_SPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph -s || echo -e "- rook-ceph not detected\n"
+      echo -en "${NC}"
+      echo -en "${YELLOW}"
+      kubectl -n ${NAME_SPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
+      [ $? == 0 ] && kubectl -n ${NAME_SPACE_8} exec -it $(kubectl -n ${NAME_SPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph osd status || echo -e "- rook-ceph not detected\n"
+      echo -en "${NC}"
   elif [ "$2" == "fix-mon" ]
     then
-      kubectl get ConfigMap rook-config-override -n rook-ceph -o yaml | sed 's/""/| /g' | sed 's/config: | /config: |\n    [global]\n    mon clock drift allowed = 0.5/g' > yaml/rook/rook-config-override.yaml
+      kubectl get ConfigMap rook-config-override -n ${NAME_SPACE_8} -o yaml | sed 's/""/| /g' | sed 's/config: | /config: |\n    [global]\n    mon clock drift allowed = 0.5/g' > yaml/rook/rook-config-override.yaml
       kubectl replace -f yaml/rook/rook-config-override.yaml --force
-      kubectl delete pods -n rook-ceph $(kubectl get pods -n rook-ceph -o custom-columns=NAME:.metadata.name --no-headers | grep 'mon')
+      kubectl delete pods -n ${NAME_SPACE_8} $(kubectl get pods -n ${NAME_SPACE_8} -o custom-columns=NAME:.metadata.name --no-headers | grep 'mon')
   elif [ "$2" == "dashboard-pw" ]
     then
-      kubectl -n rook-ceph get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
-      [ $? == 0 ] && echo -e "`kubectl -n rook-ceph get secret rook-ceph-dashboard-password -o jsonpath="{['data']['password']}" | base64 --decode`\n" || echo -e "- rook-ceph not detected\n"
+      kubectl -n ${NAME_SPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
+      [ $? == 0 ] && echo -e "`kubectl -n ${NAME_SPACE_8} get secret rook-ceph-dashboard-password -o jsonpath="{['data']['password']}" | base64 --decode`\n" || echo -e "- rook-ceph not detected\n"
   elif [ "$2" == "data-check" ]
     then
       for cwlist in ${CP_NODES} ${WK_NODES};
