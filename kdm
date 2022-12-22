@@ -1736,178 +1736,9 @@ jenkins-deploy) #Deploy jenkins on kubernetes.
   kubectl create secret generic kubeconfig --from-file=/home/bigred/.kube/config -n ${NAME_SPACE_4}
   #kubectl apply -f https://web.flymks.com/cicd/v1/jenkins.yaml
   curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/jenkins.yaml | sed 's/<image-name>/docker.io\/jenkins\/jenkins/g' | kubectl apply -f -
-  while true
-    do
-      kubectl get pods -n ${NAME_SPACE_4} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
-      [ $? != 0 ] && break || clear
-      kubectl get pods -n ${NAME_SPACE_4} | tail -n +2 | awk '{ print $2 }' | grep -v '1/1' &> /dev/null
-      [ $? != 0 ] && break || clear
-      echo -n "jenkins deploying"
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      clear
-      continue
-    done
-;;
-
-quay-deploy) #Deploy project-quay on kubernetes.
-  #quay
-  kubectl create ns ${NAME_SPACE_5}
-  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/quay.yaml
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/quay.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
-  while true
-    do
-      kubectl get pods -n ${NAME_SPACE_5} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
-      [ $? != 0 ] && break || clear
-      kubectl get pods -n ${NAME_SPACE_5} | tail -n +2 | awk '{ print $2 }' | grep -v '1/1' &> /dev/null
-      [ $? != 0 ] && break || clear
-      echo -n "Project Quay deploying"
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      clear
-      continue
-    done
-  echo "Project Quay deployed!"; echo
-;;
-
-grafana-deploy) #Deploy grafana on kubernetes.
-  #gf
-  kubectl create ns ${NAME_SPACE_6}
-  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/grafana.yaml
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/grafana.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
-  while true
-    do
-      kubectl get pods -n ${NAME_SPACE_6} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
-      [ $? != 0 ] && break || clear
-      kubectl get pods -n ${NAME_SPACE_6} | tail -n +2 | awk '{ print $2 }' | grep -v '1/1' &> /dev/null
-      [ $? != 0 ] && break || clear
-      echo -n "grafana deploying"
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      clear
-      continue
-    done
-  echo "grafana deployed!"; echo
-;;
-
-landlord-deploy) #Deploy landlord on kubernetes.
-  #ns & configmap
-  kubectl create ns landlord
-  kubectl create -n landlord configmap kuser-conf --from-file /home/bigred/.kube/config
-
-  #service
-  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/1-landlord-service.yaml
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/1-landlord-service.yaml | kubectl apply -f -
-  while true
-    do
-      kubectl get svc -n ${NAME_SPACE_7} | tail -n +2 | tr -s ' ' | cut -d ' ' -f 2 | grep -vE 'LoadBalancer|ClusterIP' &> /dev/null
-      [ $? != 0 ] && break || clear
-      echo -n "landlord service deploying"
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      clear
-      continue
-    done
-  echo "landlord service deployed!"; echo
-
-  #PVC
-  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/2-landlord-PVC.yaml
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/2-landlord-PVC.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
-  echo "landlord PVC deployed!"; echo
-
-  #gateway
-  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/3-landlord-gateway.yaml
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/3-landlord-gateway.yaml | kubectl apply -f -
-  while true
-    do
-      kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
-      [ $? != 0 ] && break || clear
-      kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $2 }' | grep -v '1/1' &> /dev/null
-      [ $? != 0 ] && break || clear
-      echo -n "landlord gateway deploying"
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      clear
-      continue
-    done
-  echo "landlord gateway deployed!"; echo
-
-  #kuser
-  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/4-landlord-kuser.yaml
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/4-landlord-kuser.yaml | kubectl apply -f -
-  while true
-    do
-      kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
-      [ $? != 0 ] && break || clear
-      kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $2 }' | grep -v '1/1' &> /dev/null
-      [ $? != 0 ] && break || clear
-      echo -n "landlord kuser deploying"
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      clear
-      continue
-    done
-  echo "landlord kuser deployed!"; echo
-
-  #logger
-  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/5-landlord-logger.yaml
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/5-landlord-logger.yaml | kubectl apply -f -
-  while true
-    do
-      kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
-      [ $? != 0 ] && break || clear
-      kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $2 }' | grep -v '1/1' &> /dev/null
-      [ $? != 0 ] && break || clear
-      echo -n "landlord logger deploying"
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      clear
-      continue
-    done
-  echo "landlord logger deployed!"; echo
-
-  #mariadb
-  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/6-landlord-mariadb.yaml
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/6-landlord-mariadb.yaml | kubectl apply -f -
-  while true
-    do
-      kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
-      [ $? != 0 ] && break || clear
-      kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $2 }' | grep -v '1/1' &> /dev/null
-      [ $? != 0 ] && break || clear
-      echo -n "landlord mariadb deploying"
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      clear
-      continue
-    done
-  echo "landlord mariadb deployed!"; echo
-
-  #tenant
-  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/7-landlord-tenant.yaml
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
-  while true
-    do
-      kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
-      [ $? != 0 ] && break || clear
-      kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $2 }' | grep -v '1/1' &> /dev/null
-      [ $? != 0 ] && break || clear
-      echo -n "landlord tenant deploying"
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      clear
-      continue
-    done
-  echo "landlord tenant deployed!"; echo
+  k9s -c pods -n ${NAME_SPACE_4}
+  kubectl get pods -n ${NAME_SPACE_4} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  [ $? != 0 ] && echo -e "${YELLOW}Jenkins deployed!${NC}" || echo -e "${RED}Jenkins not deploy!${NC}"
 ;;
 
 jenkins-delete) #Delete jenkins on kubernetes.
@@ -1916,15 +1747,87 @@ jenkins-delete) #Delete jenkins on kubernetes.
   kubectl delete secret generic kubeconfig --from-file=/home/bigred/.kube/config -n jenkins
 ;;
 
+quay-deploy) #Deploy project-quay on kubernetes.
+  #quay
+  kubectl create ns ${NAME_SPACE_5}
+  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/quay.yaml
+  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/quay.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  k9s -c pods -n ${NAME_SPACE_5}
+  kubectl get pods -n ${NAME_SPACE_5} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  [ $? != 0 ] && echo -e "${YELLOW}Project Quay deployed!${NC}" || echo -e "${RED}Project Quay not deploy!${NC}"
+;;
+
 quay-delete) #Delete project-quay on kubernetes.
   kubectl delete -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/quay.yaml
   kubectl delete ns ${NAME_SPACE_5}
+;;
+
+grafana-deploy) #Deploy grafana on kubernetes.
+  #gf
+  kubectl create ns ${NAME_SPACE_6}
+  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/grafana.yaml
+  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/grafana.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  k9s -c pods -n ${NAME_SPACE_6}
+  kubectl get pods -n ${NAME_SPACE_6} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  [ $? != 0 ] && echo -e "${YELLOW}Grafana deployed!${NC}" || echo -e "${RED}Grafana not deploy!${NC}"
 ;;
 
 grafana-delete) #Delete grafana on kubernetes.
   #grafana
   kubectl delete -f https://web.flymks.com/grafana/v1/grafana.yaml
   kubectl delete ns ${NAME_SPACE_6}
+;;
+
+landlord-deploy) #Deploy landlord on kubernetes.
+  #ns & configmap
+  kubectl create ns landlord
+  kubectl create -n landlord configmap kuser-conf --from-file /home/bigred/.kube/config
+
+  #PVC
+  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/2-landlord-PVC.yaml
+  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/2-landlord-PVC.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  echo "landlord PVC deployed!"; echo
+
+  #service
+  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/1-landlord-service.yaml
+  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/1-landlord-service.yaml | kubectl apply -f -
+  k9s -c svc -n ${NAME_SPACE_7}
+  kubectl get svc -n ${NAME_SPACE_7} | tail -n +2 | tr -s ' ' | cut -d ' ' -f 2 | grep -vE 'LoadBalancer|ClusterIP' &> /dev/null
+
+  #gateway
+  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/3-landlord-gateway.yaml
+  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/3-landlord-gateway.yaml | kubectl apply -f -
+  k9s -c pods -n ${NAME_SPACE_7}
+  kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  [ $? != 0 ] && echo -e "${YELLOW}gateway deployed!${NC}" || echo -e "${RED}gateway not deploy!${NC}"
+
+  #kuser
+  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/4-landlord-kuser.yaml
+  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/4-landlord-kuser.yaml | kubectl apply -f -
+  k9s -c pods -n ${NAME_SPACE_7}
+  kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  [ $? != 0 ] && echo -e "${YELLOW}kuser deployed!${NC}" || echo -e "${RED}kuser not deploy!${NC}"
+
+  #logger
+  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/5-landlord-logger.yaml
+  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/5-landlord-logger.yaml | kubectl apply -f -
+  k9s -c pods -n ${NAME_SPACE_7}
+  kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  [ $? != 0 ] && echo -e "${YELLOW}logger deployed!${NC}" || echo -e "${RED}logger not deploy!${NC}"
+
+  #mariadb
+  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/6-landlord-mariadb.yaml
+  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/6-landlord-mariadb.yaml | kubectl apply -f -
+  k9s -c pods -n ${NAME_SPACE_7}
+  kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  [ $? != 0 ] && echo -e "${YELLOW}mariadb deployed!${NC}" || echo -e "${RED}mariadb not deploy!${NC}"
+
+  #tenant
+  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/7-landlord-tenant.yaml
+  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  k9s -c pods -n ${NAME_SPACE_7}
+  kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  [ $? != 0 ] && echo -e "${YELLOW}tenant deployed!${NC}" || echo -e "${RED}tenant not deploy!${NC}"
 ;;
 
 landlord-delete) #Delete landlorsd on kubernetes.
@@ -2462,7 +2365,7 @@ help) #Show script parameters information.
   cat ${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)/:/g' | sed 's/^/ > /' | sed 's/#//g' | grep -E "${list}"; echo
   echo -en "${NC}"
 
-  list=" > cp-| > wk-| > cni-| > csi-| > dns-| > controller-| > metrics-| > prometheus-| > grafana-"
+  list=" > cp-| > wk-| > cni-| > csi-| > dns-|-deploy|-delete"
   number=$(cat ${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)/:/g' | sed 's/^/ > /' | sed 's/#//g' | grep -E "${list}" | wc -l)
   echo -e "${RED}Kubernetes-deploy | ${number}${NC}"
   echo "  └─cp-init >> cp-join >> wk-join >> dns-rollout >> controller-deploy >> metrics-deploy >> csi-deploy"
