@@ -9,8 +9,8 @@ System-setup | 20
  > system-check: Check node basic status.  
  > system-date: Check system time-zone.  
  > set-ssh-key: Let ssh login without password. [ host | renew ]  
- > set-hosts: Setup hosts. [ hosts "m" "Start" "End" "w" "Start" "End" [ Detect NETID just input xxx xxx ] ]  
- > set-ip: Setup IP Address. [ set-ip "IP/NETMASK" [ Detect NETID just input xxx/XX ] ]  
+ > set-hosts: Setup hosts. [ hosts m Start End w Start End [ Detect NETID just input xxx xxx ] ]  
+ > set-ip: Setup IP Address. [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]  
  > set-hostname: Setup hostname. [ hostname [ name ] ]  
  > set-ver: Set kube*、cri-o package version  
  > sync-ssh: scp .ssh to every nodes.  
@@ -44,7 +44,7 @@ Kubernetes-functions | 18
  > nodes: Check all nodes status.  
  > pods: Check all pods status.  
  > images: Check cluster images.  
- > image-send: save >> scp >> load target image to every worker node [ image-name> name.tar> ]  
+ > image-send: save >> scp >> load target image to every worker node [ image-name name.tar ]  
  > image-remove: Remove dangling images on cluster.  
  > helm-repo: Check helm repository.  
  > cluster-check: Check kubernetes cluster info.  
