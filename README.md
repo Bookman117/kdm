@@ -2,7 +2,7 @@
 
 Deploy kubernetes on ubuntu server 20.04/22.04 LTS & Rocky Linux 8/9 & RHEL 8/9.  
   
-System-setup | 20  
+System-setup | 20
  > system-info: Show host basic information.  
  > system-var: Check script variables.  
  > system-conf: Configure file & directory.  
@@ -24,8 +24,8 @@ System-setup | 20
  > k9s-install: Install k9s.  
  > k9s-remove: Delete k9s.  
 
-Kubernetes-deploy | 9  
-  └─cp-init >> cp-join >> wk-join >> dns-rollout >> controller-deploy >> metrics-deploy >> csi-deploy  
+Kubernetes-deploy | 9
+  └─cp-init >> cp-join >> wk-join >> dns-rollout >> controller-deploy >> metrics-deploy >> csi-deploy
  > cp-init: Init first control-plane node & deploy CNI. [ calico | flannel ]  
  > cp-join:  Let control-plane nodes join cluster. [ hosts | node-name ... ]  
  > wk-join: Let worker nodes join cluster. [ hosts | node-name ... ]  
@@ -36,7 +36,7 @@ Kubernetes-deploy | 9
  > csi-remove: Delete kubernetes CSI. [ local-path | rook-ceph ]  
  > csi-rook: Check rook status or DataDir. [ status | dashboard-pw | data-check | lvm-status | wipe-data ]  
 
-Kubernetes-functions | 18  
+Kubernetes-functions | 18
  > project-name-deploy: Deploy Kubenetes projects.  
   └─ [ controller | metrics | prometheus | jenkins | quay | grafana | landlord  ]  
  > project-name-remove: Delete Kubenetes projects.  
