@@ -22,52 +22,38 @@ System-setup | 20
  > package-remove: Remove basic package & setup environment.  
  > package-check: Check node package status.  
  > k9s-install: Install k9s.  
- > k9s-delete: Delete k9s.  
+ > k9s-remove: Delete k9s.  
 
-Kubernetes-deploy | 24  
-  └─cp-init "" cp-join "" wk-join "" dns-rollout "" controller-deploy "" metrics-deploy "" csi-deploy  
+Kubernetes-deploy | 9  
+  └─cp-init >> cp-join >> wk-join >> dns-rollout >> controller-deploy >> metrics-deploy >> csi-deploy  
  > cp-init: Init first control-plane node & deploy CNI. [ calico | flannel ]  
- > cp-join:  Let control-plane nodes join cluster. [ "hosts" | "node-name" ... ]  
- > wk-join: Let worker nodes join cluster. [ "hosts" | "node-name" ... ]  
+ > cp-join:  Let control-plane nodes join cluster. [ hosts | node-name ... ]  
+ > wk-join: Let worker nodes join cluster. [ hosts | node-name ... ]  
  > cni-deploy: Deploy kubernetes CNI. [ calico | flannel ]  
- > cni-delete: Delete kubernetes CNI. [ calico | flannel ]  
+ > cni-remove: Delete kubernetes CNI. [ calico | flannel ]  
  > dns-rollout: Rollout coredns & calico-api-server. [ if pod present ]  
  > csi-deploy: Deploy kubernetes CSI. [ local-path | rook-ceph ]  
- > csi-delete: Delete kubernetes CSI. [ local-path | rook-ceph ]  
+ > csi-remove: Delete kubernetes CSI. [ local-path | rook-ceph ]  
  > csi-rook: Check rook status or DataDir. [ status | dashboard-pw | data-check | lvm-status | wipe-data ]  
- > controller-deploy: Deploy basic service. [ metallb & nginx-ingress | Detect NETID just input xxx xxx ]  
- > controller-delete: Delete basic service. [ metallb & nginx-ingress ]  
- > metrics-deploy: Deploy metrics-server.  
- > metrics-delete: Delete metrics-server.  
- > prometheus-deploy: Deploy prometheus.  
- > prometheus-delete: Delete prometheus.  
- > jenkins-deploy: Deploy jenkins on kubernetes.  
- > jenkins-delete: Delete jenkins on kubernetes.  
- > quay-deploy: Deploy project-quay on kubernetes.  
- > quay-delete: Delete project-quay on kubernetes.  
- > grafana-deploy: Deploy grafana on kubernetes.  
- > grafana-delete: Delete grafana on kubernetes.  
- > landlord-deploy: Deploy landlord on kubernetes.  
- > landlord-delete: Delete landlorsd on kubernetes.  
 
 Kubernetes-functions | 18  
- > "project-name"-deploy: Deploy Kubenetes projects. [ jenkins | quay | grafana | landlord  ]  
- > "project-name"-delete: Delete Kubenetes projects. [ jenkins | quay | grafana | landlord  ]  
- > cp-join:  Let control-plane nodes join cluster. [ "hosts" | "node-name" ... ]  
- > wk-join: Let worker nodes join cluster. [ "hosts" | "node-name" ... ]  
+ > project-name-deploy: Deploy Kubenetes projects.  
+  └─ [ controller | metrics | prometheus | jenkins | quay | grafana | landlord  ]  
+ > project-name-remove: Delete Kubenetes projects.  
+  └─ [ controller | metrics | prometheus | jenkins | quay | grafana | landlord  ]  
  > nodes: Check all nodes status.  
  > pods: Check all pods status.  
  > images: Check cluster images.  
- > image-send: save "" scp "" load target image to every worker node [ "image-name" "name.tar" ]  
+ > image-send: save >> scp >> load target image to every worker node [ image-name> name.tar> ]  
  > image-remove: Remove dangling images on cluster.  
  > helm-repo: Check helm repository.  
  > cluster-check: Check kubernetes cluster info.  
  > cluster-upgrade: Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]  
  > cluster-reset: Reset kubernetes cluster.  
- > cri-update: Update crio package.  
+ > cri-upgrade: Update crio package.  
  > cri-check: Check CRI running pods.  
  > cri-clean: Remove CRI running pods.  
- > node-check: Check nodes port | hostname. [ node-check "NETID" "Start" "End" "Port" hostname ]  
- > node-reset: Reset hosts | specify nodes. [ node-reset "node-name" ... ]  
- > node-power: Reboot/Poweroff hosts | specify node. [ "node-name" ... ]  
+ > node-check: Check nodes port | hostname. [ node-check NETID Start End Port hostname ]  
+ > node-reset: Reset hosts | specify nodes. [ node-reset node-name ... ]  
+ > node-power: Reboot/Poweroff hosts | specify node. [ node-name ... ]  
  > help: Show script parameters information.  
