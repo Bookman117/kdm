@@ -24,7 +24,7 @@ System-setup | 20
  > k9s-install: Install k9s.  
  > k9s-remove: Delete k9s.  
 
-Kubernetes-deploy | 9
+Kubernetes-deploy | 9  
   └─cp-init >> cp-join >> wk-join >> dns-rollout >> controller-deploy >> metrics-deploy >> csi-deploy
  > cp-init: Init first control-plane node & deploy CNI. [ calico | flannel ]  
  > cp-join:  Let control-plane nodes join cluster. [ hosts | node-name ... ]  
