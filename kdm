@@ -376,7 +376,7 @@ function package-check() {
       nc -z -w 1 ${clist} 22 > /dev/null 2>&1
       [ $? != 0 ] && echo -e " ${RED}●${NC} ${wlist} is not available\n" && continue
       #cri-o
-      ssh ${clist} "which crio" &> /dev/null
+      ssh ${clist} "which crio &> /dev/null" &> /dev/null
       [ $? != 0 ] && echo -e " ${YELLOW}○${NC} crio not install" || echo -e " ${GREEN}●${NC} crio: `ssh ${clist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${clist} ${crio_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${crio_time} | sed 's/^.//' | grep -v 'inactive'`"
       #kubelet
       ssh ${clist} "which kubelet" &> /dev/null
@@ -405,7 +405,7 @@ function package-check() {
       nc -z -w 1 ${wlist} 22 > /dev/null 2>&1
       [ $? != 0 ] && echo -e " ${RED}●${NC} ${wlist} is not available\n" && continue
       #cri-o
-      ssh ${wlist} "which crio" &> /dev/null
+      ssh ${wlist} "which crio &> /dev/null" &> /dev/null
       [ $? != 0 ] && echo -e " ${YELLOW}○${NC} crio not install" || echo -e " ${GREEN}●${NC} crio: `ssh ${wlist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${wlist} ${crio_status} | awk '{ print $2,$3 }'` | `ssh ${wlist} ${crio_time} | sed 's/^.//'`"
       #kubelet
       ssh ${wlist} "which kubelet" &> /dev/null
@@ -423,46 +423,46 @@ function package-check() {
 function system-info () {
   #system information
   echo "" | sudo tee /tmp/sinfo &> /dev/null
-  echo "[System]" | sudo tee /tmp/sinfo
+  echo -e "[System]" | sudo tee /tmp/sinfo
   #OS information
   os_name=`cat /etc/os-release | grep 'PRETTY_NAME' | cut -d '"' -f 2`
-  echo " OS Version: $os_name" | sudo tee -a /tmp/sinfo
-  echo " Hostname: `hostname`" | sudo tee -a /tmp/sinfo
+  echo -e " OS Version: ${YELLOW}$os_name${NC}"
+  echo -e " Hostname: ${YELLOW}`hostname`${NC}"
   #memory information
   m_size=$(sudo free -mh | grep Mem: | awk '{ print $2 }' | sed 's/Gi//g')
-  echo " Memory: ${m_size} GB" | sudo tee -a /tmp/sinfo
+  echo -e " Memory: ${YELLOW}${m_size} GB${NC}"
   #cpu information
   cpu_name=$(sudo cat /proc/cpuinfo | grep 'model name' | head -n 1 | cut -d ':' -f2 | tr -s '-' ' ' | sed 's/(R)//g; s/(TM)//g; s/@ //g' | sed 's/^.//')
   core_number=$(sudo cat /proc/cpuinfo | grep 'model name' | wc -l)
-  echo " CPU: $cpu_name (core: $core_number)" | sudo tee -a /tmp/sinfo
+  cpu_architecture=$(uname -m)
+  echo -e " CPU: ${YELLOW}$cpu_name (core: $core_number) | ${cpu_architecture}${NC}"
   #disk information
   disk_list=$(sudo fdisk -l | grep '^Disk' | grep 'sd' | awk '{ print $2 }' | sed 's/://g;s/\/dev\///g' | tr -s '\n' ' ' | sed 's/.$//')
-  echo " Disk list: ${disk_list}"
+  echo -e " Disk list: ${YELLOW}${disk_list}${NC}"
   for disk_list in ${disk_list}
     do
       disk_capacity=$(sudo fdisk -l | grep '^Disk' | grep "${disk_list}" | awk '{ print $3 }')
       disk_usage=$(sudo du -ch / 2> /dev/null | grep 'total' | grep 'G'| awk '{ print $1 }' | tr -s 'G' ' ')
       disk_percent=$(awk "BEGIN { pc=100*${disk_usage}/${disk_capacity}; i=int(pc); print (pc-i<0.5)?i:i+1 }")
-      echo "  > Disk name: ${disk_list}" | sudo tee -a /tmp/sinfo
-      echo "  > Disk capacity: ${disk_capacity} GB" | sudo tee -a /tmp/sinfo
-      echo "  > Disk usage: ${disk_usage}GB | ${disk_percent} %" | sudo tee -a /tmp/sinfo
+      disk_type=$(sudo fdisk -l | grep -A 1 "^Disk /dev/${disk_list}:" | grep '^Disk model' | cut -d ':' -f 2 | sed 's/^.//')
+      echo -e "  > Disk name: ${YELLOW}${disk_list} | ${disk_type}${NC}"
+      echo -e "  > Disk capacity: ${YELLOW}${disk_capacity} GB${NC}"
+      echo -e "  > Disk usage: ${YELLOW}${disk_usage}GB | ${disk_percent} %${NC}"
       echo "  ---"
     done
-  echo "" | sudo tee -a /tmp/sinfo
+  echo ""
   #network information
-  echo "[Network]" | sudo tee -a /tmp/sinfo
-  echo " IP Address: ${IP}" | sudo tee -a /tmp/sinfo
-  echo " Gateway: ${GATEWAY}" | sudo tee -a /tmp/sinfo
+  echo "[Network]"
+  echo -e " IP Address: ${YELLOW}${IP}${NC}"
+  echo -e " Gateway: ${YELLOW}${GATEWAY}${NC}"
 
   for list in $(cat /etc/resolv.conf | grep '^nameserver' | awk '{ print $2 }')
     do
-      echo " nameserver: ${list}" | sudo tee -a /tmp/sinfo
+      echo -e " nameserver: ${YELLOW}${list}${NC}"
     done
 
   ping -c 1 www.hinet.net >> /dev/null
-  [ "$?" == "0" ] && echo " Internet OK" | sudo tee -a /tmp/sinfo
-  #cat /tmp/sinfo
-  echo ""
+  [ "$?" == "0" ] && echo -e " Internet access: ${GREEN}Pass${NC}" || echo -e " Internet: ${RED}Not pass${NC}"
 }
 
 function kubectl-check () {
@@ -484,7 +484,7 @@ function kubelet-check () {
 }
 
 function crio-check () {
-  ssh ${1} "which crio" &> /dev/null
+  ssh ${1} "which crio &> /dev/null" &> /dev/null
   cri_check=$(ssh ${1} crio version 2> /dev/null | grep "^Version" | awk '{ print $2 }')
   [ $? == 0 ] && echo -e " ${GREEN}●${NC} crio ${cri_check} installed" || echo -e " ${YELLOW}○${NC} crio not install"
 }
@@ -823,6 +823,8 @@ sync-kdm) #scp kdm to every nodes.
 node-selector hosts
 for cwlist in ${cp_nodes} ${wk_nodes}
   do
+    ssh ${cwlist} "ls ~/bin &> /dev/null"
+    [ $? != 0 ] && ssh ${cwlist} "mkdir ~/bin &> /dev/null"
     echo -en "${YELLOW}Send to ${cwlist}${NC}"
     scp bin/kdm ${cwlist}:bin/ 2> /dev/null
   done
@@ -1028,7 +1030,7 @@ package-install) #Install basic package & setup environment.
       #setup /etc/crio/crio.conf
       ssh ${cwlist} cat /etc/crio/crio.conf 2> /dev/null | grep -A 3 "\[crio.runtime\]" | grep "conmon_cgroup = \"pod\"" &> /dev/null
       [ $? != 0 ] && ssh ${cwlist} "sudo sed -i 's/\[crio.runtime\]/\[crio.runtime\]\nconmon_cgroup = \"pod\"\ncgroup_manager = \"systemd\"\ndefault_runtime = \"crun\"/g' /etc/crio/crio.conf" &> /dev/null
-      ssh ${cwlist} cat /etc/crio/crio.conf 2> /dev/null | grep -A 3 "\[crio.runtime.runtimes.crun\]" | grep "runtime_path = \"/usr/bin/crun\"" &> /dev/null
+      ssh ${cwlist} cat /etc/crio/crio.conf 2> /dev/null | grep -A 3 "\[crio.runtime.runtimes.crun\]" | grep "runtime_path = \"/usr/local/bin/crun\"" &> /dev/null #/usr/bin/crun
       [ $? != 0 ] && ssh ${cwlist} "sudo sed -i 's/# \[crio.runtime.runtimes.runc\]/\[crio.runtime.runtimes.crun\]\nruntime_path = \"\/usr\/bin\/crun\"\nruntime_type = \"oci\"\nruntime_root = \"\"/g' /etc/crio/crio.conf" &> /dev/null
       ssh ${cwlist} cat /etc/crio/crio.conf 2> /dev/null | grep -A 2 "\[crio.network\]" | grep "network_dir = \"/etc/cni/net.d/\"" &> /dev/null
       [ $? != 0 ] && ssh ${cwlist} "sudo sed -i 's/\[crio.network\]/\[crio.network\]\nnetwork_dir = \"\/etc\/cni\/net.d\/\"\nplugin_dir = \"\/opt\/cni\/bin\"/g' /etc/crio/crio.conf" &> /dev/null
@@ -1146,7 +1148,8 @@ package-remove) #Remove basic package & setup environment.
   for clist in ${cp_nodes}
     do
       echo -e "\n${YELLOW}${clist} | package removing${NC}"
-      ssh ${clist} "rm ~/bin/k9s"
+      ssh ${clist} "which k9s" &> /dev/null
+      [ $? == 0 ] && ssh ${clist} "rm ~/bin/k9s"
       echo -en "${GREEN}"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo dnf versionlock delete cri-o kubectl kubeadm kubelet podman"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo systemctl disable --now cri-o"
@@ -1154,6 +1157,8 @@ package-remove) #Remove basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo dnf remove -y kubectl kubeadm kubelet"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo dnf remove -y podman"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo dnf remove -y cri-o"
+      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "which crio &> /dev/null"
+      [ $? == 0 ] && [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo rm /usr/local/bin/crio"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} 'sudo rm `which helm`' 2> /dev/null
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo dnf autoremove -y"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo systemctl daemon-reload"
@@ -1164,6 +1169,8 @@ package-remove) #Remove basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${clist} "sudo dnf remove -y kubectl kubeadm kubelet"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${clist} "sudo dnf remove -y podman"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${clist} "sudo dnf remove -y cri-o"
+      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${clist} "which crio &> /dev/null"
+      [ $? == 0 ] && [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${clist} "sudo rm /usr/local/bin/crio"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${clist} 'sudo rm `which helm`' 2> /dev/null
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${clist} "sudo dnf autoremove -y"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${clist} "sudo systemctl daemon-reload"
@@ -1173,6 +1180,8 @@ package-remove) #Remove basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${clist} "sudo systemctl disable --now kubelet"
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${clist} "sudo apt-get purge -qy --allow-change-held-packages kubectl kubeadm kubelet kubernetes-cni"
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${clist} "sudo apt-get purge -qy --allow-change-held-packages cri-o cri-tools cri-o-runc"
+      [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${clist} "which crio &> /dev/null"
+      [ $? == 0 ] && [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${clist} "sudo rm /usr/local/bin/crio"
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${clist} "sudo apt-get purge -qy helm podman"
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${clist} "sudo apt-get autoremove -qy"
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${clist} "sudo systemctl daemon-reload"
@@ -1191,6 +1200,8 @@ package-remove) #Remove basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "sudo dnf remove -y kubectl kubeadm kubelet"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "sudo dnf remove -y podman"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "sudo dnf remove -y cri-o"
+      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "which crio &> /dev/null"
+      [ $? == 0 ] && [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "sudo rm /usr/local/bin/crio"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} 'sudo rm `which helm`' 2> /dev/null
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "sudo dnf autoremove -y"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "sudo systemctl daemon-reload"
@@ -1201,6 +1212,8 @@ package-remove) #Remove basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${wlist} "sudo dnf remove -y kubectl kubeadm kubelet"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${wlist} "sudo dnf remove -y podman"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${wlist} "sudo dnf remove -y cri-o"
+      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${wlist} "which crio &> /dev/null"
+      [ $? == 0 ] && [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${wlist} "sudo rm /usr/local/bin/crio"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${wlist} 'sudo rm `which helm`' 2> /dev/null
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${wlist} "sudo dnf autoremove -y"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${wlist} "sudo systemctl daemon-reload"
@@ -1210,6 +1223,8 @@ package-remove) #Remove basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${wlist} "sudo systemctl disable --now kubelet"
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${wlist} "sudo apt-get purge -qy --allow-change-held-packages kubectl kubeadm kubelet kubernetes-cni"
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${wlist} "sudo apt-get purge -qy --allow-change-held-packages cri-o cri-tools cri-o-runc podman"
+      [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${wlist} "which crio &> /dev/null"
+      [ $? == 0 ] && [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${wlist} "sudo rm /usr/local/bin/crio"
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${wlist} "sudo apt-get autoremove -qy"
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${wlist} "sudo systemctl daemon-reload"
       echo -en "${NC}"
@@ -1336,7 +1351,7 @@ cp-join) # Let control-plane nodes join cluster. [ <hosts> | <node-name> ... ]
       [ $? != 0 ] && message="${RED}\nkubeadm join failure!${NC}" && interrupt ${message}
       echo -en "${GREEN}"
       kubectl taint node ${clist} node-role.kubernetes.io/control-plane:NoSchedule-
-      echo "${KUBE_INIT_VER}" | grep '1.25' &> /dev/null
+      echo "${KUBE_INIT_VER}" | grep '1.25|1.26' &> /dev/null
       [ $? != 0 ] && kubectl taint node ${clist} node-role.kubernetes.io/master:NoSchedule-
       echo -en "${NC}"
       ssh ${clist} "ls /etc/kubernetes/manifests" &> /dev/null
