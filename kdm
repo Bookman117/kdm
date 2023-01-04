@@ -341,10 +341,11 @@ function system-check() {
       forward=$(ssh ${cwlist} "cat /proc/sys/net/bridge/bridge-nf-call-iptables 2> /dev/null")
       [ "${forward}" == "1" ] && echo -e " ${GREEN}●${NC} ipv4_forward enabled" || echo -e " ${YELLOW}○${NC} ipv4 ip_forward not enable."
       #SELinux
-      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'disabled'" &> /dev/null && echo -e " ${GREEN}●${NC} SELinux disabled"
-      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'enabled'" &> /dev/null && echo -e " ${YELLOW}○${NC} SELinux not disabled"
+      status=0
+      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'disabled'" &> /dev/null && echo -e " ${GREEN}●${NC} SELinux disabled" && status=1
+      [ ${status} == 0 ] && [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} 'sudo sestatus | grep "disabled"' &> /dev/null && se_status=$(ssh ${cwlist} sudo sestatus | grep 'Current mode:' | awk '{ print $3 }') && echo -e " ${YELLOW}○${NC} SELinux not disable | mode: ${se_status}"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'disabled'" &> /dev/null && echo -e " ${GREEN}●${NC} SELinux disabled"
-      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'enabled'" &> /dev/null && echo -e " ${YELLOW}○${NC} SELinux not disabled"
+      [ ${status} == 0 ] && [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${cwlist} 'sudo sestatus | grep "disabled"' &> /dev/null && se_status=$(ssh ${cwlist} sudo sestatus | grep 'Current mode:' | awk '{ print $3 }') && echo -e " ${YELLOW}○${NC} SELinux not disable | mode: ${se_status}"
       #firewalld
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo systemctl status firewalld | grep 'active (running)'" &> /dev/null && echo -e " ${YELLOW}○${NC} firewalld not disable"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo systemctl status firewalld | grep 'inactive (dead)'" &> /dev/null && echo -e " ${GREEN}●${NC} firewalld disabled"
@@ -377,7 +378,9 @@ function package-check() {
       [ $? != 0 ] && echo -e " ${RED}●${NC} ${wlist} is not available\n" && continue
       #cri-o
       ssh ${clist} "which crio &> /dev/null" &> /dev/null
-      [ $? != 0 ] && echo -e " ${YELLOW}○${NC} crio not install" || echo -e " ${GREEN}●${NC} crio: `ssh ${clist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${clist} ${crio_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${crio_time} | sed 's/^.//' | grep -v 'inactive'`"
+      [ $? != 0 ] && echo -e " ${YELLOW}○${NC} crio not install" || status=1
+      ssh ${clist} "sudo systemctl status crio | grep "Active:" | grep "failed" &> /dev/null" &> /dev/null
+      [ $? != 0 ] && echo -e " ${GREEN}●${NC} crio: `ssh ${clist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${clist} ${crio_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${crio_time} | sed 's/^.//' | grep -v 'inactive'`" || echo -e " ${YELLOW}○${NC} crio: `ssh ${clist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${clist} ${crio_status} | awk '{ print $2,$3,$4 }'` | `ssh ${clist} ${crio_time} | sed 's/^.//'`"
       #kubelet
       ssh ${clist} "which kubelet" &> /dev/null
       [ $? != 0 ] && echo -e " ${YELLOW}○${NC} kubelet not install" || echo -e " ${GREEN}●${NC} kubelet: `ssh ${clist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${clist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
@@ -406,7 +409,9 @@ function package-check() {
       [ $? != 0 ] && echo -e " ${RED}●${NC} ${wlist} is not available\n" && continue
       #cri-o
       ssh ${wlist} "which crio &> /dev/null" &> /dev/null
-      [ $? != 0 ] && echo -e " ${YELLOW}○${NC} crio not install" || echo -e " ${GREEN}●${NC} crio: `ssh ${wlist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${wlist} ${crio_status} | awk '{ print $2,$3 }'` | `ssh ${wlist} ${crio_time} | sed 's/^.//'`"
+      [ $? != 0 ] && echo -e " ${YELLOW}○${NC} crio not install" || status=1
+      ssh ${wlist} "sudo systemctl status crio | grep "Active:" | grep "failed" &> /dev/null" &> /dev/null
+      [ $? != 0 ] && echo -e " ${GREEN}●${NC} crio: `ssh ${wlist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${wlist} ${crio_status} | awk '{ print $2,$3 }'` | `ssh ${wlist} ${crio_time} | sed 's/^.//' | grep -v 'inactive'`" || echo -e " ${YELLOW}○${NC} crio: `ssh ${wlist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${wlist} ${crio_status} | awk '{ print $2,$3,$4 }'` | `ssh ${wlist} ${crio_time} | sed 's/^.//'`"
       #kubelet
       ssh ${wlist} "which kubelet" &> /dev/null
       [ $? != 0 ] && echo -e " ${YELLOW}○${NC} kubelet not install" || echo -e " ${GREEN}●${NC} kubelet: `ssh ${wlist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${wlist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${wlist} ${kubelet_time} | sed 's/^.//'`"
@@ -946,17 +951,19 @@ package-install) #Install basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && echo ${status} | grep '1' &>/dev/null && ssh ${cwlist} "sudo systemctl disable firewalld --now" &> /dev/null && echo -e " ${GREEN}●${NC} firewalld disabled (need reboot)"
       #[ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${cwlist} 'sudo systemctl status firewalld | grep "inactive (dead)"' &> /dev/null &&  echo -e " ${YELLOW}○${NC} firewalld not disable" 
 
-      #SELinux disable
+      #SELinux setting
+      status=0
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo setenforce 0" &> /dev/null
-      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sed -i 's/^SELINUX=enforcing$/SELINUX=disabled/' /etc/selinux/config"
+      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo nmcli connection modify ${KUBE_INTERFACE} ipv6.method ignore"
-      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} 'sudo sestatus | grep "disabled"' &> /dev/null && echo -e " ${GREEN}●${NC} SELinux disabled (need reboot)"
+      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'disabled'" &> /dev/null && echo -e " ${GREEN}●${NC} SELinux disabled" && status=1
+      [ ${status} == 0 ] && [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} 'sudo sestatus | grep "disabled"' &> /dev/null && se_status=$(ssh ${cwlist} sudo sestatus | grep 'Current mode:' | awk '{ print $3 }') && echo -e " ${YELLOW}○${NC} SELinux not disable | mode: ${se_status}"
 
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${cwlist} "sudo setenforce 0" &> /dev/null
-      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${cwlist} "sudo sed -i 's/^SELINUX=enforcing$/SELINUX=disabled/' /etc/selinux/config"
+      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${cwlist} "sudo sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config"
       [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${cwlist} "sudo nmcli connection modify ${KUBE_INTERFACE} ipv6.method ignore"
-      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${cwlist} 'sudo sestatus | grep "disabled"' &> /dev/null && echo -e " ${GREEN}●${NC} SELinux disabled (need reboot)"
-      #[ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${cwlist} 'sudo sestatus | grep "enabled"' &> /dev/null && echo -e " ${YELLOW}○${NC} SELinux not disable"
+      [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'disabled'" &> /dev/null && echo -e " ${GREEN}●${NC} SELinux disabled"
+      [ ${status} == 0 ] && [ "${CRIO_OS_VERSION}" == "CentOS_8" ] && ssh ${cwlist} 'sudo sestatus | grep "disabled"' &> /dev/null && se_status=$(ssh ${cwlist} sudo sestatus | grep 'Current mode:' | awk '{ print $3 }') && echo -e " ${YELLOW}○${NC} SELinux not disable | mode: ${se_status}"
 
       #modules setup
       modules=1
@@ -1074,7 +1081,6 @@ EOF"' &> /dev/null && echo -e " ${GREEN}●${NC} policy.json updated"
 
           [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${cwlist} "sudo apt-get install -qy kubeadm=${KUBE_SUBVER}-* kubelet=${KUBE_SUBVER}-* kubectl=${KUBE_SUBVER}-*" &> /dev/null
           [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${cwlist} "sudo apt-mark hold kubeadm kubelet kubectl" &> /dev/null
-
           kubelet-check ${cwlist}
           kubeadm-check ${cwlist}
           kubectl-check ${cwlist}
@@ -1132,6 +1138,7 @@ EOF"' &> /dev/null && echo -e " ${GREEN}●${NC} policy.json updated"
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${cwlist} "sudo apt-get install -qy podman" &> /dev/null
       podman-check ${cwlist}
     done
+  echo -e "${YELLOW}Check list${NS}"
   package-check ${check_list} && echo
 ;;
 
@@ -1312,7 +1319,7 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico | flannel ]
   echo -en "${GREEN}"
   kubectl taint node `hostname` node-role.kubernetes.io/control-plane:NoSchedule-
   echo "${KUBE_INIT_VER}" | grep -E '1.25|1.26' &> /dev/null
-  [ $? != 0 ] && kubectl taint node `hostname` node-role.kubernetes.io/master:NoSchedule- 
+  [ $? != 0 ] && kubectl taint node `hostname` node-role.kubernetes.io/master:NoSchedule-
   echo -en "${NC}"
   echo && k9s -c pods -A
 ;;
@@ -1577,7 +1584,7 @@ csi-remove) #Delete kubernetes CSI. [ local-path | rook-ceph ]
         kubectl delete -f ~/yaml/rook/common.yaml; sleep 3
         kubectl delete -f ~/yaml/rook/crds.yaml; sleep 3
         kubectl delete namespace rook-ceph
-        kdm csi-rook wipe-data ${CEPH_DISK}
+        kdm csi-rook wipe-data hosts
   fi
 ;;
 
@@ -1588,13 +1595,13 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
   elif [ "$2" == "status" ]
     then
       #rook version
-      echo -en "${RED}"
       ROOK_GIT_VER=$(kubectl -n ${NAME_SPACE_8} get jobs -o jsonpath='{range .items[*]}{.metadata.name}{"  \tsucceeded: "}{.status.succeeded}{"      \trook-version="}{.metadata.labels.rook-version}{"\n"}{end}' | awk '{ print $4 }' | cut -d '=' -f 2 | grep "^v" | head -n 1)
-      echo "Rook-ceph version: ${ROOK_GIT_VER}"
       POD_NAME=$(kubectl -n ${NAME_SPACE_8} get pod -o custom-columns=name:.metadata.name --no-headers | grep rook-ceph-mon-b)
-      kubectl -n ${NAME_SPACE_8} get pod ${POD_NAME} -o jsonpath='{.spec.containers[0].image}'; echo -n " | "
+      CEPH_IMAGE=$(kubectl -n ${NAME_SPACE_8} get pod ${POD_NAME} -o jsonpath='{.spec.containers[0].image}')
       kubectl -n ${NAME_SPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
-      [ $? == 0 ] && echo -e "`kubectl -n ${NAME_SPACE_8} exec -it $(kubectl -n ${NAME_SPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph --version | awk '{ print $1,$2,$3 }'`${NC}\n" && echo -en "${GREEN}"
+      [ $? == 0 ] && CEPH_VER=$(echo -e "`kubectl -n ${NAME_SPACE_8} exec -it $(kubectl -n ${NAME_SPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph --version | awk '{ print $3 }'`\n")
+      
+      echo -e "${RED}Rook-ceph git release: ${ROOK_GIT_VER}\nceph version: ${CEPH_VER} | image: ${CEPH_IMAGE}${GREEN}\n"
       
       #rook status
       [ $? == 0 ] && kubectl -n ${NAME_SPACE_8} exec -it $(kubectl -n ${NAME_SPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph -s || echo -e "- rook-ceph not detected\n"
@@ -1631,10 +1638,11 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
         done
   elif [ "$2" == "wipe-data" ]
     then
+      node-selector ${@}
       message="${RED}Please confirm this command will destruction rook!${NC}"
       interrupt ${message}
       echo -e "${YELLOW}Rook data wipe procedure${NC}"
-      for wlist in ${WK_NODES};
+      for wlist in ${wk_nodes};
         do
           ssh ${wlist} sudo wipefs -a ${CEPH_DISK} &> /dev/null
           [ $? == 0 ] && echo " > ${wlist} ${CEPH_DISK} signature has been wiped" || echo " > ${wlist} ${CEPH_DISK} signature not found"
@@ -1646,7 +1654,7 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
           ssh ${wlist} "sudo blkdiscard ${CEPH_DISK}" &> /dev/null
         done
 
-      for cwlist in ${WK_NODES} ${CP_NODES};
+      for cwlist in ${wk_nodes} ${cp_nodes};
         do
           ssh ${cwlist} sudo rm -r /var/lib/rook/ &> /dev/null
           [ $? == 0 ] && echo " > ${cwlist} Directory has been cleanup" || echo " > ${cwlist} Directory not found"
