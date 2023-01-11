@@ -114,7 +114,7 @@ function start-info() {
   if [ "${status}" == "1" ]
     then
       echo -en "${GREEN}●${NC} Kubernetes deployed | ${cluster_ver}"
-      echo -e "${YELLOW} [ Input parameter \"help\" display more information ]${NC}"
+      echo -e "${YELLOW} [ Input parameter \"help\" display more information ]${NC}\n"
       echo -e "  └─ Active nodes${meassage}"
       echo ${cluster_list} | grep '\-m' &> /dev/null
       [ $? == 0 ] && echo -e "     └─ control-plane nodes   | ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-m' | tr -s '\n' ' '`${NC}" || echo "     └─ control-plane nodes   | --"
@@ -122,7 +122,7 @@ function start-info() {
       [ $? == 0 ] && echo -e "     └─ worker nodes          | ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-w' | tr -s '\n' ' '`${NC}" || echo -e "     └─ worker nodes          | --"
     else
       echo -en "${YELLOW}●${NC} Kubernetes not detected"
-      echo -e "${YELLOW} [ Input parameter \"help\" display more information ]${NC}"
+      echo -e "${YELLOW} [ Input parameter \"help\" display more information ]${NC}\n"
       echo -e "  └─ Plan list"
       echo -e "     └─ control-plane nodes   | ${YELLOW}`echo -e "${CP_NODES}"`${NC}"
       echo -e "     └─ worker nodes          | ${YELLOW}`echo ${WK_NODES}`${NC}"
@@ -563,6 +563,8 @@ function helm-repo-update () {
 }
 
 function dir-delete-list () {
+  [ "${wclist}" == "" ] && wclist="${wlist} ${clist}"
+
   ssh ${wclist} "ls ~/.kube" &> /dev/null
   [ $? == 0 ] && ssh ${wclist} "sudo rm -r ~/.kube" || echo "Target has been removed: ~/.kube"
   ssh ${wclist} "sudo ls /etc/systemd/system/etcd*" &> /dev/null
@@ -872,17 +874,18 @@ pkg-ver) #Check package repositories.
   for cwlist in ${cp_nodes} ${wk_nodes}
     do
       echo -e "${YELLOW}${cwlist} | package repositories check${NC}"
-      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && echo -e "${YELLOW}= Package enabled repositories${NC}"
-      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo dnf repolist --enabled"
-      [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && echo -e "${YELLOW}= Package enabled repositories${NC}"
-      [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo dnf repolist --enabled"
+      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && echo -e "${GREEN}Package enabled repositories:${NC}"
+      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo dnf repolist --enabled -q"
+      [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && echo -e "${GREEN}Package enabled repositories:${NC}"
+      [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo dnf repolist --enabled -q"
       for plist in ${PACKAGE_LIST}
         do
-          echo -e "${YELLOW}= ${plist} pkg-version:${NC}"
-          [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "echo ${plist} | grep -v 'kube' &> /dev/null && sudo dnf provides ${plist} 2> /dev/null | grep 'Provide' | head -n 5 | cut -d '=' -f 2"
-          [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "echo ${plist} | grep 'kube' &> /dev/null && sudo dnf provides ${plist} --disableexcludes=kubernetes 2> /dev/null | grep 'Provide' | grep ${CRI_RELEASE} | cut -d '=' -f 2 | sed ':a;N;s/\n/ |/g;ta'"
-          [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "echo ${plist} | grep -v 'kube' &> /dev/null && sudo dnf provides ${plist} 2> /dev/null | grep 'Provide' | head -n 5 | cut -d '=' -f 2"
-          [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "echo ${plist} | grep 'kube' &> /dev/null && sudo dnf provides ${plist} --disableexcludes=kubernetes 2> /dev/null | grep 'Provide' | grep ${CRI_RELEASE} | cut -d '=' -f 2 | sed ':a;N;s/\n/ |/g;ta'"
+          sudo dnf provides ${plist} &> /dev/null || continue
+          echo -e "${GREEN}${plist} pkg-version:${NC}"
+          [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "echo ${plist} | grep -v 'kube' &> /dev/null && sudo dnf provides ${plist} 2> /dev/null | grep 'Provide' | head -n 5 | cut -d '=' -f 2 | sed 's/^.//'"
+          [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "echo ${plist} | grep 'kube' &> /dev/null && sudo dnf provides ${plist} --disableexcludes=kubernetes 2> /dev/null | grep 'Provide' | grep ${CRI_RELEASE} | cut -d '=' -f 2 | sed ':a;N;s/\n/ |/g;ta' | sed 's/^.//'"
+          [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "echo ${plist} | grep -v 'kube' &> /dev/null && sudo dnf provides ${plist} 2> /dev/null | grep 'Provide' | head -n 5 | cut -d '=' -f 2 | sed 's/^.//'"
+          [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "echo ${plist} | grep 'kube' &> /dev/null && sudo dnf provides ${plist} --disableexcludes=kubernetes 2> /dev/null | grep 'Provide' | grep ${CRI_RELEASE} | cut -d '=' -f 2 | sed ':a;N;s/\n/ |/g;ta' | sed 's/^.//'"
           [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${cwlist} "sudo apt-cache madison ${plist} | head -n 5"
         done; echo
   done
@@ -913,14 +916,14 @@ pkg-repo) #Setup package repositories. [ add-all | add | remove ]
             [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "ls /etc/yum.repos.d/devel:kubic* > /dev/null 2>&1" && ssh ${cwlist} "sudo rm /etc/yum.repos.d/devel:kubic*"
             [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo rm /etc/yum.repos.d/kubernetes* > /dev/null 2>&1"
             [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo dnf -y update --refresh" &> /dev/null
-            [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && echo -e "${YELLOW} - ${cwlist} package repositories has been removed${NC}"
+            [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && echo -e "${GREEN}${cwlist} package repositories has been removed${NC}"
             [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "ls /etc/yum.repos.d/devel:kubic* > /dev/null 2>&1" && ssh ${cwlist} "sudo rm /etc/yum.repos.d/devel:kubic*"
             [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo rm /etc/yum.repos.d/kubernetes* > /dev/null 2>&1"
             [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo dnf -y update --refresh" &> /dev/null
-            [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && echo -e "${YELLOW} - ${cwlist} package repositories has been removed${NC}"
+            [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && echo -e "${GREEN}${cwlist} package repositories has been removed${NC}"
             [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${cwlist} "ls /etc/apt/sources.list.d/* > /dev/null 2>&1" && ssh ${cwlist} "sudo rm /etc/apt/sources.list.d/*"
             [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${cwlist} "sudo apt-get -y update" &> /dev/null
-            [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && echo -e "${YELLOW} - ${cwlist} package repositories has been removed${NC}"
+            [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && echo -e "${GREEN}${cwlist} package repositories has been removed${NC}"
           done
   fi
 ;;
@@ -1139,7 +1142,7 @@ EOF"' &> /dev/null && echo -e " ${GREEN}●${NC} policy.json updated"
 
           #install k9s
           ssh ${cwlist} "ls -al ~/bin/k9s" &> /dev/null
-          [ $? == 0 ] && echo -e " ${GREEN}●${NC} k9s installed" && echo && continue || ssh ${cwlist} "curl -sS https://webinstall.dev/k9s | timeout 20 bash" &> /dev/null
+          [ $? == 0 ] && echo -e " ${GREEN}●${NC} k9s installed" && echo && continue || curl --max-time 5 -fsSLq https://webinstall.dev/api/installers/k9s@stable.sh &> /dev/null && echo "k9s repository is working" && ssh ${cwlist} "curl -sS https://webinstall.dev/k9s | bash" &> /dev/null
           #k9s path setup
           ssh ${cwlist} "mv ~/.local/bin/k9s ~/bin/" &> /dev/null
           ssh ${cwlist} "cat /etc/environment | grep "/home/${USER}/bin" &> /dev/null" &> /dev/null
@@ -1191,7 +1194,7 @@ pkg-rm) #Remove basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo systemctl disable --now kubelet"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo dnf remove -y kubectl kubeadm kubelet"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo dnf remove -y podman"
-      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo dnf remove -y cri-o"
+      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo dnf remove -y cri-o cri-tools*"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "which crio &> /dev/null"
       [ $? == 0 ] && [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} "sudo rm /usr/local/bin/crio"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${clist} 'sudo rm `which helm`' 2> /dev/null
@@ -1203,7 +1206,7 @@ pkg-rm) #Remove basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${clist} "sudo systemctl disable --now kubelet"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${clist} "sudo dnf remove -y kubectl kubeadm kubelet"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${clist} "sudo dnf remove -y podman"
-      [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${clist} "sudo dnf remove -y cri-o"
+      [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${clist} "sudo dnf remove -y cri-o cri-tools*"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${clist} "which crio &> /dev/null"
       [ $? == 0 ] && [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${clist} "sudo rm /usr/local/bin/crio"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${clist} 'sudo rm `which helm`' 2> /dev/null
@@ -1234,7 +1237,7 @@ pkg-rm) #Remove basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "sudo systemctl disable --now kubelet"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "sudo dnf remove -y kubectl kubeadm kubelet"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "sudo dnf remove -y podman"
-      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "sudo dnf remove -y cri-o"
+      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "sudo dnf remove -y cri-o cri-tools*"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "which crio &> /dev/null"
       [ $? == 0 ] && [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} "sudo rm /usr/local/bin/crio"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${wlist} 'sudo rm `which helm`' 2> /dev/null
@@ -1246,7 +1249,7 @@ pkg-rm) #Remove basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${wlist} "sudo systemctl disable --now kubelet"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${wlist} "sudo dnf remove -y kubectl kubeadm kubelet"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${wlist} "sudo dnf remove -y podman"
-      [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${wlist} "sudo dnf remove -y cri-o"
+      [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${wlist} "sudo dnf remove -y cri-o cri-tools*"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${wlist} "which crio &> /dev/null"
       [ $? == 0 ] && [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${wlist} "sudo rm /usr/local/bin/crio"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${wlist} 'sudo rm `which helm`' 2> /dev/null
@@ -1700,11 +1703,11 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
       for wlist in ${wk_nodes};
         do
           ssh ${wlist} sudo wipefs -a ${CEPH_DISK} &> /dev/null
-          [ $? == 0 ] && echo " > ${wlist} ${CEPH_DISK} signature has been wiped" || echo " > ${wlist} ${CEPH_DISK} signature not found"
+          [ $? == 0 ] && echo -e "${GREEN}${wlist} ${CEPH_DISK} signature has been wiped" || echo " > ${wlist} ${CEPH_DISK} signature not found"
           ssh ${wlist} "sudo sgdisk --zap-all ${CEPH_DISK}" &> /dev/null
-          [ $? == 0 ] && echo " > ${wlist} ${CEPH_DISK} GPT data structures destroyed!" || echo " > ${wlist} ${CEPH_DISK} GPT data structures not changed!"
+          [ $? == 0 ] && echo -e "${GREEN}${wlist} ${CEPH_DISK} GPT data structures destroyed!" || echo " > ${wlist} ${CEPH_DISK} GPT data structures not changed!"
           ssh ${wlist} "sudo dd if=/dev/zero of="${CEPH_DISK}" bs=1M count=100 oflag=direct,dsync" &> /dev/null
-          [ $? == 0 ] && echo " > ${wlist} ${CEPH_DISK} has been overwrite by /dev/zero" || echo " > ${wlist} ${CEPH_DISK} not overwrite!"
+          [ $? == 0 ] && echo -e "${GREEN}${wlist} ${CEPH_DISK} has been overwrite by /dev/zero" || echo " > ${wlist} ${CEPH_DISK} not overwrite!"
           ssh ${wlist} "sudo partprobe ${CEPH_DISK}" &> /dev/null
           ssh ${wlist} "sudo blkdiscard ${CEPH_DISK}" &> /dev/null
         done
@@ -2408,22 +2411,36 @@ node-reset) #Reset hosts | specify nodes. [ node-reset <node-name> ... ]
 
   echo -n "As you wish"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
 
-  for wclist in ${wk_nodes} ${cp_nodes}
+  for clist in ${cp_nodes}
     do
       status=0
       etcd_pod=$(kubectl get pods -n kube-system | grep 'etcd' | awk '{ print $1 }' | head -n 1)
       etcd_endpoints=$(echo ${etcd_pod} | cut -d '-' -f 2)
-      echo -e "${YELLOW}${wclist} | delete process${NC}"
-      kubectl get nodes | grep "${wclist}" &> /dev/null
-      [ $? == 0 ] && kubectl delete node ${wclist} && status=1
-      [ "${status}" == "1" ] && remove_id=$(kubectl exec -it ${etcd_pod} -n kube-system -- etcdctl --endpoints ${NETID}.${etcd_endpoints}:2379 --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key --cacert=/etc/kubernetes/pki/etcd/ca.crt member list | grep "${wclist}" | cut -d ',' -f 1)
+      echo -e "${YELLOW}${clist} | delete process${NC}"
+      kubectl get nodes | grep "${clist}" &> /dev/null
+      [ $? == 0 ] && kubectl delete node ${clist} && status=1
+      [ "${status}" == "1" ] && remove_id=$(kubectl exec -it ${etcd_pod} -n kube-system -- etcdctl --endpoints ${NETID}.${etcd_endpoints}:2379 --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key --cacert=/etc/kubernetes/pki/etcd/ca.crt member list | grep "${clist}" | cut -d ',' -f 1)
       [ "${status}" == "1" ] && kubectl exec -it ${etcd_pod} -n kube-system -- etcdctl --endpoints ${NETID}.${etcd_endpoints}:2379 --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key --cacert=/etc/kubernetes/pki/etcd/ca.crt member remove ${remove_id}
-      ssh ${wclist} 'sudo kubeadm reset -f'
+      ssh ${clist} 'sudo kubeadm reset -f'
       dir-delete-list
 
-      ssh ${wclist} "sudo systemctl enable --now crio"
-      ssh ${wclist} "sudo systemctl enable --now kubelet"
+      ssh ${clist} "sudo systemctl enable --now crio"
+      ssh ${clist} "sudo systemctl enable --now kubelet"
     done; echo
+
+  for wlist in ${wk_nodes}
+    do
+      status=0
+      echo -e "${YELLOW}${wlist} | delete process${NC}"
+      kubectl get nodes | grep "${wlist}" &> /dev/null
+      [ $? == 0 ] && kubectl delete node ${wlist} && status=1
+      ssh ${wlist} 'sudo kubeadm reset -f'
+      dir-delete-list
+
+      ssh ${wlist} "sudo systemctl enable --now crio"
+      ssh ${wlist} "sudo systemctl enable --now kubelet"
+    done; echo
+
   node-power reboot ${@}
 ;;
 
