@@ -255,7 +255,7 @@ function node-power () {
   echo -e "${YELLOW}nodes ${power} procedure${NC}"
   for list in ${wk_nodes} ${cp_nodes}
     do
-      echo -e "${RED} > ${list} ${power} execute${NC}"
+      echo -e "${RED}●${NC}${list} ${power} execute${NC}"
       sleep 3
       ssh ${list} "sudo ${power}" 2> /dev/null
     done; echo
@@ -604,14 +604,24 @@ sys-var) #Check script variables.
 ;;
 
 sys-conf) #Configure file & directory.
+  [ "${#}" == "2" ] && [ "${2}" == "hosts" ] && status=1 || status=0
+  [ "${status}" == "1" ] && node-selector hosts && status=1
+  
+  for cwlist in ${cp_nodes} ${wk_nodes}
+    do
+      echo -e "${YELLOW}${cwlist} system configure${NC}"
+      [ "${status}" == "1" ] && ssh ${cwlist} 'kdm sys-conf'
+    done
+  
+  [ "${status}" == "1" ] && exit
   #setup ssh
   os-detection
   cat /etc/ssh/ssh_config | grep 'StrictHostKeyChecking no'
   [ $? != 0 ] && echo 'StrictHostKeyChecking no' | sudo tee -a /etc/ssh/ssh_config
 
-  [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && sudo sed -i "s/# %wheel\tALL=(ALL)\tNOPASSWD: ALL/%wheel\tALL=(ALL)\tNOPASSWD: ALL/g" /etc/sudoers
-  [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && sudo sed -i "s/# %wheel\tALL=(ALL)\tNOPASSWD: ALL/%wheel\tALL=(ALL)\tNOPASSWD: ALL/g" /etc/sudoers
-  [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && sudo sed -i "s/%sudo\tALL=(ALL:ALL) ALL/%sudo\tALL=(ALL:ALL) NOPASSWD: ALL/g" /etc/sudoers
+  [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && sudo -S sed -i "s/# %wheel\tALL=(ALL)\tNOPASSWD: ALL/%wheel\tALL=(ALL)\tNOPASSWD: ALL/g" /etc/sudoers
+  [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && sudo -S sed -i "s/# %wheel\tALL=(ALL)\tNOPASSWD: ALL/%wheel\tALL=(ALL)\tNOPASSWD: ALL/g" /etc/sudoers
+  [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && sudo -S sed -i "s/%sudo\tALL=(ALL:ALL) ALL/%sudo\tALL=(ALL:ALL) NOPASSWD: ALL/g" /etc/sudoers
   
   ls ~/bin &> /dev/null
   [ $? != 0 ] && mkdir ~/bin
@@ -645,6 +655,15 @@ sys-conf) #Configure file & directory.
   [ $? != 0 ] && echo "clear" | sudo tee -a /etc/profile
   touch ~/.hushlogin
   [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && sudo chmod -x /etc/update-motd.d/*
+
+  #Set /etc/hosts
+  cat /etc/hosts | grep '127.0.0.1' | grep ${HOSTNAME} &> /dev/null
+  [ $? != 0 ] && sudo sed -i "s|127.0.0.1   |127.0.0.1   ${HOSTNAME} |g" /etc/hosts
+
+  echo "/etc/hosts:"
+  echo -en "${GREEN}"
+  cat /etc/hosts | grep '127.0.0.1' | grep ${HOSTNAME}
+  echo -en "${NC}"
 ;;
 
 sys-check) #Check node basic status.
@@ -1142,7 +1161,7 @@ EOF"' &> /dev/null && echo -e " ${GREEN}●${NC} policy.json updated"
 
           #install k9s
           ssh ${cwlist} "ls -al ~/bin/k9s" &> /dev/null
-          [ $? == 0 ] && echo -e " ${GREEN}●${NC} k9s installed" && echo && continue || curl --max-time 5 -fsSLq https://webinstall.dev/api/installers/k9s@stable.sh &> /dev/null && echo "k9s repository is working" && ssh ${cwlist} "curl -sS https://webinstall.dev/k9s | bash" &> /dev/null
+          [ $? == 0 ] && echo -e " ${GREEN}●${NC} k9s installed" && echo && continue || curl --max-time 5 -fsSLq https://webinstall.dev/api/installers/k9s@stable.sh &> /dev/null && ssh ${cwlist} "curl -sS https://webinstall.dev/k9s | bash" &> /dev/null
           #k9s path setup
           ssh ${cwlist} "mv ~/.local/bin/k9s ~/bin/" &> /dev/null
           ssh ${cwlist} "cat /etc/environment | grep "/home/${USER}/bin" &> /dev/null" &> /dev/null
@@ -1314,10 +1333,10 @@ daemon-restart)
   message="${RED}Install packages on nodes: ${YELLOW}${cp_nodes} ${wk_nodes}${NC}"
   interrupt ${message}; clear
 
-  for cw_list in ${wk_nodes} ${cp_nodes}
+  for cwlist in ${wk_nodes} ${cp_nodes}
     do
-      echo -e "${YELLOW}${cw_list} | daemon status${NC}"
-      daemon-restart ${cw_list}
+      echo -e "${YELLOW}${cwlist} | daemon status${NC}"
+      daemon-restart ${cwlist}
       echo
     done
 ;;
@@ -1449,7 +1468,9 @@ wk-join) #Let worker nodes join cluster. [ <hosts> | <node-name> ... ]
     do
       echo -e "${YELLOW}${wlist} | join procedure${NC}"
       ssh ${wlist} "$JOIN --v=5"
+      echo -en "${GREEN}"
       kubectl label node ${wlist} node-role.kubernetes.io/worker=
+      echo -en "${NC}"
     done; echo && k9s -c pods -A
 ;;
 
@@ -1497,31 +1518,23 @@ cni-rm) #Delete kubernetes CNI. [ calico | flannel ]
 
 dns-rollout) #Rollout coredns & calico-api-server. [ if pod present ]
   #rollout coredns/calico-apiserver
-  kubectl rollout restart deployment/coredns -n kube-system
+  kubectl rollout restart deployment/coredns -n kube-system &> /dev/null
   while true
     do
-      kubectl get pods -n kube-system | grep 'coredns' | awk '{ print $3 }' | grep -v 'Running'
-      [ $? != 0 ] && break || clear
-      echo -en "${YELLOW}"
-      echo -n "Waiting coredns rollout"
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-    done; echo -en "${NC}"
+      kubectl get pods -n kube-system | grep 'coredns' | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+      [ $? != 0 ] && break
+    done
+    echo -e " ${GREEN}●${NC} coredns rollout"
 
-  kubectl get ns | grep 'calico-apiserver'
-  [ $? == 0 ] && kubectl rollout restart deployment/calico-apiserver -n calico-apiserver || exit
+  kubectl get ns | grep 'calico-apiserver' &> /dev/null
+  [ $? == 0 ] && kubectl rollout restart deployment/calico-apiserver -n calico-apiserver &> /dev/null || exit
 
   while true
     do
-      kubectl get pods -n calico-apiserver | grep 'calico-apiserver' | awk '{ print $3 }' | grep -v 'Running'
-      [ $? != 0 ] && break || clear
-      echo -en "${YELLOW}"
-      echo -n "Waiting calico-apiserver rollout"
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-      echo -n ".";sleep 0.5
-    done; echo -en "${NC}"
+      kubectl get pods -n calico-apiserver | grep 'calico-apiserver' | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+      [ $? != 0 ] && break
+    done
+    echo -e " ${GREEN}●${NC} calico-apiserver rollout"
 ;;
 
 csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
@@ -2506,7 +2519,25 @@ parm-check) #List all script parameter.
   cat ${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)/:/g' | sed 's/^/ > /' | sed 's/#//g'; echo
 ;;
 
+code)
+  node-selector hosts
+  shift
+  for cwlist in ${cp_nodes} ${wk_nodes}
+    do
+      ssh ${cwlist} "${@}"
+    done
+;;
+
 test)
+  node-selector ${@}
+
+  for cwlist in ${cp_nodes} ${wk_nodes}
+    do
+      ssh ${cwlist} 'cat /etc/hosts | grep '127.0.0.1' | grep ${HOSTNAME}' &> /dev/null
+      [ $? != 0 ] && ssh ${cwlist} 'sudo sed -i "s|127.0.0.1   |127.0.0.1   ${HOSTNAME} |g" /etc/hosts'
+      echo "${cwlist} /etc/hosts:"
+      ssh ${cwlist} 'cat /etc/hosts | grep '127.0.0.1' | grep ${HOSTNAME}'
+    done
 ;;
 
 "")
