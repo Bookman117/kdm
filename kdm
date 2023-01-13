@@ -2012,7 +2012,7 @@ helm-repo) #Check helm repository.
   [ "${2}" == "add" ] && helm-repo-add
 ;;
 
-cluster-check) #Check kubernetes cluster info.
+cluster-info) #Check kubernetes cluster info.
   if [ "${2}" == "cidr" ]
     then
       kubectl get node > /dev/null 2>&1
@@ -2027,14 +2027,19 @@ cluster-check) #Check kubernetes cluster info.
           echo -en "${YELLOW}${kube_node}: ${RED}${role}"
           echo -e "${NC} |" $(kubectl describe node ${kube_node} | grep Taint)
         done
-  elif [ "${2}" == "etcd-ls" ]
+  elif [ "${2}" == "etcd" ]
     then
       etcd_pod=$(kubectl get pods -n kube-system | grep 'etcd' | awk '{ print $1 }' | head -n 1)
       etcd_endpoints=$(echo ${etcd_pod} | cut -d '-' -f 2)
       kubectl exec -it ${etcd_pod} -n kube-system -- etcdctl --endpoints ${NETID}.${etcd_endpoints}:2379 --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key --cacert=/etc/kubernetes/pki/etcd/ca.crt member list
       echo
+  elif [ "${2}" == "all" ]
+    then
+      kdm cluster-info cidr
+      kdm cluster-info taints
+      kdm cluster-info etcd
     else
-      echo -e "${RED}Please input parameter after \"taints\" \n ${YELLOW}> [ cidr | taints | etcd-ls ]${NC}"
+      echo -e "${RED}Please input parameter after \"taints\" \n ${YELLOW}> [ cidr | taints | etcd | all ]${NC}"
   fi
 ;;
 
