@@ -45,8 +45,10 @@ export CRI_SUBVER=${CRI_RELEASE}.1
 export KUBE_RELEASE=1.24
 export KUBE_SUBVER=${KUBE_RELEASE}.1
 export KUBE_INIT_VER=v${KUBE_SUBVER}
-export ROOK_TAG=v1.10.8
+export ROOK_TAG=v1.10.9
 export PACKAGE_LIST="cri-o kubeadm kubectl kubelet podman helm"
+#disable/permissive/enforcing
+export SELINUX_MODE=permissive
 count=0
 cat /dev/null > /tmp/buffer
 while [ ${count} -le 9 ]
@@ -114,7 +116,7 @@ function start-info() {
   if [ "${status}" == "1" ]
     then
       echo -en "${GREEN}●${NC} Kubernetes deployed | ${cluster_ver}"
-      echo -e "${YELLOW} [ Input parameter \"help\" display more information ]${NC}\n"
+      echo -e "${YELLOW} [ Input parameter \"help\" display more information ]${NC}"
       echo -e "  └─ Active nodes${meassage}"
       echo ${cluster_list} | grep '\-m' &> /dev/null
       [ $? == 0 ] && echo -e "     └─ control-plane nodes   | ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-m' | tr -s '\n' ' '`${NC}" || echo "     └─ control-plane nodes   | --"
@@ -122,7 +124,7 @@ function start-info() {
       [ $? == 0 ] && echo -e "     └─ worker nodes          | ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-w' | tr -s '\n' ' '`${NC}" || echo -e "     └─ worker nodes          | --"
     else
       echo -en "${YELLOW}●${NC} Kubernetes not detected"
-      echo -e "${YELLOW} [ Input parameter \"help\" display more information ]${NC}\n"
+      echo -e "${YELLOW} [ Input parameter \"help\" display more information ]${NC}"
       echo -e "  └─ Plan list"
       echo -e "     └─ control-plane nodes   | ${YELLOW}`echo -e "${CP_NODES}"`${NC}"
       echo -e "     └─ worker nodes          | ${YELLOW}`echo ${WK_NODES}`${NC}"
@@ -255,7 +257,7 @@ function node-power () {
   echo -e "${YELLOW}nodes ${power} procedure${NC}"
   for list in ${wk_nodes} ${cp_nodes}
     do
-      echo -e "${RED}●${NC}${list} ${power} execute${NC}"
+      echo -e " ${RED}●${NC} ${list} ${power} execute${NC}"
       sleep 3
       ssh ${list} "sudo ${power}" 2> /dev/null
     done; echo
@@ -337,20 +339,23 @@ function sys-check() {
       #swap
       ssh ${cwlist} "sudo swapon --show | grep '/dev'" &> /dev/null
       [ $? != 0 ] && echo -e " ${GREEN}●${NC} swap disabled" || echo -e " ${YELLOW}●${NC} swap not disable"
-      #ipv4 forward
-      forward=$(ssh ${cwlist} "cat /proc/sys/net/bridge/bridge-nf-call-iptables 2> /dev/null")
-      [ "${forward}" == "1" ] && echo -e " ${GREEN}●${NC} ipv4_forward enabled" || echo -e " ${YELLOW}●${NC} ipv4 ip_forward not enable."
+      #modules
+      sys_modules=$(ssh ${cwlist} lsmod | awk '{ print $1 }' | grep -E 'br_netfilter|overlay' | sed ":a;N;s/\n/ | /g")
+      echo -e " ${GREEN}●${NC} Enable modules: ${YELLOW}[ ${sys_modules} ]${NC}"
       #SELinux
       status=0
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'disabled'" &> /dev/null && echo -e " ${GREEN}●${NC} SELinux disabled" && status=1
-      [ ${status} == 0 ] && [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'enabled'" &> /dev/null && se_status=$(ssh ${cwlist} sudo sestatus | grep 'Current mode:' | awk '{ print $3 }') && echo -e " ${YELLOW}●${NC} SELinux enable [ mode: ${se_status} ]"
+      [ ${status} == 0 ] && [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'enabled'" &> /dev/null && se_status=$(ssh ${cwlist} sudo sestatus | grep 'Current mode:' | awk '{ print $3 }') && echo -e " ${YELLOW}●${NC} SELinux mode: ${YELLOW}[ ${se_status} ]${NC}"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'disabled'" &> /dev/null && echo -e " ${GREEN}●${NC} SELinux disabled"
-      [ ${status} == 0 ] && [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'enabled'" &> /dev/null && se_status=$(ssh ${cwlist} sudo sestatus | grep 'Current mode:' | awk '{ print $3 }') && echo -e " ${YELLOW}●${NC} SELinux enable [ mode: ${se_status} ]"
+      [ ${status} == 0 ] && [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'enabled'" &> /dev/null && se_status=$(ssh ${cwlist} sudo sestatus | grep 'Current mode:' | awk '{ print $3 }') && echo -e " ${YELLOW}●${NC} SELinux mode: ${YELLOW}[ ${se_status} ]"
       #firewalld
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo systemctl status firewalld | grep 'active (running)'" &> /dev/null && echo -e " ${YELLOW}●${NC} firewalld not disable"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo systemctl status firewalld | grep 'inactive (dead)'" &> /dev/null && echo -e " ${GREEN}●${NC} firewalld disabled"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo systemctl status firewalld | grep 'active (running)'" &> /dev/null && echo -e " ${YELLOW}●${NC} firewalld not disable"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo systemctl status firewalld | grep 'inactive (dead)'" &> /dev/null && echo -e " ${GREEN}●${NC} firewalld disabled"
+      #ipv4 forward
+      forward=$(ssh ${cwlist} "cat /proc/sys/net/bridge/bridge-nf-call-iptables 2> /dev/null")
+      [ "${forward}" == "1" ] && echo -e " ${GREEN}●${NC} ipv4_forward enabled" || echo -e " ${YELLOW}●${NC} ipv4 ip_forward not enable."
       echo
     done
 }
@@ -858,33 +863,63 @@ set-ver) #Set kube*、cri-o package version.
   sys-variable
 ;;
 
+selinux)
+  if [ "${2}" == "set-mode" ]
+    then
+      [ -z ${3} ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-mode\" [ disable | permissive | enforcing ]${NC}\n" && exit
+      echo "${3}" | grep -vE 'disable|permissive|enforcing' &> /dev/null
+      [ $? == 0 ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-mode\" [ disable | permissive | enforcing ]${NC}\n" && exit
+
+      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && sudo sed -i "/^export\ SELINUX_MODE=/c\export\ SELINUX_MODE=${3}" ~/bin/kdm
+      [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && sudo sed -i "/^export SELINUX_MODE=/c\export SELINUX_MODE=${3}" ~/bin/kdm
+    
+      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && echo -e "${YELLOW}${cwlist}${NC}" && cat ~/bin/kdm | grep '^export\ SELINUX_MODE='
+      [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && echo -e "${YELLOW}${cwlist}${NC}" && cat ~/bin/kdm | grep '^export\ SELINUX_MODE='
+  elif [ "${2}" == "chmod" ]
+    then
+      node-selector hosts
+      for cwlist in ${wk_nodes} ${cp_nodes}
+        do
+          echo "${CRIO_OS_VERSION}" | grep -E "RHEL_8|CentOS_8_Stream" &> /dev/null
+          [ $? == 0 ] && status=1 || status=0
+          echo -e "${cwlist}"
+
+          cat ~/bin/kdm | grep '^export\ SELINUX_MODE=' | grep -E 'permissive|enforcing' &> /dev/null
+          [ $? == 0 ] && [ "${status}" == "1" ] && ssh ${cwlist} sudo setenforce ${SELINUX_MODE}
+          
+          [ "${status}" == "1" ] && ssh ${cwlist} "sudo sed -i "/^SELINUX=/c\SELINUX=${SELINUX_MODE}" /etc/selinux/config"
+          [ "${status}" == "1" ] && ssh ${cwlist} cat /etc/selinux/config | grep '^SELINUX='
+        done
+  fi
+;;
+
 sync-ssh) #scp .ssh to every nodes.
-node-selector hosts
-for cwlist in ${cp_nodes} ${wk_nodes}
-  do
-    echo -en "${YELLOW}Send to ${cwlist}${NC}"
-    scp -r .ssh ${cwlist}: 2> /dev/null
-  done
+  node-selector hosts
+  for cwlist in ${cp_nodes} ${wk_nodes}
+    do
+      echo -en "${YELLOW}Send to ${cwlist}${NC}"
+      scp -r .ssh ${cwlist}: 2> /dev/null
+    done
 ;;
 
 sync-kdm) #scp kdm to every nodes.
-node-selector hosts
-for cwlist in ${cp_nodes} ${wk_nodes}
-  do
-    ssh ${cwlist} "ls ~/bin &> /dev/null"
-    [ $? != 0 ] && ssh ${cwlist} "mkdir ~/bin &> /dev/null"
-    echo -en "${YELLOW}Send to ${cwlist}${NC}"
-    scp bin/kdm ${cwlist}:bin/ 2> /dev/null
-  done
+  node-selector hosts
+  for cwlist in ${cp_nodes} ${wk_nodes}
+    do
+      ssh ${cwlist} "ls ~/bin &> /dev/null"
+      [ $? != 0 ] && ssh ${cwlist} "mkdir ~/bin &> /dev/null"
+      echo -en "${YELLOW}Send to ${cwlist}${NC}"
+      scp bin/kdm ${cwlist}:bin/ 2> /dev/null
+    done
 ;;
 
 sync-yaml) #scp yaml to every nodes.
-node-selector hosts
-for cwlist in ${cp_nodes}
-  do
-    echo -en "${YELLOW}Send to ${cwlist}${NC}"
-    scp -r yaml ${cwlist}: 2> /dev/null
-  done
+  node-selector hosts
+  for cwlist in ${cp_nodes}
+    do
+      echo -en "${YELLOW}Send to ${cwlist}${NC}"
+      scp -r yaml ${cwlist}: 2> /dev/null
+    done
 ;;
 
 pkg-ver) #Check package repositories.
@@ -997,17 +1032,18 @@ pkg-install) #Install basic package & setup environment.
 
       #SELinux setting
       status=0
+      sed "/^SELINUX=/c\SELINUX=${SELINUX_MODE}"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo setenforce 0" &> /dev/null
-      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config"
+      [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sed -i "/^SELINUX=/c\SELINUX=${SELINUX_MODE}" /etc/selinux/config"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo nmcli connection modify ${KUBE_INTERFACE} ipv6.method ignore"
       [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'disabled'" &> /dev/null && echo -e " ${GREEN}●${NC} SELinux disabled" && status=1
-      [ ${status} == 0 ] && [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'enabled'" &> /dev/null && se_status=$(ssh ${cwlist} sudo sestatus | grep 'Current mode:' | awk '{ print $3 }') && echo -e " ${YELLOW}●${NC} SELinux enable [ mode: ${se_status} ]"
+      [ ${status} == 0 ] && [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'enabled'" &> /dev/null && se_status=$(ssh ${cwlist} sudo sestatus | grep 'Current mode:' | awk '{ print $3 }') && echo -e " ${YELLOW}●${NC} SELinux mode: ${YELLOW}[ ${se_status} ]${NC}"
 
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo setenforce 0" &> /dev/null
-      [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config"
+      [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo sed -i "/^SELINUX=/c\SELINUX=${SELINUX_MODE}" /etc/selinux/config"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo nmcli connection modify ${KUBE_INTERFACE} ipv6.method ignore"
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'disabled'" &> /dev/null && echo -e " ${GREEN}●${NC} SELinux disabled"
-      [ ${status} == 0 ] && [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'enabled'" &> /dev/null && se_status=$(ssh ${cwlist} sudo sestatus | grep 'Current mode:' | awk '{ print $3 }') && echo -e " ${YELLOW}●${NC} SELinux enable [ mode: ${se_status} ]"
+      [ ${status} == 0 ] && [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${cwlist} "sudo sestatus | grep 'SELinux status:' | grep 'enabled'" &> /dev/null && se_status=$(ssh ${cwlist} sudo sestatus | grep 'Current mode:' | awk '{ print $3 }') && echo -e " ${YELLOW}●${NC} SELinux mode: ${YELLOW}[ ${se_status} ]${NC}"
 
       #modules setup
       modules=1
@@ -1583,28 +1619,38 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
         cp ~/rook/deploy/examples/csi/cephfs/storageclass.yaml ~/yaml/rook/storageclass-fs.yaml
         cp ~/rook/deploy/examples/csi/cephfs/pvc.yaml ~/yaml/rook/pvc-fs.yaml
 
+        #if SELinux enabled, must be set this variable to true
+        getenforce | grep -E 'Permissive|Enforcing' &> /dev/null
+        [ $? == 0 ] && sed -i '/ROOK_HOSTPATH_REQUIRES_PRIVILEGED/{n;s/false/true/;}' ~/yaml/rook/operator.yaml
+        cat ~/yaml/rook/operator.yaml | grep -A 1 'ROOK_HOSTPATH_REQUIRES_PRIVILEGED' | grep 'value: "true"' &> /dev/null
+        [ $? != 0 ] && echo "~/yaml/rook/operator.yaml setting is Incorrect. " && exit
+        
         #create
-        kubectl apply -f ~/yaml/rook/crds.yaml; sleep 3
-        echo -e "${YELLOW}crds created${NC}"
-        kubectl apply -f ~/yaml/rook/common.yaml; sleep 3
-        echo -e "${YELLOW}common created${NC}"
-        kubectl apply -f ~/yaml/rook/operator.yaml; sleep 3
-        echo -e "${YELLOW}operator created${NC}"
-        kubectl apply -f ~/yaml/rook/cluster.yaml; sleep 3
-        echo -e "${YELLOW}cluster created${NC}"
-        kubectl apply -f ~/yaml/rook/pool.yaml; sleep 3
-        echo -e "${YELLOW}pool created${NC}"
-        kubectl apply -f ~/yaml/rook/toolbox.yaml; sleep 3
-        echo -e "${YELLOW}toolbox created${NC}"
+        echo -e "${YELLOW}crds applied${NC}"
+        kubectl apply -f ~/yaml/rook/crds.yaml; sleep 2
+        echo -e "${YELLOW}common applied${NC}"
+        kubectl apply -f ~/yaml/rook/common.yaml; sleep 2
+        echo -e "${YELLOW}operator applied${NC}"
+        kubectl apply -f ~/yaml/rook/operator.yaml; sleep 2
+        echo -e "${YELLOW}cluster applied${NC}"
+        kubectl apply -f ~/yaml/rook/cluster.yaml; sleep 2
+        echo -e "${YELLOW}pool applied${NC}"
+        kubectl apply -f ~/yaml/rook/pool.yaml; sleep 2
+        echo -e "${YELLOW}toolbox applied${NC}"
+        kubectl apply -f ~/yaml/rook/toolbox.yaml; sleep 2
 
-        kubectl apply -f ~/yaml/rook/storageclass-block.yaml; sleep 3
-        echo -e "${YELLOW}storageclass-block created${NC}"
-        kubectl apply -f ~/yaml/rook/filesystem.yaml; sleep 3
-        echo -e "${YELLOW}filesystem created${NC}"
-        kubectl apply -f ~/yaml/rook/storageclass-fs.yaml; sleep 3
-        echo -e "${YELLOW}storageclass-fs created${NC}"
+        echo -e "${YELLOW}storageclass-block applied${NC}"
+        kubectl apply -f ~/yaml/rook/storageclass-block.yaml; sleep 2
+        
+        echo -e "${YELLOW}filesystem applied${NC}"
+        kubectl apply -f ~/yaml/rook/filesystem.yaml; sleep 2
+        
+        echo -e "${YELLOW}storageclass-fs applied${NC}"
+        kubectl apply -f ~/yaml/rook/storageclass-fs.yaml; sleep 2
+        
+        echo -e "${YELLOW}deshboard ingress applied${NC}"
         kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/ceph-deshboard.yaml
-        echo -e "${YELLOW}deshboard ingress created${NC}"
+        
         echo -e "\n${YELLOW}rook-ceph deployed, please wait OSDs deploy.${NC}"
         sleep 3
         k9s -c pods -n ${NAME_SPACE_8}
@@ -1637,10 +1683,6 @@ csi-rm) #Delete kubernetes CSI. [ local-path | rook-ceph ]
       then
         message="${RED}Please confirm this command will destruction CSI ${YELLOW}${2} ${RED}!${NC}"
         interrupt ${message}
-        #helm rook-ceph delete
-        #helm delete rook-ceph -n ${NAME_SPACE_8}
-        #kubectl delete namespace rook-ceph
-        #helm repo remove rook-release
         kubectl -n ${NAME_SPACE_8} patch cephcluster rook-ceph --type merge -p '{"spec":{"cleanupPolicy":{"confirmation":"yes-really-destroy-data"}}}'
         kubectl delete CephBlockPool/replicapool -n ${NAME_SPACE_8}
         kubectl delete CephFilesystem/myfs -n ${NAME_SPACE_8}
@@ -1649,8 +1691,6 @@ csi-rm) #Delete kubernetes CSI. [ local-path | rook-ceph ]
         kubectl delete -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/ceph-deshboard.yaml
         kubectl delete -f ~/yaml/rook/storageclass.yaml
         kubectl delete -f ~/yaml/rook/toolbox.yaml; sleep 3
-        #kubectl delete -f ~/yaml/rook/pool.yaml; sleep 3
-        #kubectl delete -f ~/yaml/rook/cluster.yaml; sleep 3
         kubectl delete -f ~/yaml/rook/operator.yaml; sleep 3
         kubectl delete -f ~/yaml/rook/common.yaml; sleep 3
         kubectl delete -f ~/yaml/rook/crds.yaml; sleep 3
@@ -2268,6 +2308,8 @@ cluster-reset) #Reset kubernetes cluster.
   node-selector hosts
 
   start-info; echo
+  echo -e "${YELLOW}StorageClass:${NC}"
+  kubectl get storageclass -A | grep 'rook-ceph' | awk '{ print $1 }' | sed ":a;N;s/\n/\ | /g"
   message="${RED}Please confirm this command will destruction cluster!${NC}"
   interrupt ${message}
 
