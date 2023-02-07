@@ -1,6 +1,6 @@
 # kdm
-
-Deploy kubernetes on ubuntu server 20.04/22.04 LTS & Rocky Linux 8/9 & RHEL 8/9.  
+Kubernetes Deployment Manager
+Support OS: Ubuntu server 20.04/22.04 LTS | Rocky Linux 8/9 | RHEL 8/9.  
   
 System-setup | 20
  > system-info: Show host basic information.  
