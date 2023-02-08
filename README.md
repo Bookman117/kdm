@@ -2,7 +2,7 @@
 Kubernetes Deployment Manager
 Support OS: Ubuntu server 20.04/22.04 LTS | Rocky Linux 8/9 | RHEL 8/9.  
   
-System-setup | 20
+System-setup | 21
  > system-info: Show host basic information.  
  > system-var: Check script variables.  
  > system-conf: Configure file & directory.  
@@ -12,7 +12,8 @@ System-setup | 20
  > set-hosts: Setup hosts. [ hosts m Start End w Start End [ Detect NETID just input xxx xxx ] ]  
  > set-ip: Setup IP Address. [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]  
  > set-hostname: Setup hostname. [ hostname [ name ] ]  
- > set-ver: Set kube*、cri-o package version  
+ > set-ver: Set kube*、cri-o package version.  
+ > set-selinux: Setting SELinux mod. [ set | apply ]  
  > sync-ssh: scp .ssh to every nodes.  
  > sync-kdm: scp kdm to every nodes.  
  > sync-yaml: scp yaml to every nodes.  
