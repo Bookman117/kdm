@@ -28,9 +28,9 @@ os-detection
 # Set variables
 # Version control
 export VER_SWITCH=latest
-export CRI_RELEASE=1.24
+export CRI_RELEASE=1.26
 export CRI_SUBVER=${CRI_RELEASE}.1
-export KUBE_RELEASE=1.24
+export KUBE_RELEASE=1.26
 export KUBE_SUBVER=${KUBE_RELEASE}.1
 export KUBE_INIT_VER=v${KUBE_SUBVER}
 export KUBE_REGISTRY=registry.k8s.io
@@ -587,19 +587,19 @@ function dir-delete-list () {
   [ $? == 0 ] && ssh ${wclist} "sudo rm -r ~/.kube" || echo -e "[${GREEN}●${NC}] Target has been removed: ~/.kube"
   ssh ${wclist} "sudo ls /etc/systemd/system/etcd*" &> /dev/null
   [ $? == 0 ] && ssh ${wclist} "sudo rm /etc/systemd/system/etcd*" &> /dev/null || echo -e "[${GREEN}●${NC}] Target has been removed: /etc/systemd/system/etcd*"
-  empty=$(ssh ${wclist} "ls /var/log/pods/ | wc -l")
+  empty=$(ssh ${wclist} "ls /var/log/pods/ | wc -l 2> /dev/null")
   [ ${empty} != 0 ] && ssh ${wclist} "sudo rm -r /var/log/pods/*" &> /dev/null || echo -e "[${GREEN}●${NC}] Target has been removed: /var/log/pods/*"
-  empty=$(ssh ${wclist} "sudo ls /etc/kubernetes/manifests/ | wc -l")
+  empty=$(ssh ${wclist} "sudo ls /etc/kubernetes/manifests/ | wc -l 2> /dev/null")
   [ ${empty} != 0 ] && ssh ${wclist} "sudo rm /etc/kubernetes/manifests/*" &> /dev/null || echo -e "[${GREEN}●${NC}] Target has been removed: /etc/kubernetes/manifests/*"
-  empty=$(ssh ${wclist} "sudo ls /etc/cni/net.d/ | wc -l")
+  empty=$(ssh ${wclist} "sudo ls /etc/cni/net.d/ | wc -l 2> /dev/null")
   [ ${empty} != 0 ] && ssh ${wclist} "sudo rm /etc/cni/net.d/*" &> /dev/null || echo -e "[${GREEN}●${NC}] Target has been removed: /etc/cni/net.d/*"
-  empty=$(ssh ${wclist} "ls /var/lib/calico/ | wc -l")
+  empty=$(ssh ${wclist} "ls /var/lib/calico/ | wc -l 2> /dev/null")
   [ ${empty} != 0 ] && ssh ${wclist} "sudo rm /var/lib/calico/*" &> /dev/null || echo -e "[${GREEN}●${NC}] Target has been removed: /var/lib/calico/*"
-  empty=$(ssh ${wclist} "ls /var/log/containers/ | wc -l")
+  empty=$(ssh ${wclist} "ls /var/log/containers/ | wc -l 2> /dev/null")
   [ ${empty} != 0 ] && ssh ${wclist} "sudo rm /var/log/containers/*" &> /dev/null || echo -e "[${GREEN}●${NC}] Target has been removed: /var/log/containers/*"
-  empty=$(ssh ${wclist} "ls /var/log/calico/cni/ | wc -l")
+  empty=$(ssh ${wclist} "ls /var/log/calico/cni/ | wc -l 2> /dev/null")
   [ ${empty} != 0 ] && ssh ${wclist} "sudo rm /var/log/calico/cni/*" &> /dev/null || echo -e "[${GREEN}●${NC}] Target has been removed: /var/log/calico/cni/*"
-  empty=$(ssh ${wclist} "sudo ls /opt/cni/bin/ | wc -l")
+  empty=$(ssh ${wclist} "sudo ls /opt/cni/bin/ | wc -l 2> /dev/null")
   [ ${empty} != 0 ] && ssh ${wclist} "sudo rm -r /opt/cni/bin/*" &> /dev/null || echo -e "[${GREEN}●${NC}] Target has been removed: /opt/cni/bin/*"
   empty=$(ssh ${wclist} "sudo ls /var/log/crio/pods | wc -l 2> /dev/null")
   [ ${empty} != 0 ] && ssh ${wclist} "sudo rm -r /var/log/crio/pods" &> /dev/null || echo -e "[${GREEN}●${NC}] Target has been removed: /var/log/crio/pods"
@@ -869,17 +869,11 @@ set-ver) #Set kube*、cri-o package version.
 
   echo -en "${YELLOW}"
   sed -i "s|export CRI_RELEASE=${CRI_RELEASE}|export CRI_RELEASE=${v1}|g" ~/bin/kdm
-  cat ~/bin/kdm | grep 'export CRI_RELEASE=*' | grep -v 'sed'
   sed -i "s|export CRI_SUBVER=\${CRI_RELEASE}.*|export CRI_SUBVER=\${CRI_RELEASE}.${v2}|g" ~/bin/kdm
-  cat ~/bin/kdm | grep 'export CRI_SUBVER=*' | grep -v 'sed'
   sed -i "s|export KUBE_RELEASE=${KUBE_RELEASE}|export KUBE_RELEASE=${v1}|g" ~/bin/kdm
-  cat ~/bin/kdm | grep 'export KUBE_RELEASE=*' | grep -v 'sed'
   sed -i "s|export KUBE_SUBVER=\${KUBE_RELEASE}.*|export KUBE_SUBVER=\${KUBE_RELEASE}.${v2}|g" ~/bin/kdm
-  cat ~/bin/kdm | grep 'export KUBE_SUBVER=*' | grep -v 'sed'
-
   sed -i "s|^export VER_SWITCH=[a-z]*|export VER_SWITCH=${2}|g" ~/bin/kdm
-  cat ~/bin/kdm | grep '^export VER_SWITCH=[a-z]*' | grep -v 'sed'
-  echo -e "${NC}"
+  echo -en "${NC}"
   sys-variable
 ;;
 
@@ -1510,7 +1504,7 @@ wk-join) #Let worker nodes join cluster. [ <hosts> | <node-name> ... ]
     else
       shift
       list="${@}"
-      wk_nodes=$(echo "${list}" | tr -s ' ' '\n' | grep "\-m" | tr -s '\n' ' ')
+      wk_nodes=$(echo "${list}" | tr -s ' ' '\n' | grep "\-w" | tr -s '\n' ' ')
   fi
 
   message="${RED}Please confirm this command will let ${YELLOW}${wk_nodes}${RED}join cluster!${NC}"
@@ -1717,10 +1711,10 @@ csi-rm) #Delete kubernetes CSI. [ local-path | rook-ceph ]
   fi
 ;;
 
-csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | lvm-status | wipe-data ]
+csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | lvm-status | wipe-data | disk-check ]
   if [ "$2" == "" ]
     then
-      echo -e "${YELLOW}Please input parameter [ status | fix-mon | dashboard-pw | data-check | lvm-status | wipe-data ]${NC}"
+      echo -e "${YELLOW}Please input parameter [ status | dashboard-pw | data-check | lvm-status | wipe-data | disk-check ]${NC}"
   elif [ "$2" == "status" ]
     then
       #rook version
@@ -1777,6 +1771,7 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
           disk_list=$(ssh ${wlist} sudo fdisk -l | grep '^Disk' | grep 'sd' | awk '{ print $2 }' | sed 's/://g;s/\/dev\///g' | tr -s '\n' ' ' | sed 's/.$//' | sed 's/sd/\/dev\/sd/g')
           for ceph_list in ${disk_list}
             do
+              taget=""
               ssh ${wlist} sudo wipefs ${ceph_list} | grep 'ceph_bluestore' &> /dev/null
               [ $? == 0 ] && taget="/dev/"$(ssh ${wlist} sudo wipefs ${ceph_list} | grep 'ceph_bluestore' | awk '{ print $1 }') && break || continue
             done
@@ -1802,6 +1797,22 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
           echo -e "${YELLOW}${clist} data wipe procedure${NC}"
           ssh ${clist} sudo rm -r /var/lib/rook/ &> /dev/null
           [ $? == 0 ] && echo -e " [${GREEN}●${NC}] ${clist} Directory has been cleanup" || echo -e " [${RED}●${NC}] ${clist} Data directory not found"
+        done
+  elif [ "$2" == "disk-check" ]
+    then
+      node-selector ${@}
+      echo -e "${YELLOW}Check worker disk resource for rook-ceph${NC}"
+
+      for wlist in ${wk_nodes}
+        do
+          disk_list=$(ssh ${wlist} sudo fdisk -l | grep '^Disk' | grep 'sd' | awk '{ print $2 }' | sed 's/://g;s/\/dev\///g' | tr -s '\n' ' ' | sed 's/.$//' | sed 's/sd/\/dev\/sd/g')
+          for ceph_list in ${disk_list}
+            do
+              taget=""
+              ssh ${wlist} sudo wipefs ${ceph_list} | grep 'ceph_bluestore' &> /dev/null
+              [ $? == 0 ] && taget="/dev/"$(ssh ${wlist} sudo wipefs ${ceph_list} | grep 'ceph_bluestore' | awk '{ print $1 }') && break || continue
+            done
+          echo "${wlist}: ${taget}"
         done
   fi
   echo
@@ -2454,31 +2465,34 @@ cri-clean) #Remove CRI running pods.
 
 node-check) #Check nodes port | hostname. [ <hosts> | <hosts> <name> | <hosts> <port> | <NETID> <Start> <End> <Port> ]
   [ -z ${2} ] && echo -e "${RED}Please input parameter [ <hosts> | <hosts> <name> | <hosts> <port> | <NETID> <Start> <End> <Port> ]${NC}\n" && exit
-
+  #hosts check
   if [ "${2}" == "hosts" ]
     then
-      [ -z ${3} ] && port=22 || port=${3}
+      [ -z ${3} ] && port=22
+      [ "${3}" == "name" ] && port=22 || port=${3}
       #[ -z ${3} ] && echo -e "${RED}Please input port number. [ node-check hosts <Port> ]${NC}\n" && exit
 
       node_ip_list=$(cat /etc/hosts | grep -v '#' | grep -E '\-m|\-w|kube-vip' | grep "${NETID}" | awk '{ print $1 }')
       echo -e "${YELLOW}Node-checker running...${NC}"
       for ip_list in ${node_ip_list}
         do
-          nc -w 1 -z ${ip_list} ${port} &> /dev/null
+          [ -z ${3} ] && port=22
+          nc -w 2 -z ${ip_list} ${port} &> /dev/null
           port_status=$(echo $?)
           if [ "${3}" == "name" ]
             then
-              port=22
+              [ -z ${3} ] && port=22
               [ "${port_status}" == "0" ] && ssh -o ConnectTimeout=1 -o BatchMode=yes ${ip_list} 'hostname' 2>&1 | grep '@' &> /dev/null
               [ $? == 0 ] && hostname="NO SSH-KEY" || hostname=$(ssh -o ConnectTimeout=1 -o BatchMode=yes ${ip_list} 'hostname' 2> /dev/null)
               [ "${hostname}" != "NO SSH-KEY" ] && ssh -o ConnectTimeout=1 -o BatchMode=yes ${ip_list} 'hostname' 2>&1 | grep 'fingerprint' &> /dev/null
               [ $? == 0 ] && hostname="WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!"
               [ "${port_status}" == "0" ] && echo -e " [${GREEN}●${NC}] ${ip_list} | ${YELLOW}${port}${NC} Port Pass\t| Hostname: ${hostname}" || echo -e " [${RED}●${NC}] ${ip_list} | ${YELLOW}${port}${NC} Port Not Pass\t| Hostname: --"
             else
-              port=22
+              [ -z ${3} ] && port=22
               [ "${port_status}" == "0" ] && echo -e " [${GREEN}●${NC}] ${ip_list} | ${YELLOW}${port}${NC} Port Pass" || echo -e " [${RED}●${NC}] ${ip_list} | ${YELLOW}${port}${NC} Port Not Pass"
           fi
         done
+    #Check non-join nodes
     elif [ "${2}" == "non-join" ]
       then
         nc -z -w 1 `hostname` 10250 > /dev/null 2>&1
@@ -2486,15 +2500,15 @@ node-check) #Check nodes port | hostname. [ <hosts> | <hosts> <name> | <hosts> <
         echo -e "${YELLOW}non join node list${NC}"
         [ "${cluster_list}" != "" ] && echo -e " > All nodes are joined" || echo -e "`cat /etc/hosts | grep -vE '#|ip6|k8s.org' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list} | tr -s '\n' ' '`\n"
     else
-      [ -z "${3}" ] && echo -e "${RED}Please input port number. [ hosts <Port> or <NETID> <Start> <End> <Port> ]${NC}\n" && exit
-      declare -i start=$3 end=$4 port=$5; net=$2; ip_list=0
+      [ "${2}" != "${NETID}" ] && echo -e "${RED}Please input port number. [ hosts <Port> or <NETID> <Start> <End> <Port> ]${NC}\n" && exit
+      declare -i start=${3} end=${4} port=${5}; net=${2}; ip_list=0
       echo -e "${YELLOW}Node-checker running...${NC}"
       for ((start;start<=end; start=start+1))
         do
           ip_list=$(echo "${net}.${start}")
           nc -w 1 -z ${ip_list} ${port} &> /dev/null
           port_status=$(echo $?)
-          if [ "${6}" == "hostname" ]
+          if [ "${6}" == "name" ]
             then
               [ "${port_status}" == "0" ] && ssh -o ConnectTimeout=1 -o BatchMode=yes ${ip_list} 'hostname' 2>&1 | grep '@' &> /dev/null
               [ $? == 0 ] && hostname="NO SSH-KEY" || hostname=$(ssh -o ConnectTimeout=1 -o BatchMode=yes ${ip_list} 'hostname' 2> /dev/null)
