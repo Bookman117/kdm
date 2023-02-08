@@ -99,7 +99,7 @@ function start-info() {
     do
       nc -z -w 1 ${ip_list} 10250 > /dev/null 2>&1
       [ $? == 0 ] && status=1 || status=0
-      [ "${status}" == "1" ] && cluster_list=$(ssh ${ip_list} kubectl get nodes 2> /dev/null | tail -n +2 | cut -d " " -f 1 | tr -s '\n' ' ') && cluster_ver=$(ssh ${ip_list} kubectl get nodes 2> /dev/null | grep '\-m1' | awk '{ print $5}') && break
+      [ "${status}" == "1" ] && cluster_list=$(ssh ${ip_list} kubectl get nodes 2> /dev/null | tail -n +2 | cut -d " " -f 1 | tr -s '\n' ' ') && cluster_ver=$(ssh ${ip_list} kubectl get nodes 2> /dev/null | grep '\-m' | awk '{ print $5}' | head -n 1) && break
       [ "${status}" == "0" ] && break
     done
   nc -z -w 1 `hostname` 10250 > /dev/null 2>&1
@@ -171,7 +171,7 @@ function sys-check() {
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${ip_list} "sudo systemctl status firewalld | grep 'inactive (dead)'" &> /dev/null && echo -e " [${GREEN}●${NC}] firewalld:\t\tdisabled"
       #swap
       ssh ${ip_list} "sudo swapon --show | grep '/dev'" &> /dev/null
-      [ $? != 0 ] && echo -e " [${GREEN}●${NC}] swap:\t\tdisabled" || echo -e " [${YELLOW}●${NC}] swap\t\tnot disable"
+      [ $? != 0 ] && echo -e " [${GREEN}●${NC}] swap:\t\tdisabled" || echo -e " [${RED}●${NC}] swap\t\tnot disable"
       #ipv4 forward
       forward=$(ssh ${ip_list} "cat /proc/sys/net/bridge/bridge-nf-call-iptables 2> /dev/null")
       [ "${forward}" == "1" ] && echo -e " [${GREEN}●${NC}] ipv4_forward:\tenabled" || echo -e " [${YELLOW}●${NC}] ipv4 ip_forward\tnot enable."
@@ -1028,7 +1028,7 @@ pkg-install) #Install basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${ip_list} "sudo sed -i 's|/swap.img|#/swap.img|g' /etc/fstab" &> /dev/null
       
       ssh ${ip_list} "sudo swapon --show | grep '/dev'" &> /dev/null
-      [ $? != 0 ] && echo -e " [${GREEN}●${NC}] System\t| swap disabled" || echo -e " [${YELLOW}●${NC}] System\t| swap not disable"
+      [ $? != 0 ] && echo -e " [${GREEN}●${NC}] System\t| swap disabled" || echo -e " [${RED}●${NC}] System\t| swap not disable"
 
       #firewalld setup
       #[ "${CRIO_OS_VERSION}" == "RHEL_8" ] && ssh ${ip_list} "sudo dnf install -y iproute-tc &> /dev/null"
@@ -1718,6 +1718,9 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
   elif [ "$2" == "status" ]
     then
       #rook version
+      kubectl get ns | grep 'rook-ceph' &> /dev/null
+      [ $? != 0 ] && echo -e " [${RED}●${NC}] rook-ceph not detected\n" && exit
+
       ROOK_GIT_VER=$(kubectl -n ${NAME_SPACE_8} get jobs -o jsonpath='{range .items[*]}{.metadata.name}{"  \tsucceeded: "}{.status.succeeded}{"      \trook-version="}{.metadata.labels.rook-version}{"\n"}{end}' | awk '{ print $4 }' | cut -d '=' -f 2 | grep "^v" | head -n 1)
       POD_NAME=$(kubectl -n ${NAME_SPACE_8} get pod -o custom-columns=name:.metadata.name --no-headers | grep rook-ceph-mon-b)
       CEPH_IMAGE=$(kubectl -n ${NAME_SPACE_8} get pod ${POD_NAME} -o jsonpath='{.spec.containers[0].image}')
