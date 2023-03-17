@@ -39,7 +39,7 @@ export KUBE_RELEASE=1.26
 export KUBE_SUBVER=${KUBE_RELEASE}.1
 export KUBE_INIT_VER=v${KUBE_SUBVER}
 export KUBE_REGISTRY=registry.k8s.io
-export ROOK_TAG=v1.11.0
+export ROOK_TAG=v1.10.12
 export PACKAGE_LIST="cri-o kubeadm kubectl kubelet podman helm"
 #disable/permissive/enforcing
 export SELINUX_MODE=enforcing
@@ -409,10 +409,10 @@ function pkg-check()
   crio_status="sudo systemctl status crio | grep 'Active'"
   crio_time="sudo systemctl status crio | grep 'Active' | cut -d ';' -f 2 | grep -v 'inactive'"
   #kubelet
-  kubelet_version="kubelet --version | sed 's/v//g'"
-  kubelet_active="sudo systemctl status kubelet | grep 'Main PID' | grep 'kubelet'"
-  kubelet_status="sudo systemctl status kubelet | grep 'Active'"
-  kubelet_time="sudo systemctl status kubelet | grep 'Active' | cut -d ';' -f 2 | grep -v 'inactive'"
+  kubelet_version="kubelet --version | sed 's/v//g' 2> /dev/null"
+  kubelet_active="sudo systemctl status kubelet | grep 'Main PID' | grep 'kubelet' 2> /dev/null"
+  kubelet_status="sudo systemctl status kubelet | grep 'Active' 2> /dev/null"
+  kubelet_time="sudo systemctl status kubelet | grep 'Active' | cut -d ';' -f 2 | grep -v 'inactive' 2> /dev/null"
   #kubeadm
   kubeadm_version="kubeadm version -o yaml | grep 'gitVersion' | sed 's/v//g'"
   #kubectl
@@ -435,10 +435,11 @@ function pkg-check()
       ssh ${clist} "sudo systemctl status crio 2> /dev/null | grep "Active:" | grep "failed" &> /dev/null" ssh ${clist} sudo systemctl status crio | grep "Loaded:" | grep -v "not-found" && status=0
       [ $? == 0 ] && [ "${status}" == 0 ] && echo -e " [${YELLOW}●${NC}] crio:\t`ssh ${clist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${clist} ${crio_status} | awk '{ print $2,$3,$4 }'` | `ssh ${clist} ${crio_time} | sed 's/^.//'`"
       #kubelet
-      ssh ${clist} "${kubelet_active}" &> /dev/null
-      [ $? == 0 ] && echo -e " [${GREEN}●${NC}] kubelet:\t`ssh ${clist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${clist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
       ssh ${clist} "which kubelet" &> /dev/null
-      [ $? != 0 ] && echo -e " [${YELLOW}●${NC}] kubelet\tnot install" || echo -e " [${GREEN}●${NC}] kubelet:\t`ssh ${clist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${clist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
+      [ $? != 0 ] && echo -e " [${YELLOW}●${NC}] kubelet\tnot install" && status=0 || status=1
+      [ "${status}" == "1" ] && ssh ${clist} "${kubelet_active}" &> /dev/null && active=0 || active=1
+      [ "${status}" == "1" ] && [ "${active}" == "0" ] && echo -e " [${GREEN}●${NC}] kubelet:\t`ssh ${clist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${clist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
+      [ "${status}" == "1" ] && [ "${active}" == "1" ] && echo -e " [${YELLOW}●${NC}] kubelet:\t`ssh ${clist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${clist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
       #kubeadm
       ssh ${clist} "which kubeadm" &> /dev/null
       [ $? != 0 ] && echo -e " [${YELLOW}●${NC}] kubeadm\tnot install" || echo -e " [${GREEN}●${NC}] kubeadm:\t`ssh ${clist} ${kubeadm_version} 2>&1 | awk '{ print $2 }' `"
@@ -1722,9 +1723,8 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
         
         [ "${CRIO_OS_VERSION}" == "RHEL_8" ] && cat ~/yaml/rook/operator.yaml | grep -A 1 'ROOK_HOSTPATH_REQUIRES_PRIVILEGED' | grep 'value: "true"' &> /dev/null && status=1 || status=0
         [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && cat ~/yaml/rook/operator.yaml | grep -A 1 'ROOK_HOSTPATH_REQUIRES_PRIVILEGED' | grep 'value: "true"' &> /dev/null && status=1 || status=0
-        [ "${status}" == "1" ] && echo -e " [${RED}●${NC}] ~/yaml/rook/operator.yaml setting is Incorrect. " && exit
-
-        [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && 
+        [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && status=1
+        [ "${status}" == "0" ] && echo -e " [${RED}●${NC}] ~/yaml/rook/operator.yaml setting is Incorrect. " && exit
         
         #create
         echo -e "${YELLOW}crds applied${NC}"
