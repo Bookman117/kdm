@@ -26,7 +26,7 @@ install=1
 [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && install=2
 [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && which route &> /dev/null && install=0
 [ "${install}" == "2" ] && sudo apt-get update -qy && sudo apt-get install -qy net-tools iputils-ping dnsutils netcat && clear
-[ "${CRIO_OS_VERSION}" == "macOS" ] && 
+[ "${CRIO_OS_VERSION}" == "macOS" ] &&
 os-detection
 # ---
 
@@ -39,7 +39,7 @@ export KUBE_RELEASE=1.26
 export KUBE_SUBVER=${KUBE_RELEASE}.1
 export KUBE_INIT_VER=v${KUBE_SUBVER}
 export KUBE_REGISTRY=registry.k8s.io
-export ROOK_TAG=v1.10.12
+export ROOK_TAG=v1.11.1
 export PACKAGE_LIST="cri-o kubeadm kubectl kubelet podman helm"
 #disable/permissive/enforcing
 export SELINUX_MODE=enforcing
@@ -573,8 +573,8 @@ function kubelet-install-check ()
   ssh ${1} "which kubelet" &> /dev/null
   [ $? == 0 ] && kubelet_check=$(ssh ${1} kubelet --version 2> /dev/null | grep "^Kubernetes" | awk '{ print $2 }') && status=1
   [ "${status}" == "1" ] && echo -e " [${GREEN}●${NC}] Package\t| kubelet ${kubelet_check} installed" || echo -e " [${YELLOW}●${NC}] Package\t| kubelet not install"
-  ssh ${1} ls -al /etc/systemd/system/kubelet.service.d/ | grep -w "10-kubeadm.conf$" &> /dev/null
-  [ $? != 0 ] && target=$(ls /etc/systemd/system/kubelet.service.d/) && ssh ${1} sudo mv /etc/systemd/system/kubelet.service.d/${target} /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 2> /dev/null
+  ssh ${1} ls -l /etc/systemd/system/kubelet.service.d/ 2> /dev/null | grep -w "10-kubeadm.conf$" &> /dev/null
+  [ $? != 0 ] && target=$(ls /etc/systemd/system/kubelet.service.d/ 2> /dev/null) && ssh ${1} sudo mv /etc/systemd/system/kubelet.service.d/${target} /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 2> /dev/null
   [ $? == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| 10-kubeadm.conf checked" || echo -e " [${RED}●${NC}] Package\t| 10-kubeadm.conf not configured correctly"
 }
 
@@ -1085,7 +1085,7 @@ pkg-install) #Install basic package & setup environment.
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && swap=1
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${install_list} "ls -al /swap.img" &> /dev/null && ssh ${install_list} "sudo rm /swap.img" &> /dev/null
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${install_list} "cat /etc/fstab | grep '#/swap.img'" &> /dev/null && swap=0
-      [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && echo ${swap} | grep '1' && ssh ${install_list} "sudo sed -i 's|/swap.img|#/swap.img|g' /etc/fstab" &> /dev/null
+      [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && echo ${swap} | grep '1' &> /dev/null && ssh ${install_list} "sudo sed -i 's|/swap.img|#/swap.img|g' /etc/fstab" &> /dev/null
       
       ssh ${install_list} "sudo swapon --show | grep '/dev'" &> /dev/null
       [ $? != 0 ] && echo -e " [${GREEN}●${NC}] System\t| swap disabled" || echo -e " [${RED}●${NC}] System\t| swap not disable"
@@ -1241,7 +1241,7 @@ EOF"' &> /dev/null && echo -e " [${GREEN}●${NC}] Package\t| policy.json update
       [ "${CRIO_OS_VERSION}" == "CentOS_8_Stream" ] && ssh ${install_list} "sudo dnf install -y podman" &> /dev/null
 
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${install_list} "echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/${CRIO_OS_VERSION}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list" &> /dev/null
-      [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${install_list} "curl -fsSL https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/${CRIO_OS_VERSION}/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_stable.gpg > /dev/null" &> /dev/null
+      [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${install_list} "curl -fsSL https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/${CRIO_OS_VERSION}/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_stable.gpg" &> /dev/null
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${install_list} "sudo apt-get -qy update" &> /dev/null
       #[ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${install_list} "sudo apt-get install -qy containers-common" &> /dev/null
       [ "${CRIO_OS_VERSION}" == "xUbuntu_20.04" ] && ssh ${install_list} "sudo apt-get install -qy podman" &> /dev/null
@@ -1516,7 +1516,7 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico | flannel ]
   [ $? != 0 ] && [ "${2}" == "flannel" ] && message="${RED}\nkubeadm init failure!${NC}" && interrupt ${message}
   [ "${2}" == "flannel" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
   [ "${2}" == "flannel" ] && ls ${HOME}/.kube/config &> /dev/null
-  [ "${2}" == "flannel" ] && kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/kube-flannel.yml
+  [ "${2}" == "flannel" ] && kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/kube-flannel.yml
   #[ $? != 0 ] && echo -e "kubeadm init failure.\n" && exit
   echo -en "${GREEN}"
 
@@ -1622,7 +1622,7 @@ cni-deploy) #Deploy kubernetes CNI. [ calico | flannel ]
     elif [ ${2} == "flannel" ]
       then
         #flannel network
-        kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/kube-flannel.yml
+        kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/kube-flannel.yml
         k9s -n kube-system
   fi
 ;;
@@ -1640,7 +1640,7 @@ cni-rm) #Delete kubernetes CNI. [ calico | flannel ]
     elif [ ${2} == "flannel" ]
       then
         #flannel network
-        kubectl delete -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/kube-flannel.yml
+        kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/kube-flannel.yml
         for install_list in ${CP_NODES} ${WK_NODES}
           do
             ssh ${install_list} "sudo rm /etc/cni/net.d/*flannel*"
@@ -1677,7 +1677,7 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
     elif [ ${2} == "local-path" ]
       then
           #local-path-storage
-          kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/local-path-storage.yaml
+          kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/local-path-storage.yaml
           while true
             do 
               kubectl get pods -n ${NAME_SPACE_1} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
@@ -1750,7 +1750,7 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
         kubectl apply -f ~/yaml/rook/storageclass-fs.yaml; sleep 2
         
         echo -e "${YELLOW}deshboard ingress applied${NC}"
-        kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/ceph-deshboard.yaml
+        kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ceph-deshboard.yaml
         
         echo -e "\n${YELLOW}rook-ceph deployed, please wait OSDs deploy.${NC}"
         sleep 3
@@ -1767,7 +1767,7 @@ csi-rm) #Delete kubernetes CSI. [ local-path | rook-ceph ]
         message="${RED}Please confirm this command will destruction CSI ${YELLOW}${2} ${RED}!${NC}"
         interrupt ${message}
         #local-path-storage
-        kubectl delete -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/local-path-storage.yaml
+        kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/local-path-storage.yaml
         while true
           do 
             kubectl get pods -n ${NAME_SPACE_1} | tail -n +2 | awk '{ print $3 }' | grep 'Terminating' &> /dev/null
@@ -1789,7 +1789,7 @@ csi-rm) #Delete kubernetes CSI. [ local-path | rook-ceph ]
         kubectl delete CephFilesystem/myfs -n ${NAME_SPACE_8}
         kubectl -n ${NAME_SPACE_8} delete cephcluster rook-ceph
 
-        kubectl delete -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/ceph-deshboard.yaml
+        kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ceph-deshboard.yaml
         kubectl delete -f ~/yaml/rook/storageclass-fs.yaml; sleep 2
         kubectl delete -f ~/yaml/rook/toolbox.yaml; sleep 2
         kubectl delete -f ~/yaml/rook/operator.yaml; sleep 2
@@ -1926,9 +1926,9 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
           [ $? != 0 ] && ssh ${install_list} "echo "${NETID}.${2} quay.k8s.org jenkins.k8s.org gf.k8s.org kg.k8s.org" | sudo tee -a /etc/hosts"
         done
       #metallb-system
-      kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/metallb-namespace.yaml
-      kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/metallb.yaml
-      curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/metallb-ConfigMap.yaml | sed "s/NETID/${NETID}/g" | sed "s/START/${2}/g" | sed "s/END/${3}/g" | kubectl apply -f - 
+      kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/metallb-namespace.yaml
+      kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/metallb.yaml
+      curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/metallb-ConfigMap.yaml | sed "s/NETID/${NETID}/g" | sed "s/START/${2}/g" | sed "s/END/${3}/g" | kubectl apply -f - 
       while true
         do  
           kubectl get pods -n ${NAME_SPACE_2} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
@@ -1945,7 +1945,7 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
         echo "metallb deployed!"; echo
 
       #ingress-nginx
-      kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/ingress-deploy.yaml
+      kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ingress-deploy.yaml
       while true
         do
           kubectl get pods -n ${NAME_SPACE_3} | tail -n +2 | awk '{ print $3 }' | grep -vE 'Running|Completed' &> /dev/null
@@ -1964,11 +1964,11 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
 
 controller-rm) #Delete basic service. [ metallb & nginx-ingress ]
   #ingress-nginx
-  kubectl delete -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/ingress-deploy.yaml
+  kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ingress-deploy.yaml
   #metallb-system
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/metallb-ConfigMap.yaml | sed "s/NETID/${NETID}/g" | sed "s/START/${2}/g" | sed "s/END/${3}/g" | kubectl delete -f -
-  kubectl delete -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/metallb.yaml
-  kubectl delete -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/metallb-namespace.yaml
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/metallb-ConfigMap.yaml | sed "s/NETID/${NETID}/g" | sed "s/START/${2}/g" | sed "s/END/${3}/g" | kubectl delete -f -
+  kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/metallb.yaml
+  kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/metallb-namespace.yaml
 ;;
 
 metrics-deploy) #Deploy metrics-server.
@@ -2002,7 +2002,7 @@ jenkins-deploy) #Deploy jenkins on kubernetes.
   kubectl create ns ${NAME_SPACE_4}
   kubectl create secret generic kubeconfig --from-file=/home/bigred/.kube/config -n ${NAME_SPACE_4}
   #kubectl apply -f https://web.flymks.com/cicd/v1/jenkins.yaml
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/jenkins.yaml | sed 's/<image-name>/docker.io\/jenkins\/jenkins/g' | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/jenkins.yaml | sed 's/<image-name>/docker.io\/jenkins\/jenkins/g' | kubectl apply -f -
   k9s -c pods -n ${NAME_SPACE_4}
   kubectl get pods -n ${NAME_SPACE_4} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ $? != 0 ] && echo -e "${YELLOW}Jenkins deployed!${NC}" || echo -e "${RED}Jenkins not deploy!${NC}"
@@ -2017,23 +2017,23 @@ jenkins-rm) #Delete jenkins on kubernetes.
 quay-deploy) #Deploy project-quay on kubernetes.
   #quay
   kubectl create ns ${NAME_SPACE_5}
-  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/quay.yaml
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/quay.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  #kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/quay.yaml
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/quay.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
   k9s -c pods -n ${NAME_SPACE_5}
   kubectl get pods -n ${NAME_SPACE_5} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ $? != 0 ] && echo -e "${YELLOW}Project Quay deployed!${NC}" || echo -e "${RED}Project Quay not deploy!${NC}"
 ;;
 
 quay-rm) #Delete project-quay on kubernetes.
-  kubectl delete -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/quay.yaml
+  kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/quay.yaml
   kubectl delete ns ${NAME_SPACE_5}
 ;;
 
 grafana-deploy) #Deploy grafana on kubernetes.
   #gf
   kubectl create ns ${NAME_SPACE_6}
-  #kubectl apply -f https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/grafana.yaml
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/grafana.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  #kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/grafana.yaml
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/grafana.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
   k9s -c pods -n ${NAME_SPACE_6}
   kubectl get pods -n ${NAME_SPACE_6} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ $? != 0 ] && echo -e "${YELLOW}Grafana deployed!${NC}" || echo -e "${RED}Grafana not deploy!${NC}"
@@ -2051,40 +2051,40 @@ landlord-deploy) #Deploy landlord on kubernetes.
   kubectl create -n landlord configmap kuser-conf --from-file /home/bigred/.kube/config
 
   #PVC
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/2-landlord-PVC.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/2-landlord-PVC.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
   echo "landlord PVC deployed!"; echo
 
   #service
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/1-landlord-service.yaml | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/1-landlord-service.yaml | kubectl apply -f -
   k9s -c svc -n ${NAME_SPACE_7}
   kubectl get svc -n ${NAME_SPACE_7} | tail -n +2 | tr -s ' ' | cut -d ' ' -f 2 | grep -vE 'LoadBalancer|ClusterIP' &> /dev/null
 
   #gateway
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/3-landlord-gateway.yaml | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/3-landlord-gateway.yaml | kubectl apply -f -
   k9s -c pods -n ${NAME_SPACE_7}
   kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ $? != 0 ] && echo -e "${YELLOW}gateway deployed!${NC}" || echo -e "${RED}gateway not deploy!${NC}"
 
   #kuser
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/4-landlord-kuser.yaml | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/4-landlord-kuser.yaml | kubectl apply -f -
   k9s -c pods -n ${NAME_SPACE_7}
   kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ $? != 0 ] && echo -e "${YELLOW}kuser deployed!${NC}" || echo -e "${RED}kuser not deploy!${NC}"
 
   #logger
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/5-landlord-logger.yaml | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/5-landlord-logger.yaml | kubectl apply -f -
   k9s -c pods -n ${NAME_SPACE_7}
   kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ $? != 0 ] && echo -e "${YELLOW}logger deployed!${NC}" || echo -e "${RED}logger not deploy!${NC}"
 
   #mariadb
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/6-landlord-mariadb.yaml | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/6-landlord-mariadb.yaml | kubectl apply -f -
   k9s -c pods -n ${NAME_SPACE_7}
   kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ $? != 0 ] && echo -e "${YELLOW}mariadb deployed!${NC}" || echo -e "${RED}mariadb not deploy!${NC}"
 
   #tenant
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
   k9s -c pods -n ${NAME_SPACE_7}
   kubectl get pods -n ${NAME_SPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ $? != 0 ] && echo -e "${YELLOW}tenant deployed!${NC}" || echo -e "${RED}tenant not deploy!${NC}"
@@ -2092,19 +2092,19 @@ landlord-deploy) #Deploy landlord on kubernetes.
 
 landlord-rm) #Delete landlorsd on kubernetes.
   #tenant
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl delete -f -
   #mariadb
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/6-landlord-mariadb.yaml | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/6-landlord-mariadb.yaml | kubectl delete -f -
   #logger
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/5-landlord-logger.yaml | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/5-landlord-logger.yaml | kubectl delete -f -
   #kuser
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/4-landlord-kuser.yaml | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/4-landlord-kuser.yaml | kubectl delete -f -
   #gateway
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/3-landlord-gateway.yaml | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/3-landlord-gateway.yaml | kubectl delete -f -
   #PVC
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/2-landlord-PVC.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/2-landlord-PVC.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl delete -f -
   #service
-  curl -s https://raw.githubusercontent.com/Happylasky/Kubernetes-yaml/main/1-landlord-service.yaml | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/1-landlord-service.yaml | kubectl delete -f -
   #configmap & namespace
   kubectl delete -n ${NAME_SPACE_7} configmap kuser-conf
   kubectl delete ns ${NAME_SPACE_7}
