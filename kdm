@@ -115,19 +115,34 @@ function start-info()
   [ $? != 0 ] && meassage="     | ${RED}This node not activate.${NC}"
   if [ "${status}" == "1" ]
     then
-      echo -en "${GREEN}●${NC} Kubernetes deployed | ${cluster_ver}"
+      echo -en "${GREEN}●${NC} Kubernetes deployed\t| ${cluster_ver}"
       echo -e "${YELLOW} [ Input parameter \"help\" display more information ]${NC}"
-      echo -e "  └─ Active nodes${meassage}"
+      #show nodes info
+      echo -e "  ├─ Active nodes${meassage}"
       echo ${cluster_list} | grep '\-m' &> /dev/null
-      [ $? == 0 ] && echo -e "     └─ control-plane nodes   | ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-m' | tr -s '\n' ' '`${NC}" || echo "     └─ control-plane nodes   | --"
+      [ $? == 0 ] && echo -e "  │  ├─ control-plane\t| ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-m' | tr -s '\n' ' '`${NC}" || echo "  │  ├─ control-plane\t| --"
       echo ${cluster_list} | grep '\-w' &> /dev/null
-      [ $? == 0 ] && echo -e "     └─ worker nodes          | ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-w' | tr -s '\n' ' '`${NC}" || echo -e "     └─ worker nodes          | --"
+      [ $? == 0 ] && echo -e "  │  └─ worker\t\t| ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-w' | tr -s '\n' ' '`${NC}" || echo -e "  │  └─ worker\t\t| --"
+      #show storageclass info
+      storageclass_quantity=$(kubectl get storageclass -A 2> /dev/null | tail -n +2 | wc -l)
+      storageclass_list=$(kubectl get storageclass -A 2> /dev/null | tail -n +2 | awk '{ print $1 }' | tr -s '\n' ' ' | sed 's/.$//')
+      echo "${storageclass_quantity}" | grep '^0' &> /dev/null
+      [ $? == 0 ] && echo -e "  ├─ StorageClass\t| ${YELLOW}Not deployed any storageclass"${NC} || \
+      for list in ${storageclass_list}
+        do
+          echo -e "  ├─ StorageClass\t| ${GREEN}${list} deployed${NC}"
+        done
+      #show monitoring info
+      kubectl get pods -A | grep 'metrics' &> /dev/null
+      [ $? == 0 ] && echo -e "  ├─ Monitoring\t\t| ${GREEN}metrics deployed${NC}" || echo -e "  ├─ Monitoring\t\t| ${YELLOW}metrics not deploy${NC}"
+      kubectl get pods -A | grep 'prometheus' &> /dev/null
+      [ $? == 0 ] && echo -e "  └─ Monitoring\t\t| ${GREEN}prometheus deployed${NC}" || echo -e "  └─ Monitoring\t\t| ${YELLOW}prometheus not deploy${NC}"
     else
       echo -en "${YELLOW}●${NC} Kubernetes not detected"
       echo -e "${YELLOW} [ Input parameter \"help\" display more information ]${NC}"
-      echo -e "  └─ Plan list"
-      echo -e "     └─ control-plane nodes   | ${YELLOW}`echo -e "${CP_NODES}"`${NC}"
-      echo -e "     └─ worker nodes          | ${YELLOW}`echo ${WK_NODES}`${NC}"
+      echo -e "  └─ Nodes plan list"
+      echo -e "     ├─ control-plane\t| ${YELLOW}`echo -e "${CP_NODES}"`${NC}"
+      echo -e "     └─ worker nodes\t\t| ${YELLOW}`echo ${WK_NODES}`${NC}"
   fi
 }
 
@@ -671,6 +686,35 @@ function dir-delete-list ()
   [ $? == 0 ] && ssh ${wclist} "sudo rm -r /var/lib/etcd" &> /dev/null || echo -e "[${GREEN}●${NC}] Target has been removed: /var/lib/etcd/"
   #empty=$(ssh ${wclist} "ls /etc/apt/sources.list.d/ 2> /dev/null | wc -l")
   #[ ${empty} != 0 ] && ssh ${wclist} "sudo rm /etc/apt/sources.list.d/*" || echo "[${GREEN}●${NC}]Target has been removed: /etc/apt/sources.list.d/*"
+}
+
+function check-cidr() {
+  kubectl get node > /dev/null 2>&1
+  [ $? != 0 ] && echo -e "[${RED}●${NC}] This node not join cluster" && exit
+  echo -e "${YELLOW}POD-CIDR: ${RED}`kubectl cluster-info dump -o yaml | grep -m 1 cluster-cidr | cut -d '=' -f 2`${NC}"
+  echo -e "${YELLOW}SVC-CIDR: ${RED}`kubectl cluster-info dump -o yaml | grep -m 1 service-cluster | cut -d '=' -f 2`${NC}" 
+}
+
+function check-tains() {
+  kubectl get node > /dev/null 2>&1
+  [ $? != 0 ] && echo -e "[${RED}●${NC}] This node not join cluster" && exit
+  for kube_node in $(kubectl get nodes | awk '{ print $1 }' | tail -n +2);
+    do
+      role=$(kubectl describe node $kube_node | grep 'Roles' | awk '{ print $2 }')
+      echo -en "${YELLOW}${kube_node}: ${RED}${role}"
+      echo ${role} | grep "control-plane" &> /dev/null
+      [ $? == 0 ] && echo -e "${NC}\t|" $(kubectl describe node ${kube_node} | grep Taint)
+      echo ${role} | grep "worker" &> /dev/null
+      [ $? == 0 ] && echo -e "${NC}\t\t|" $(kubectl describe node ${kube_node} | grep Taint)
+    done
+}
+
+function check-etcd-member() {
+  kubectl get node > /dev/null 2>&1
+  [ $? != 0 ] && echo -e "[${RED}●${NC}] This node not join cluster" && exit
+  etcd_pod=$(kubectl get pods -n kube-system | grep 'etcd' | awk '{ print $1 }' | head -n 1)
+  etcd_endpoints=$(echo ${etcd_pod} | cut -d '-' -f 2)
+  kubectl exec -it ${etcd_pod} -n kube-system -- etcdctl --endpoints ${NETID}.${etcd_endpoints}:2379 --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key --cacert=/etc/kubernetes/pki/etcd/ca.crt member list
 }
 
 # Program >>>
@@ -1599,7 +1643,7 @@ wk-join) #Let worker nodes join cluster. [ <hosts> | <node> ]
   for wlist in ${wk_nodes}
     do
       echo -e "${YELLOW}${wlist} | join procedure${NC}"
-      ssh ${wlist} "$JOIN --v=5"
+      ssh ${wlist} "${JOIN} --v=5"
       echo -en "${GREEN}"
       kubectl label node ${wlist} node-role.kubernetes.io/worker=
       echo -en "${NC}"
@@ -1678,20 +1722,7 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
       then
           #local-path-storage
           kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/local-path-storage.yaml
-          while true
-            do 
-              kubectl get pods -n ${NAME_SPACE_1} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
-              [ $? != 0 ] && break || clear
-              kubectl get pods -n ${NAME_SPACE_1} | tail -n +2 | awk '{ print $2 }' | grep -v '1/1' &> /dev/null
-              [ $? != 0 ] && break || clear
-              echo -n "local-path-storage deploying"
-              echo -n ".";sleep 0.5
-              echo -n ".";sleep 0.5
-              echo -n ".";sleep 0.5
-              clear
-            continue
-            done
-          echo "local-path-storage deployed!"; echo
+          k9s -n local-path-storage
     elif [ ${2} == "rook-ceph" ]
       then
         which git &> /dev/null
@@ -2174,37 +2205,20 @@ helm-repo) #Check helm repository.
 cluster-info) #Check kubernetes cluster info.
   if [ "${2}" == "cidr" ]
     then
-      kubectl get node > /dev/null 2>&1
-      [ $? != 0 ] && echo -e "[${RED}●${NC}] This node not join cluster" && echo && exit
-      echo -e "${YELLOW}POD-CIDR: ${RED}`kubectl cluster-info dump -o yaml | grep -m 1 cluster-cidr | cut -d '=' -f 2`${NC}"
-      echo -e "${YELLOW}SVC-CIDR: ${RED}`kubectl cluster-info dump -o yaml | grep -m 1 service-cluster | cut -d '=' -f 2`${NC}"
+      check-cidr
   elif [ "${2}" == "taints" ]
     then
-      kubectl get node > /dev/null 2>&1
-      [ $? != 0 ] && echo -e "[${RED}●${NC}] This node not join cluster" && echo && exit
-      for kube_node in $(kubectl get nodes | awk '{ print $1 }' | tail -n +2);
-        do
-          role=$(kubectl describe node $kube_node | grep 'Roles' | awk '{ print $2 }')
-          echo -en "${YELLOW}${kube_node}: ${RED}${role}"
-          echo ${role} | grep "control-plane" &> /dev/null
-          [ $? == 0 ] && echo -e "${NC}\t|" $(kubectl describe node ${kube_node} | grep Taint)
-          echo ${role} | grep "worker" &> /dev/null
-          [ $? == 0 ] && echo -e "${NC}\t\t|" $(kubectl describe node ${kube_node} | grep Taint)
-        done
+      check-tains
   elif [ "${2}" == "etcd" ]
     then
-      kubectl get node > /dev/null 2>&1
-      [ $? != 0 ] && echo -e "[${RED}●${NC}] This node not join cluster" && echo && exit
-      etcd_pod=$(kubectl get pods -n kube-system | grep 'etcd' | awk '{ print $1 }' | head -n 1)
-      etcd_endpoints=$(echo ${etcd_pod} | cut -d '-' -f 2)
-      kubectl exec -it ${etcd_pod} -n kube-system -- etcdctl --endpoints ${NETID}.${etcd_endpoints}:2379 --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key --cacert=/etc/kubernetes/pki/etcd/ca.crt member list
+      check-etcd-member
   elif [ "${2}" == "all" ]
     then
       kubectl get node > /dev/null 2>&1
-      [ $? != 0 ] && echo -e "[${RED}●${NC}] This node not join cluster" && echo && exit
-      kdm cluster-info cidr
-      kdm cluster-info taints
-      kdm cluster-info etcd
+      [ $? != 0 ] && echo -e "[${RED}●${NC}] This node not join cluster" && exit
+      check-cidr
+      check-tains
+      check-etcd-member
     else
       echo -e "${RED}Please input parameter after \"taints\" \n ${YELLOW}> [ cidr | taints | etcd | all ]${NC}"
   fi
