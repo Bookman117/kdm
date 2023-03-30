@@ -1798,10 +1798,11 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
         cp ~/rook/deploy/examples/operator.yaml ~/yaml/rook/
         cp ~/rook/deploy/examples/cluster.yaml ~/yaml/rook/
         cp ~/rook/deploy/examples/pool.yaml ~/yaml/rook/
-        cp ~/rook/deploy/examples/toolbox.yaml ~/yaml/rook
+        cp ~/rook/deploy/examples/toolbox.yaml ~/yaml/rook/
 
         cp ~/rook/deploy/examples/csi/rbd/pvc.yaml ~/yaml/rook
 
+        cp ~/rook/deploy/examples/csi/rbd/storageclass.yaml ~/yaml/rook/storageclass-block.yaml
         cp ~/rook/deploy/examples/csi/cephfs/storageclass.yaml ~/yaml/rook/storageclass-fs.yaml
         cp ~/rook/deploy/examples/csi/cephfs/pvc.yaml ~/yaml/rook/pvc-fs.yaml
 
@@ -1817,21 +1818,23 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
         [ "${status}" == "0" ] && echo -e " [${RED}●${NC}] ~/yaml/rook/operator.yaml setting is Incorrect. " && exit
         
         #apply yaml
-        echo -e "${YELLOW}crds applied${NC}"
         kubectl apply -f ~/yaml/rook/crds.yaml; sleep 2
-        echo -e "${YELLOW}common applied${NC}"
+        echo -e "${YELLOW}crds applied${NC}"
         kubectl apply -f ~/yaml/rook/common.yaml; sleep 2
-        echo -e "${YELLOW}operator applied${NC}"
+        echo -e "${YELLOW}common applied${NC}"
         kubectl apply -f ~/yaml/rook/operator.yaml; sleep 2
-        echo -e "${YELLOW}cluster applied${NC}"
+        echo -e "${YELLOW}operator applied${NC}"
         kubectl apply -f ~/yaml/rook/cluster.yaml; sleep 2
-        echo -e "${YELLOW}pool applied${NC}"
+        echo -e "${YELLOW}cluster applied${NC}"
         kubectl apply -f ~/yaml/rook/pool.yaml; sleep 2
-        echo -e "${YELLOW}toolbox applied${NC}"
+        echo -e "${YELLOW}pool applied${NC}"
         kubectl apply -f ~/yaml/rook/toolbox.yaml; sleep 2
-        
-        echo -e "${YELLOW}storageclass-fs applied${NC}"
+        echo -e "${YELLOW}toolbox applied${NC}"
+
+        kubectl apply -f ~/yaml/rook/storageclass-block.yaml; sleep 3
+        echo -e "${YELLOW}storageclass-block created${NC}"
         kubectl apply -f ~/yaml/rook/storageclass-fs.yaml; sleep 2
+        echo -e "${YELLOW}storageclass-fs applied${NC}"
         
         echo -e "${YELLOW}deshboard ingress applied${NC}"
         kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ceph-deshboard.yaml
