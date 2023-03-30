@@ -819,7 +819,7 @@ sys-conf) #Configure file & directory.
   ls ~/bin &> /dev/null
   [ $? != 0 ] && mkdir ~/bin
   ls kdm &> /dev/null
-  [ $? == 0 ] && mv /home/bigred/kdm/kdm /home/bigred/bin/
+  [ $? == 0 ] && mv /home/${USER}/kdm/kdm /home/${USER}/bin/
   ls yaml &> /dev/null
   [ $? != 0 ] && mkdir yaml
 
