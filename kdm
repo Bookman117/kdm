@@ -41,7 +41,8 @@ export KUBE_INIT_VER=v${KUBE_SUBVER}
 export KUBE_REGISTRY=registry.k8s.io
 export ROOK_TAG=v1.10.12
 export CALICO_VERSION=v3.25.1
-export ECK_VERSION=2.7.0
+export ECK_OPERATOR_VERSION=2.7.0
+export ECK_VERSION=8.7.0
 export PACKAGE_LIST="cri-o kubelet kubeadm kubectl helm podman"
 #disable/permissive/enforcing
 export SELINUX_MODE=enforcing
@@ -142,7 +143,7 @@ function start-info()
 function sys-variable ()
 {
   echo "${CRIO_AVAILABLE_VERSION}" | grep -v [0-9] &> /dev/null
-  [ $? == 0 ] && CRIO_AVAILABLE_VERSION="Unconfirmed [Configure with set-var parameter]"
+  [ $? == 0 ] && export CRIO_AVAILABLE_VERSION="Unconfirmed [Configure with set-var parameter]"
   echo -e "${YELLOW}Variable list${NC}"
   echo -e " > VER_SWITCH: ${YELLOW}${VER_SWITCH}${NC}"
   echo -e " > OS_VERSION: ${YELLOW}${OS_VERSION}${NC}"
@@ -847,26 +848,26 @@ function sys-info ()
   cpu_architecture=$(uname -m)
   echo -e " CPU: ${YELLOW}$cpu_name (core: $core_number) | ${cpu_architecture}${NC}"
   #disk information
-  disk_list=$(sudo fdisk -l | grep '^Disk' | grep 'sd' | grep 'bytes' | awk '{ print $2 }' | sed 's/://g;s/\/dev\///g' | tr -s '\n' ' ' | sed 's/.$//')
-  echo -e " Disk list: ${YELLOW}${disk_list}${NC}"
-  for disk_list in ${disk_list}
-    do
-      sudo fdisk -l | grep '^Disk' | grep 'bytes' | grep "${disk_list}" | grep -E 'GB|GiB' &> /dev/null
-      [ $? == 0 ] && byte=GB || byte=MB
-      disk_capacity=$(sudo fdisk -l | grep '^Disk' | grep 'bytes' | grep "${disk_list}" | awk '{ print $3 }')
-      disk_usage=$(sudo du -ch / 2> /dev/null | grep 'total' | awk '{ print $1 }' | tr -s 'GM' ' ')
-      sudo du -ch / 2> /dev/null | grep 'total' | awk '{ print $1 }' | grep 'G' &> /dev/null
-      [ $? == 0 ] && disk_usage=$(sudo du -ch / 2> /dev/null | grep 'total' | awk '{ print $1 }' | tr -s 'GM' ' ') || disk_usage=$(awk "BEGIN { print $disk_usage / 1024 }")
-
-      disk_percent=$(awk "BEGIN { pc=100*${disk_usage}/${disk_capacity}; i=int(pc); print (pc-i<0.5)?i:i+1 }")
-      disk_type=$(sudo fdisk -l | grep -A 1 "^Disk /dev/${disk_list}:" | grep '^Disk model' | cut -d ':' -f 2 | sed 's/^.//')
-
-      echo -e "  > Disk name: ${YELLOW}${disk_list} | ${disk_type}${NC}"
-      echo -e "  > Disk capacity: ${YELLOW}${disk_capacity} ${byte}${NC}"
-      echo -e "  > Disk usage: ${YELLOW}${disk_usage} ${byte} | ${disk_percent} %${NC}"
-      echo "  ---"
-    done
-  echo ""
+  #disk_list=$(sudo fdisk -l | grep '^Disk' | grep 'sd' | grep 'bytes' | awk '{ print $2 }' | sed 's/://g;s/\/dev\///g' | tr -s '\n' ' ' | sed 's/.$//')
+  #echo -e " Disk list: ${YELLOW}${disk_list}${NC}"
+  #for disk_list in ${disk_list}
+  #  do
+  #    sudo fdisk -l | grep '^Disk' | grep 'bytes' | grep "${disk_list}" | grep -E 'GB|GiB' &> /dev/null
+  #    [ $? == 0 ] && byte=GB || byte=MB
+  #    disk_capacity=$(sudo fdisk -l | grep '^Disk' | grep 'bytes' | grep "${disk_list}" | awk '{ print $3 }')
+  #    disk_usage=$(sudo du -ch / 2> /dev/null | grep 'total' | awk '{ print $1 }' | tr -s 'GM' ' ')
+  #    sudo du -ch / 2> /dev/null | grep 'total' | awk '{ print $1 }' | grep 'G' &> /dev/null
+  #    [ $? == 0 ] && disk_usage=$(sudo du -ch / 2> /dev/null | grep 'total' | awk '{ print $1 }' | tr -s 'GM' ' ') || disk_usage=$(awk "BEGIN { print $disk_usage / 1024 }")
+  #
+  #    disk_percent=$(awk "BEGIN { pc=100*${disk_usage}/${disk_capacity}; i=int(pc); print (pc-i<0.5)?i:i+1 }")
+  #    disk_type=$(sudo fdisk -l | grep -A 1 "^Disk /dev/${disk_list}:" | grep '^Disk model' | cut -d ':' -f 2 | sed 's/^.//')
+  #
+  #    echo -e "  > Disk name: ${YELLOW}${disk_list} | ${disk_type}${NC}"
+  #    echo -e "  > Disk capacity: ${YELLOW}${disk_capacity} ${byte}${NC}"
+  #    echo -e "  > Disk usage: ${YELLOW}${disk_usage} ${byte} | ${disk_percent} %${NC}"
+  #    echo "  ---"
+  #  done
+  #echo ""
   #network information
   echo "[Network]"
   echo -e " IP Address: ${YELLOW}${IP}${NC}"
@@ -936,6 +937,16 @@ function daemon-enable ()
 
   ssh ${1} "sudo systemctl daemon-reload" &> /dev/null
   [ $? == 0 ] && echo -e " [${GREEN}●${NC}] Daemon\t| daemon has been reload" || echo -e " [${YELLOW}●${NC}] Daemon\t| daemon not reload"
+}
+
+function daemon-reload ()
+{
+  ssh ${1} sudo systemctl daemon-reload &> /dev/null
+  [ $? == 0 ] && echo -e " [${GREEN}●${NC}] Daemon\t| daemon reload" || echo -e " [${RED}●${NC}] Daemon\t| daemon not reload"
+  ssh ${1} sudo systemctl restart cri-o &> /dev/null
+  [ $? == 0 ] && echo -e " [${GREEN}●${NC}] Daemon\t| cri-o reload" || echo -e " [${RED}●${NC}] Daemon\t| cri-o not reload"
+  ssh ${1} sudo systemctl restart kubelet &> /dev/null
+  [ $? == 0 ] && echo -e " [${GREEN}●${NC}] Daemon\t| kubelet reload" || echo -e " [${RED}●${NC}] Daemon\t| kubelet not reload"
 }
 
 function helm-repo-add ()
@@ -1583,6 +1594,32 @@ pkg-check) #Check node package status.
   pkg-check ${@}
 ;;
 
+pkg-fix)
+  node-selector ${@}
+  for install_list in ${cp_nodes} ${wk_nodes}
+    do
+      ssh ${install_list} sudo mv /var/lib/dpkg/info/ /var/lib/dpkg/info_old/
+      ssh ${install_list} sudo mkdir /var/lib/dpkg/info/
+      ssh ${install_list} sudo apt-get update
+
+      ssh ${install_list} sudo apt-get -f install
+
+      ssh ${install_list} sudo mv /var/lib/dpkg/info/* /var/lib/dpkg/info_old/
+      ssh ${install_list} sudo rm -rf /var/lib/dpkg/info
+      ssh ${install_list} sudo mv /var/lib/dpkg/info_old/ /var/lib/dpkg/info/
+      ssh ${install_list} sudo apt-get update
+      ssh ${install_list} sudo apt-get upgrade
+    done
+;;
+
+daemon-reload)
+  node-selector ${@}
+  for restart_list in ${cp_nodes} ${wk_nodes}
+    do
+      daemon-reload ${restart_list}
+    done
+;;
+
 k9s-install) #Install k9s.
   for clist in ${CP_NODES}
     do
@@ -1853,7 +1890,6 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
         cp ~/rook/deploy/examples/csi/rbd/pvc.yaml ~/yaml/rook
 
         cp ~/rook/deploy/examples/csi/rbd/storageclass.yaml ~/yaml/rook/storageclass-block.yaml
-        cp ~/rook/deploy/examples/csi/cephfs/storageclass.yaml ~/yaml/rook/storageclass-fs.yaml
         cp ~/rook/deploy/examples/csi/cephfs/pvc.yaml ~/yaml/rook/pvc-fs.yaml
 
         #if SELinux enabled, must be set this variable to true
@@ -1883,8 +1919,7 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
 
         kubectl apply -f ~/yaml/rook/storageclass-block.yaml; sleep 3
         echo -e "${YELLOW}storageclass-block created${NC}"
-        kubectl apply -f ~/yaml/rook/storageclass-fs.yaml; sleep 2
-        echo -e "${YELLOW}storageclass-fs applied${NC}"
+        curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Rook-Ceph/ceph-deshboard.yaml > ~/yaml/rook/ceph-deshboard.yaml
         kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Rook-Ceph/ceph-deshboard.yaml
         echo -e "${YELLOW}deshboard ingress applied${NC}"
         
@@ -1916,7 +1951,6 @@ csi-rm) #Delete kubernetes CSI. [ local-path | rook-ceph ]
         interrupt ${message}
         kubectl -n ${NAME_SPACE_8} patch cephcluster rook-ceph --type merge -p '{"spec":{"cleanupPolicy":{"confirmation":"yes-really-destroy-data"}}}'
         kubectl delete CephBlockPool/replicapool -n ${NAME_SPACE_8}
-        kubectl delete -f ~/yaml/rook/storageclass-fs.yaml
         kubectl -n ${NAME_SPACE_8} delete cephcluster rook-ceph
 
         kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Rook-Ceph/ceph-deshboard.yaml
@@ -2100,6 +2134,78 @@ prometheus-rm) #Delete prometheus.
   helm delete kube-prometheus-stack -n monitoring
   helm repo remove prometheus-community
   helm repo update
+;;
+
+eck-deploy)
+  node-selector hosts
+  #Setup vm memory limit
+  for setup_list in ${cp_nodes} ${wk_nodes}
+    do
+      echo -e "${YELLOW}${setup_list} | ECK setup procedure${NC}"
+      ssh ${setup_list} "cat /etc/sysctl.conf | grep 'vm.max_map_count=262144'" &> /dev/null
+      [ $? != 0 ] && ssh ${setup_list} "echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf &> /dev/null" && echo "vm.max_map_count is setup." || echo "Already setup."
+      ssh ${setup_list} "sudo sysctl --system | grep 'vm.max_map_count = 262144'" &> /dev/null
+      [ $? == 0 ] && echo "vm.max_map_count is active." || echo "vm.max_map_count is deactivate."
+      echo
+    done
+
+  #Create crd & operator
+  kubectl create -f https://download.elastic.co/downloads/eck/${ECK_OPERATOR_VERSION}/crds.yaml
+  [ $? == 0 ] && echo -e "[${GREEN}●${NC}] crd created" || echo -e "[${YELLOW}○${NC}] crd not created"
+  kubectl apply -f https://download.elastic.co/downloads/eck/${ECK_OPERATOR_VERSION}/operator.yaml
+  [ $? == 0 ] && echo -e "[${GREEN}●${NC}] operator created" || echo -e "[${YELLOW}○${NC}] operator not created"
+  #Create Superuser
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed 's/<password>/$2a$10$1VHwrNCr637Ya3BJF44ZuejWLTd2nqbl25We.8fOddHSLBCukT31K/g' | kubectl apply -f -
+  [ $? == 0 ] && echo -e "[${GREEN}●${NC}] superuser secret created" || echo -e "[${YELLOW}○${NC}] superuser secret not created"
+  #Create elasticsearch
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VERSION}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl apply -f -
+  [ $? == 0 ] && echo -e "[${GREEN}●${NC}] Elasticsearch created" || echo -e "[${YELLOW}○${NC}] Elasticsearch not created"
+  #Create Kibana & Ingress rule
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VERSION}/g" | kubectl apply -f -
+  [ $? == 0 ] && echo -e "[${GREEN}●${NC}] Kibana created" || echo -e "[${YELLOW}○${NC}] Kibana not created"
+  kubectl scale deployment/ek-test-kb -n elastic-system --replicas=2
+  [ $? == 0 ] && echo -e "[${GREEN}●${NC}] Kibana scale to 2" || echo -e "[${YELLOW}○${NC}] Kibana not scale"
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | kubectl apply -f -
+  [ $? == 0 ] && echo -e "[${GREEN}●${NC}] Kibana-ingress created" || echo -e "[${YELLOW}○${NC}] Kibana-ingress not created"
+  k9s -c pods -n elastic-system
+;;
+
+eck-rm)
+  node-selector hosts
+
+  #Delete Kibana & Ingress rule
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VERSION}/g" | kubectl delete -f -
+  #Delete elasticsearch
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VERSION}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl delete -f -
+  #Delete Superuser
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed 's/<password>/$2a$10$1VHwrNCr637Ya3BJF44ZuejWLTd2nqbl25We.8fOddHSLBCukT31K/g' | kubectl delete -f -
+  #Delete crd & operator
+  kubectl delete -f https://download.elastic.co/downloads/eck/${ECK_OPERATOR_VERSION}/operator.yaml
+  kubectl delete -f https://download.elastic.co/downloads/eck/${ECK_OPERATOR_VERSION}/crds.yaml
+    
+  #Remove vm memory limit
+  for setup_list in ${cp_nodes} ${wk_nodes}
+    do
+      echo -e "${YELLOW}${setup_list} | ECK remove procedure${NC}"
+      ssh ${setup_list} "sudo sed -i '/vm.max_map_count=262144/d' /etc/sysctl.conf" &> /dev/null && echo "Setting remove compelet."
+      ssh ${setup_list} "sudo sysctl --system | grep 'vm.max_map_count = 262144'" &> /dev/null
+      [ $? != 0 ] && echo "vm.max_map_count is deactivate." || echo "vm.max_map_count is activate."
+      echo
+    done
+;;
+
+eck-check)
+  while [ 1 ]
+    do
+      echo -e "${YELLOW}ElasticSearch status${NC}"
+      kubectl get elasticsearch -n elastic-system 2> /dev/null
+      [ $? != 0 ] && echo -e "[${RED}●${NC}] ElasticSearch not deploy" && echo
+      echo -e "${YELLOW}Kibana status${NC}"
+      kubectl get kibana -n elastic-system 2> /dev/null
+      [ $? != 0 ] && echo -e "[${RED}●${NC}] Kibana not deploy" && echo
+      sleep 2 && clear
+    done
 ;;
 
 jenkins-deploy) #Deploy jenkins on kubernetes.
@@ -2750,81 +2856,6 @@ code)
       ssh -o ConnectTimeout=1 ${install_list} "${@}" 2> /dev/null
       [ $? != 0 ] && echo -e "${RED}Failed${NC}"
       echo
-    done
-;;
-
-eck-setup)
-  node-selector hosts
-  for setup_list in ${cp_nodes} ${wk_nodes}
-    do
-      echo -e "${YELLOW}${setup_list} | ECK setup procedure${NC}"
-      ssh ${setup_list} "cat /etc/sysctl.conf | grep 'vm.max_map_count=262144'" &> /dev/null
-      [ $? != 0 ] && ssh ${setup_list} "echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf &> /dev/null" && echo "vm.max_map_count is setup." || echo "Already setup."
-      ssh ${setup_list} "sudo sysctl --system | grep 'vm.max_map_count = 262144'" &> /dev/null
-      [ $? == 0 ] && echo "vm.max_map_count is active." || echo "vm.max_map_count is deactivate."
-      echo
-    done
-;;
-
-eck-deploy)
-  kubectl create -f https://download.elastic.co/downloads/eck/${ECK_VERSION}/crds.yaml
-  kubectl apply -f https://download.elastic.co/downloads/eck/${ECK_VERSION}/operator.yaml
-
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/pyadmin/g' | sed 's/<password>/$2a$10$DmxbKiUJKM.6NSfMWPqfBOllBNA9BX1iJGpCXsNG7307lbK7GkI\/m/g' | kubectl apply -f -
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl apply -f -
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana.yaml | kubectl apply -f -
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | kubectl apply -f -
-;;
-
-eck-check)
-  kubectl get elasticsearch -n elastic-system
-  kubectl get kibana -n elastic-system
-;;
-
-eck-rm)
-node-selector hosts
-  for setup_list in ${cp_nodes} ${wk_nodes}
-    do
-      echo -e "${YELLOW}${setup_list} | ECK remove procedure${NC}"
-      ssh ${setup_list} "sudo sed -i '/vm.max_map_count=262144/d' /etc/sysctl.conf" &> /dev/null && echo "Setting remove compelet."
-      ssh ${setup_list} "sudo sysctl --system | grep 'vm.max_map_count = 262144'" &> /dev/null
-      [ $? != 0 ] && echo "vm.max_map_count is deactivate." || echo "vm.max_map_count is activate."
-      echo
-    done
-;;
-
-fix-package)
-  node-selector ${@}
-  for install_list in ${cp_nodes} ${wk_nodes}
-    do
-      ssh ${install_list} sudo mv /var/lib/dpkg/info/ /var/lib/dpkg/info_old/
-      ssh ${install_list} sudo mkdir /var/lib/dpkg/info/
-      ssh ${install_list} sudo apt-get update
-
-      ssh ${install_list} sudo apt-get -f install
-
-      ssh ${install_list} sudo mv /var/lib/dpkg/info/* /var/lib/dpkg/info_old/
-      ssh ${install_list} sudo rm -rf /var/lib/dpkg/info
-      ssh ${install_list} sudo mv /var/lib/dpkg/info_old/ /var/lib/dpkg/info/
-      ssh ${install_list} sudo apt-get update
-      ssh ${install_list} sudo apt-get upgrade
-    done
-;;
-
-kubelet-restart)
-  node-selector ${@}
-  for restart_list in ${cp_nodes} ${wk_nodes}
-    do
-      ssh ${restart_list} sudo systemctl daemon-reload
-      ssh ${restart_list} sudo systemctl restart kubelet
-    done
-;;
-
-test)
-  node-selector ${@}
-  for install_list in ${cp_nodes} ${wk_nodes}
-    do
-      package-install-crio
     done
 ;;
 
