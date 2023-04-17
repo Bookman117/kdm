@@ -2089,6 +2089,12 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
             done
           echo "${wlist}: ${taget}"
         done
+  elif [ "$2" == "--" ]
+    then
+      shift && shift
+      message="${RED}Please confirm command ${YELLOW}${@}${RED} is correct.${NC}"
+      interrupt ${message}
+      kubectl -n ${NAME_SPACE_8} exec -it $(kubectl -n ${NAME_SPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ${@}
   fi
   echo
 ;;
@@ -2868,9 +2874,10 @@ parm-check) #List all script parameter.
   cat ${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)/:/g' | sed 's/^/ > /' | sed 's/#//g'; echo
 ;;
 
-code)
+\-\-)
+  shift
   node-selector ${@}
-  shift && shift
+  shift
   for install_list in ${cp_nodes} ${wk_nodes}
     do
       echo -e "${YELLOW}${install_list} | Result${NC}"
