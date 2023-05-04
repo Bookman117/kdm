@@ -9,8 +9,8 @@ sys-setup | 23
  > sys-check: Check node basic status.  
  > sys-date: Check system time-zone.  
  > set-ssh-key: Let ssh login without password. [ host | renew ]  
- > set-hosts: Setup hosts. [ hosts <m> <Start> <End> <w> <Start> <End> [ Detect NETID just input xxx xxx ] ]  
- > set-ip: Setup IP Address. [ set-ip <IP/NETMASK> [ Detect NETID just input xxx/XX ] ]  
+ > set-hosts: Setup hosts. [ hosts m start end w start end [ Detect NETID just input xxx xxx ] ]  
+ > set-ip: Setup IP Address. [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]  
  > set-hostname: Setup hostname. [ hostname [ name ] ]  
  > set-ver: Set kube*、cri-o package version.  
  > set-selinux: Setting SELinux mod [ set | apply ]  
@@ -30,8 +30,8 @@ sys-setup | 23
 Kubernetes-deploy | 9  
   └─cp-init >> cp-join >> wk-join >> dns-rollout >> controller-deploy >> metrics-deploy >> csi-deploy  
  > cp-init: Init first control-plane node & deploy CNI. [ calico | flannel ]  
- > cp-join:  Let control-plane nodes join cluster. [ <hosts> | <node> ]  
- > wk-join: Let worker nodes join cluster. [ <hosts> | <node> ]  
+ > cp-join:  Let control-plane nodes join cluster. [ hosts | node ]  
+ > wk-join: Let worker nodes join cluster. [ hosts | node ]  
  > cni-deploy: Deploy kubernetes CNI. [ calico | flannel ]  
  > cni-rm: Delete kubernetes CNI. [ calico | flannel ]  
  > dns-rollout: Rollout coredns & calico-api-server. [ if pod present ]  
@@ -40,9 +40,9 @@ Kubernetes-deploy | 9
  > csi-rook: Check rook status or DataDir. [ status | dashboard-pw | data-check | lvm-status | wipe-data | disk-check ]  
   
 Kubernetes-functions | 16  
- > <project-name>-deploy: Deploy Kubenetes projects.  
+ > project-name-deploy: Deploy Kubenetes projects.  
   └─ [ k9s | controller | metrics | prometheus | eck | mariadb-galera | jenkins | quay | grafana | landlord  ]  
- > <project-name>-rm: Delete Kubenetes projects.  
+ > project-name-rm: Delete Kubenetes projects.  
   └─ [ k9s | controller | metrics | prometheus | eck | mariadb-galera | jenkins | quay | grafana | landlord  ]  
  > images: Check cluster images.  
  > image-send: save >> scp >> load target image to every worker node [ <image-name> <name.tar> ]  
@@ -54,7 +54,7 @@ Kubernetes-functions | 16
  > cri-upgrade: Update crio package.  
  > cri-check: Check CRI running pods.  
  > cri-clean: Remove CRI running pods.  
- > node-check: Check nodes port | hostname. [ <hosts> | <hosts> <name> | <hosts> <port> | <NETID> <Start> <End> <Port> ]  
- > node-reset: Reset hosts | specify nodes. [ node-reset <node> ]  
- > node-power: Reboot/Poweroff hosts | specify node. [ <node> ]  
- > help: Show script parameters information.   
+ > node-check: Check nodes port | hostname. [ hosts | hosts name | hosts port | NETID start end <Port> ]  
+ > node-reset: Reset hosts | specify nodes. [ node-reset node ]  
+ > node-power: Reboot/Poweroff hosts | specify node. [ node ]  
+ > help: Show script parameters information.  
