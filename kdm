@@ -527,7 +527,7 @@ function node-selector()
       echo -e "${YELLOW} \"${parameter}\" ${NC}is not effective parameter!"
       echo -e "${RED} Please check out hostname list: ${YELLOW}${ALL_NODES}${NC},${RED}or input parameter:${NC}"
       echo -e "${YELLOW}  > [ <local>\t| for this host ]${NC}"
-      echo -e "${YELLOW}  > [ <hosts>\t| for all nodes in /etc/hosts ]${NC}"
+      echo -e "${YELLOW}  > [ hosts\t| for all nodes in /etc/hosts ]${NC}"
       echo -e "${YELLOW}  > [ <cp>\t| for all control-plane nodes ]${NC}"
       echo -e "${YELLOW}  > [ <wk>\t| for all worker nodes ]${NC}\n" && exit
   elif [ "${status}" == "4" ]
@@ -545,8 +545,8 @@ function node-message()
 {
   echo -e "${RED} Please input parameter after ${YELLOW}\"${@}\" ${NC}"
   echo -e "${YELLOW}  > [ <local>\t| for this host ]${NC}"
-  echo -e "${YELLOW}  > [ <hosts>\t| for all nodes in /etc/hosts ]${NC}"
-  echo -e "${YELLOW}  > [ <node>\t| for specify nodes ]${NC}"
+  echo -e "${YELLOW}  > [ hosts\t| for all nodes in /etc/hosts ]${NC}"
+  echo -e "${YELLOW}  > [ node\t| for specify nodes ]${NC}"
   echo -e "${YELLOW}  > [ <cp>\t| for all control-plane nodes ]${NC}"
   echo -e "${YELLOW}  > [ <wk>\t| for all worker nodes ]${NC}\n"
 }
@@ -555,16 +555,16 @@ function cp-node-message()
 {
   echo -e "${RED} Please input parameter after ${YELLOW}\"${@}\" ${NC}"
   echo -e "${YELLOW}  > [ <local>\t| for this host ]${NC}"
-  echo -e "${YELLOW}  > [ <hosts>\t| for all control-plane nodes in /etc/hosts ]${NC}"
-  echo -e "${YELLOW}  > [ <node>\t| for specify nodes ]${NC}\n"
+  echo -e "${YELLOW}  > [ hosts\t| for all control-plane nodes in /etc/hosts ]${NC}"
+  echo -e "${YELLOW}  > [ node\t| for specify nodes ]${NC}\n"
 }
 
 function wk-node-message()
 {
   echo -e "${RED} Please input parameter after ${YELLOW}\"${@}\" ${NC}"
   echo -e "${YELLOW}  > [ <local>\t| for this host ]${NC}"
-  echo -e "${YELLOW}  > [ <hosts>\t| for all worker nodes in /etc/hosts ]${NC}"
-  echo -e "${YELLOW}  > [ <node>\t| for specify nodes ]${NC}\n"
+  echo -e "${YELLOW}  > [ hosts\t| for all worker nodes in /etc/hosts ]${NC}"
+  echo -e "${YELLOW}  > [ node\t| for specify nodes ]${NC}\n"
 }
 
 function exclude-non-join()
@@ -1190,7 +1190,7 @@ function check-etcd-member()
 
 function node-check()
 {
-  [ -z ${2} ] && echo -e "${RED}Please input parameter [ <hosts> | <hosts> <name> | <hosts> <port> | <NETID> <Start> <End> <Port> ]${NC}\n" && exit
+  [ -z ${2} ] && echo -e "${RED}Please input parameter [ hosts | hosts name | hosts port | NETID start end <Port> ]${NC}\n" && exit
   #hosts check
   if [ "${2}" == "hosts" ]
     then
@@ -1226,7 +1226,7 @@ function node-check()
         echo -e "${YELLOW}non join node list${NC}"
         [ "${cluster_list}" != "" ] && echo -e " > All nodes are joined" || echo -e "`cat /etc/hosts | grep -vE '#|ip6|k8s.org' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list} | tr -s '\n' ' '`\n"
     else
-      #[ "${2}" != "${NETID}" ] && echo -e "${RED}Please input port number. [ hosts <Port> or <NETID> <Start> <End> <Port> ]${NC}\n" && exit
+      #[ "${2}" != "${NETID}" ] && echo -e "${RED}Please input port number. [ hosts <Port> or NETID start end <Port> ]${NC}\n" && exit
       declare -i start=${3} end=${4} port=${5}; net=${2}; install_list=0
       echo -e "${YELLOW}Node-checker running...${NC}"
       for ((start;start<=end; start=start+1))
@@ -1365,14 +1365,14 @@ set-ssh-key) #Let ssh login without password. [ host | renew ]
   fi
 ;;
 
-set-hosts) #Setup hosts. [ hosts <m> <Start> <End> <w> <Start> <End> [ Detect NETID just input xxx xxx ] ]
+set-hosts) #Setup hosts. [ hosts m start end w start end [ Detect NETID just input xxx xxx ] ]
   #setup /etc/hosts
   declare -i mstart=${3} mend=${4} wstart=${6} wend=${7} number=1
   m=${2} w=${5}
   if [ ${#} != 7 ]
     then
       echo -e "Please input parameter.\n"
-      echo -e "hosts: setup hosts [ <m> <start> <end> <w> <start> <end> ]\n"; exit
+      echo -e "hosts: setup hosts [ m start end w start end ]\n"; exit
     else
 
   sudo sed -i "/${NETID}/d" /etc/hosts
@@ -1403,10 +1403,10 @@ EOF"
   sudo poweroff
 ;;
 
-set-ip) #Setup IP Address. [ set-ip <IP/NETMASK> [ Detect NETID just input xxx/XX ] ]
+set-ip) #Setup IP Address. [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]
   if [ ${#} != 2 ]
     then
-      echo -e "${RED}Please input parameter after ${YELLOW}\"set-ip\"${NC} [ set-ip <IP/NETMASK> [ Detect NETID just input xxx/XX ] ]\n" && exit
+      echo -e "${RED}Please input parameter after ${YELLOW}\"set-ip\"${NC} [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]\n" && exit
     else
 
 #Rocky 8 NetworkManager setting
@@ -1854,7 +1854,7 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico | flannel ]
   echo && k9s -c pods -A
 ;;
 
-cp-join) # Let control-plane nodes join cluster. [ <hosts> | <node> ]
+cp-join) # Let control-plane nodes join cluster. [ hosts | node ]
   #Set variable
   set-package-variable
   [ -z ${2} ] && cp-node-message ${@} && exit
@@ -1905,7 +1905,7 @@ cp-join) # Let control-plane nodes join cluster. [ <hosts> | <node> ]
     done; echo && k9s -c pods -A
 ;;
 
-wk-join) #Let worker nodes join cluster. [ <hosts> | <node> ]
+wk-join) #Let worker nodes join cluster. [ hosts | node ]
   #Set variable
   set-package-variable
   [ -z ${2} ] && wk-node-message ${@} && exit
@@ -2229,12 +2229,12 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
   if [ -z ${2} ]
     then
       echo -e "Please input parameter.\n"
-      echo -e "controller: Setup basic service. [ metallb & ingress ] [ Automatic select networkID, package <Start> <End> ]\n"
+      echo -e "controller: Setup basic service. [ metallb & ingress ] [ Automatic select networkID, package start end ]\n"
 
   elif [ -z ${3} ]
     then
       echo; echo -e "Please input parameter.\n"
-      echo -e "controller: Setup basic service. [ metallb & ingress ] [ Automatic select networkID, package <Start> <End> ]\n"
+      echo -e "controller: Setup basic service. [ metallb & ingress ] [ Automatic select networkID, package start end ]\n"
 
     else
       for install_list in ${CP_NODES} ${WK_NODES}
@@ -2682,7 +2682,7 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
   kdm pkg-repo add ${cp_nodes} ${wk_nodes}
   host-os-detection
 
-  message="${RED}Start upgrade procedure?${NC}"
+  message="${RED}start upgrade procedure?${NC}"
   interrupt ${message}
 
   for FCP in ${first_control_plane}
@@ -2998,7 +2998,7 @@ cri-clean) #Remove CRI running pods.
     done
 ;;
 
-node-check) #Check nodes port | hostname. [ <hosts> | <hosts> <name> | <hosts> <port> | <NETID> <Start> <End> <Port> ]
+node-check) #Check nodes port | hostname. [ hosts | hosts name | hosts port | NETID start end <Port> ]
   while [ 1 ]
     do
       clear
@@ -3006,7 +3006,7 @@ node-check) #Check nodes port | hostname. [ <hosts> | <hosts> <name> | <hosts> <
     done
 ;;
 
-node-reset) #Reset hosts | specify nodes. [ node-reset <node> ]
+node-reset) #Reset hosts | specify nodes. [ node-reset node ]
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
   message="${RED}Please confirm this command will destruction node:${YELLOW} ${cp_nodes} ${wk_nodes}${RED}!${NC}"
@@ -3047,7 +3047,7 @@ node-reset) #Reset hosts | specify nodes. [ node-reset <node> ]
   node-power reboot ${@}
 ;;
 
-node-power) #Reboot/Poweroff hosts | specify node. [ <node> ]
+node-power) #Reboot/Poweroff hosts | specify node. [ node ]
   node-power ${@}
 ;;
 deploy) #Automatic deploy kubernetes cluster. [ kdm deploy calico/flannel hosts 160 169 local-path/rook-ceph ]
@@ -3091,8 +3091,8 @@ help) #Show script parameters information.
   echo -e "${RED}Kubernetes-functions | $((${number}+2))${NC}"
   service_list=$(cat ~/${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)//g' | grep '\-deploy' | grep -vE 'cni|csi' | sed 's/-deploy//g' | tr -s '#' '\n' | grep -v '^D' | sed ":a;N;s/\n/| /g;ta")
   echo -en "${YELLOW}"
-  echo -e " > <project-name>-deploy: Deploy Kubenetes projects.\n  ${NC}└─ [ ${service_list} ]${YELLOW}"
-  echo -e " > <project-name>-rm: Delete Kubenetes projects.\n  ${NC}└─ [ ${service_list} ]${YELLOW}"
+  echo -e " > project-name-deploy: Deploy Kubenetes projects.\n  ${NC}└─ [ ${service_list} ]${YELLOW}"
+  echo -e " > project-name-rm: Delete Kubenetes projects.\n  ${NC}└─ [ ${service_list} ]${YELLOW}"
   
   cat ~/${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)/:/g' | sed 's/^/ > /' | sed 's/#//g' | grep -E "${list}"; echo
   echo -en "${NC}"
