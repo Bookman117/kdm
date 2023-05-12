@@ -49,19 +49,19 @@ WHITE="\033[0;37m"
 PACKAGE_LIST="cri-o kubelet kubeadm kubectl helm podman"
 #Kubernetes project storageclass
 STORAGE_CLASS="rook-ceph-block" #rook-ceph-block | local-path
-CEPH_DASHBOARD_URL="ceph.k8s.org"
+CEPH_DASHBOARD_URL="ceph.${CORE_DNS_DOMAIN}"
 
 # Kubernetes projects namespace
-NAMESPACE_0="kube-system"
-NAMESPACE_1="local-path-storage"
-NAMESPACE_2="metallb-system"
-NAMESPACE_3="ingress-nginx"
-NAMESPACE_4="jenkins"
-NAMESPACE_5="quay"
-NAMESPACE_6="gf" #grafana
-NAMESPACE_7="landlord"
-NAMESPACE_8="rook-ceph"
-NAMESPACE_9="mariadb-galera"
+KUBE_SYSTEM_NS="kube-system"
+LOCAL_PATH_NS="local-path-storage"
+MATELLB_NS="metallb-system"
+INGRESS_NGINX_NS="ingress-nginx"
+JENKINS_NS="jenkins"
+QUAY_NS="quay"
+GRAFANA_NS="gf" #grafana
+LANDLORD_NS="landlord"
+ROOK_CEPH_NS="rook-ceph"
+MARIADB_GALERA_NS="mariadb-galera"
 # ---
 
 # Program >>>
@@ -106,8 +106,10 @@ sys-conf) #Configure file & directory.
   
   ls ~/bin &> /dev/null
   [ ${?} != 0 ] && mkdir ~/bin
-  ls kdm &> /dev/null
-  [ ${?} == 0 ] && mv /home/${USER}/kdm/kdm /home/${USER}/bin/
+  ls ~/kdm/kdm &> /dev/null
+  [ ${?} == 0 ] && mv ~/kdm/kdm ~/bin/
+  ls ~/kdm/kdm_function &> /dev/null
+  [ ${?} == 0 ] && mv ~/kdm/kdm_function ~/bin/
   ls yaml &> /dev/null
   [ ${?} != 0 ] && mkdir yaml
 
@@ -301,9 +303,9 @@ set-hostname) #Setup hostname. [ hostname [ name ] ]
 ;;
 
 set-ver) #Set kube*、cri-o package version.
-  set-package-variable
+  set-environment-variable
   setup-pkg-version ${@}
-  set-package-variable
+  set-environment-variable
   crio-available-version-check
 ;;
 
@@ -447,7 +449,7 @@ pkg-install) #Install basic package & setup environment.
   check_list=${@}
   node-selector ${@}
   interrupt ${RED}Install packages on nodes: ${YELLOW}${cp_nodes} ${wk_nodes}${NC} && clear
-  set-package-variable
+  set-environment-variable
   for install_list in ${cp_nodes} ${wk_nodes}
     do
       ssh ${install_list} 'hostname' &> /dev/null 2>&1
@@ -503,7 +505,7 @@ pkg-install) #Install basic package & setup environment.
 
 pkg-rm) #Remove basic package & setup environment.
   #Set variable
-  set-package-variable
+  set-environment-variable
   [ -z ${2} ] && node-message && exit
 
   node-selector ${@}
@@ -539,7 +541,7 @@ pkg-check) #Check node package status.
 
 pkg-fix) #Fix Ubuntu pkg.
   #Set variable
-  set-package-variable
+  set-environment-variable
   node-selector ${@}
   for install_list in ${cp_nodes} ${wk_nodes}
     do
@@ -555,6 +557,10 @@ pkg-fix) #Fix Ubuntu pkg.
       [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} sudo apt update
       [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} sudo apt upgrade
     done
+;;
+
+docker-install)
+  package-install-docker ${2}
 ;;
 
 daemon-reload)
@@ -611,7 +617,7 @@ daemon-enable)
 
 cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
   #Set variable
-  set-package-variable
+  set-environment-variable
   
   #Check papameter [ high-ava | single-cp ]
   #POD_CIDR 172.16.0.0/17 [ 172.16.0.1 - 172.16.127.254 ]
@@ -641,12 +647,12 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
 
   # Kubernetes setup
   # calico service & pod network
-  [ "${3}" == "calico" ] && POD_CIDR=172.16.0.0/17
-  [ "${3}" == "calico" ] && SVC_CIDR=172.16.128.0/17
-  #[ "${3}" == "calico" ] && POD_CIDR=10.85.0.0/16
-  #[ "${3}" == "calico" ] && SVC_CIDR=10.96.0.0/12
-  [ ${2} == "high-ava" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=k8s.org --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
-  [ ${2} == "single-cp" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=k8s.org --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
+  #[ "${3}" == "calico" ] && POD_CIDR=172.16.0.0/17
+  #[ "${3}" == "calico" ] && SVC_CIDR=172.16.128.0/17
+  [ "${3}" == "calico" ] && POD_CIDR=10.85.0.0/16
+  [ "${3}" == "calico" ] && SVC_CIDR=10.96.0.0/12
+  [ ${2} == "high-ava" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
+  [ ${2} == "single-cp" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
   [ ${?} != 0 ] && [ "${2}" == "calico" ] && interrupt ${RED}\nkubeadm init failure!${NC}
   [ "${3}" == "calico" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
   [ "${3}" == "calico" ] && ls ${HOME}/.kube/config &> /dev/null
@@ -661,8 +667,8 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
   [ "${3}" == "flannel" ] && SVC_CIDR=172.16.128.0/17
   #[ "${3}" == "flannel" ] && POD_CIDR=10.244.0.0/16
   #[ "${3}" == "flannel" ] && SVC_CIDR=10.98.0.0/24
-  [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=k8s.org --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
-  [ ${2} == "single-cp" ] && [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=k8s.org --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
+  [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
+  [ ${2} == "single-cp" ] && [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
   [ ${?} != 0 ] && [ "${2}" == "flannel" ] && interrupt ${RED}\nkubeadm init failure!${NC}
   [ "${3}" == "flannel" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
   [ "${3}" == "flannel" ] && ls ${HOME}/.kube/config &> /dev/null
@@ -681,7 +687,7 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
 
 cp-join) # Let control-plane nodes join cluster. [ hosts | node ]
   #Set variable
-  set-package-variable
+  set-environment-variable
   [ -z ${2} ] && cp-node-message ${@} && exit
 
   node-selector ${@}
@@ -689,7 +695,7 @@ cp-join) # Let control-plane nodes join cluster. [ hosts | node ]
   if [ "${2}" == "hosts" ]
     then
       cluster_list=$(kubectl get nodes | tail -n +2 | awk '{ print $1 }' | tr -s '\n' '|' | sed '$ s/.$//')
-      cp_nodes=$(echo -e "`cat /etc/hosts | grep -vE '#|ip6|k8s.org' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list}| tr -s ' ' '\n' | grep "\-m" | tr -s '\n' ' '`\n")
+      cp_nodes=$(echo -e "`cat /etc/hosts | grep -vE '#|ip6|${CORE_DNS_DOMAIN}' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list}| tr -s ' ' '\n' | grep "\-m" | tr -s '\n' ' '`\n")
       echo ${cp_nodes} | grep -n '^$' &> /dev/null && cp_nodes="none "
     else
       shift
@@ -731,12 +737,12 @@ cp-join) # Let control-plane nodes join cluster. [ hosts | node ]
 
 wk-join) #Let worker nodes join cluster. [ hosts | node ]
   #Set variable
-  set-package-variable
+  set-environment-variable
   [ -z ${2} ] && wk-node-message ${@} && exit
   if [ "${2}" == "hosts" ]
     then
       cluster_list=$(kubectl get nodes | tail -n +2 | awk '{ print $1 }' | tr -s '\n' '|' | sed '$ s/.$//')
-      wk_nodes=$(echo -e "`cat /etc/hosts | grep -vE '#|ip6|k8s.org' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list}| tr -s ' ' '\n' | grep "\-w" | tr -s '\n' ' '`\n")
+      wk_nodes=$(echo -e "`cat /etc/hosts | grep -vE '#|ip6|${CORE_DNS_DOMAIN}' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list}| tr -s ' ' '\n' | grep "\-w" | tr -s '\n' ' '`\n")
       echo ${wk_nodes} | grep -n '^$' &> /dev/null && wk_nodes="none "
     else
       shift
@@ -760,7 +766,7 @@ wk-join) #Let worker nodes join cluster. [ hosts | node ]
 
 cni-deploy) #Deploy kubernetes CNI. [ calico or flannel ]
   #Set variable
-  set-package-variable
+  set-environment-variable
   interrupt ${RED}Please confirm there is no CNI running on kubernetes.${NC}
   if [ -z ${2} ]
     then
@@ -782,9 +788,9 @@ cni-deploy) #Deploy kubernetes CNI. [ calico or flannel ]
 
 cni-rm) #Delete kubernetes CNI. [ calico or flannel ]
   #Set variable
-  set-package-variable
+  set-environment-variable
   #Set variable
-  set-package-variable
+  set-environment-variable
   if [ -z ${2} ]
     then
       echo; echo -e "Please input cni project. [calico、flannel]\n"
@@ -829,7 +835,7 @@ dns-rollout) #Rollout coredns & calico-api-server. [ if pod present ]
 
 csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
   #Set variable
-  set-package-variable
+  set-environment-variable
   if [ -z ${2} ]
     then
       echo -e "Please input csi project. [ local-path | rook-ceph ]\n"
@@ -892,13 +898,13 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
         
         echo -e "\n${YELLOW}rook-ceph deployed, please wait OSDs deploy.${NC}"
         sleep 3
-        k9s -c pods -n ${NAMESPACE_8}
+        k9s -c pods -n ${ROOK_CEPH_NS}
   fi
 ;;
 
 csi-rm) #Delete kubernetes CSI. [ local-path | rook-ceph ]
   #Set variable
-  set-package-variable
+  set-environment-variable
   if [ -z ${2} ]
     then
       echo -e "Please input csi project. [ local-path | rook-ceph ]\n"
@@ -913,19 +919,19 @@ csi-rm) #Delete kubernetes CSI. [ local-path | rook-ceph ]
         list=$(kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n rook-ceph | grep -v '^[0-9]' | grep -v '^[A-Z]' | awk '{ print $1 }')
         for i in ${list}
           do
-            kubectl -n ${NAMESPACE_8} patch ${i} -p '{"metadata":{"finalizers": []}}' --type=merge
+            kubectl -n ${ROOK_CEPH_NS} patch ${i} -p '{"metadata":{"finalizers": []}}' --type=merge
           done
         interrupt ${RED}Please confirm this command will destruction CSI ${YELLOW}${2} ${RED}!${NC}
-        kubectl -n ${NAMESPACE_8} patch cephcluster ${NAMESPACE_8} --type merge -p '{"spec":{"cleanupPolicy":{"confirmation":"yes-really-destroy-data"}}}'
-        kubectl delete CephBlockPool/replicapool -n ${NAMESPACE_8}
-        kubectl -n ${NAMESPACE_8} delete cephcluster ${NAMESPACE_8}
+        kubectl -n ${ROOK_CEPH_NS} patch cephcluster ${ROOK_CEPH_NS} --type merge -p '{"spec":{"cleanupPolicy":{"confirmation":"yes-really-destroy-data"}}}'
+        kubectl delete CephBlockPool/replicapool -n ${ROOK_CEPH_NS}
+        kubectl -n ${ROOK_CEPH_NS} delete cephcluster ${ROOK_CEPH_NS}
 
         curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Rook-Ceph/ceph-deshboard.yaml | sed "s/<URL>/${CEPH_DASHBOARD_URL}/g" | kubectl delete -f - 
         kubectl delete -f ~/yaml/rook/toolbox.yaml; sleep 2
         kubectl delete -f ~/yaml/rook/operator.yaml; sleep 2
         kubectl delete -f ~/yaml/rook/common.yaml; sleep 2
         kubectl delete -f ~/yaml/rook/crds.yaml; sleep 2
-        kubectl delete namespace ${NAMESPACE_8}
+        kubectl delete namespace ${ROOK_CEPH_NS}
         kdm csi-rook wipe-data hosts
   fi
 ;;
@@ -940,27 +946,27 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
       kubectl get ns | grep 'rook-ceph' &> /dev/null
       [ ${?} != 0 ] && echo -e " [${RED}●${NC}] rook-ceph not detected\n" && exit
 
-      ROOK_GIT_VER=$(kubectl -n ${NAMESPACE_8} get jobs -o jsonpath='{range .items[*]}{.metadata.name}{"  \tsucceeded: "}{.status.succeeded}{"      \trook-version="}{.metadata.labels.rook-version}{"\n"}{end}' | awk '{ print $4 }' | cut -d '=' -f 2 | grep "^v" | head -n 1)
-      POD_NAME=$(kubectl -n ${NAMESPACE_8} get pod -o custom-columns=name:.metadata.name --no-headers | grep rook-ceph-mon-b)
-      CEPH_IMAGE=$(kubectl -n ${NAMESPACE_8} get pod ${POD_NAME} -o jsonpath='{.spec.containers[0].image}')
-      kubectl -n ${NAMESPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
-      [ ${?} == 0 ] && CEPH_VER=$(echo -e "`kubectl -n ${NAMESPACE_8} exec -it $(kubectl -n ${NAMESPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph --version | awk '{ print $3 }'`\n")
+      ROOK_GIT_VER=$(kubectl -n ${ROOK_CEPH_NS} get jobs -o jsonpath='{range .items[*]}{.metadata.name}{"  \tsucceeded: "}{.status.succeeded}{"      \trook-version="}{.metadata.labels.rook-version}{"\n"}{end}' | awk '{ print $4 }' | cut -d '=' -f 2 | grep "^v" | head -n 1)
+      POD_NAME=$(kubectl -n ${ROOK_CEPH_NS} get pod -o custom-columns=name:.metadata.name --no-headers | grep rook-ceph-mon-b)
+      CEPH_IMAGE=$(kubectl -n ${ROOK_CEPH_NS} get pod ${POD_NAME} -o jsonpath='{.spec.containers[0].image}')
+      kubectl -n ${ROOK_CEPH_NS} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
+      [ ${?} == 0 ] && CEPH_VER=$(echo -e "`kubectl -n ${ROOK_CEPH_NS} exec -it $(kubectl -n ${ROOK_CEPH_NS} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph --version | awk '{ print $3 }'`\n")
       
       echo -e "Rook-ceph git release: ${ROOK_GIT_VER}\nceph version: ${CEPH_VER} | image: ${CEPH_IMAGE}\n"
       
       #rook status
-      [ ${?} == 0 ] && kubectl -n ${NAMESPACE_8} exec -it $(kubectl -n ${NAMESPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph -s || echo -e "- rook-ceph not detected\n"
-      kubectl -n ${NAMESPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
-      [ ${?} == 0 ] && kubectl -n ${NAMESPACE_8} exec -it $(kubectl -n ${NAMESPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph osd status || echo -e "- rook-ceph not detected\n"
+      [ ${?} == 0 ] && kubectl -n ${ROOK_CEPH_NS} exec -it $(kubectl -n ${ROOK_CEPH_NS} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph -s || echo -e "- rook-ceph not detected\n"
+      kubectl -n ${ROOK_CEPH_NS} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
+      [ ${?} == 0 ] && kubectl -n ${ROOK_CEPH_NS} exec -it $(kubectl -n ${ROOK_CEPH_NS} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ceph osd status || echo -e "- rook-ceph not detected\n"
   elif [ "$2" == "fix-mon" ]
     then
-      kubectl get ConfigMap rook-config-override -n ${NAMESPACE_8} -o yaml | sed 's/""/| /g' | sed 's/config: | /config: |\n    [global]\n    mon clock drift allowed = 0.5/g' > ~/yaml/rook/rook-config-override.yaml
+      kubectl get ConfigMap rook-config-override -n ${ROOK_CEPH_NS} -o yaml | sed 's/""/| /g' | sed 's/config: | /config: |\n    [global]\n    mon clock drift allowed = 0.5/g' > ~/yaml/rook/rook-config-override.yaml
       kubectl replace -f ~/yaml/rook/rook-config-override.yaml --force
-      kubectl delete pods -n ${NAMESPACE_8} $(kubectl get pods -n ${NAMESPACE_8} -o custom-columns=NAME:.metadata.name --no-headers | grep 'mon')
+      kubectl delete pods -n ${ROOK_CEPH_NS} $(kubectl get pods -n ${ROOK_CEPH_NS} -o custom-columns=NAME:.metadata.name --no-headers | grep 'mon')
   elif [ "$2" == "dashboard-pw" ]
     then
-      kubectl -n ${NAMESPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
-      [ ${?} == 0 ] && echo -e "`kubectl -n ${NAMESPACE_8} get secret rook-ceph-dashboard-password -o jsonpath="{['data']['password']}" | base64 --decode`\n" || echo -e "- rook-ceph not detected\n"
+      kubectl -n ${ROOK_CEPH_NS} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}' > /dev/null 2>&1
+      [ ${?} == 0 ] && echo -e "`kubectl -n ${ROOK_CEPH_NS} get secret rook-ceph-dashboard-password -o jsonpath="{['data']['password']}" | base64 --decode`\n" || echo -e "- rook-ceph not detected\n"
   elif [ "$2" == "data-check" ]
     then
       for install_list in ${CP_NODES} ${WK_NODES};
@@ -1036,14 +1042,14 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
     then
       shift && shift
       interrupt ${RED}Please confirm command ${YELLOW}${@}${RED} is correct.${NC}
-      kubectl -n ${NAMESPACE_8} exec -it $(kubectl -n ${NAMESPACE_8} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ${@}
+      kubectl -n ${ROOK_CEPH_NS} exec -it $(kubectl -n ${ROOK_CEPH_NS} get pod -l "app=rook-ceph-tools" -o jsonpath='{.items[0].metadata.name}') -- ${@}
   fi
   echo
 ;;
 
 controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NETID just input xxx xxx ]
   #Set variable
-  set-package-variable
+  set-environment-variable
   if [ -z ${2} ]
     then
       echo -e "Please input parameter.\n"
@@ -1058,7 +1064,7 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
       for install_list in ${CP_NODES} ${WK_NODES}
         do
           ssh ${install_list} cat /etc/hosts | grep "${NETID}.${2}"
-          [ ${?} != 0 ] && ssh ${install_list} "echo "${NETID}.${2} quay.k8s.org jenkins.k8s.org gf.k8s.org kg.k8s.org" | sudo tee -a /etc/hosts"
+          [ ${?} != 0 ] && ssh ${install_list} "echo "${NETID}.${2} quay.${CORE_DNS_DOMAIN} jenkins.${CORE_DNS_DOMAIN} gf.${CORE_DNS_DOMAIN} kg.${CORE_DNS_DOMAIN}" | sudo tee -a /etc/hosts"
         done
       #metallb-system
       kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml
@@ -1075,7 +1081,7 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
 
 controller-rm) #Delete basic service. [ metallb & nginx-ingress ]
   #Set variable
-  set-package-variable
+  set-environment-variable
   #ingress-nginx
   kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/ingress-deploy.yaml
   #metallb-system
@@ -1086,7 +1092,7 @@ controller-rm) #Delete basic service. [ metallb & nginx-ingress ]
 
 metrics-deploy) #Deploy metrics-server.
   #Set variable
-  set-package-variable
+  set-environment-variable
   #HA Version via helm
   helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
   helm install metrics-server metrics-server/metrics-server --set 'args={--kubelet-insecure-tls}' --version ${METRICS_VER} --namespace kube-system
@@ -1095,14 +1101,14 @@ metrics-deploy) #Deploy metrics-server.
 
 metrics-rm) #Delete metrics-server.
   #Set variable
-  set-package-variable
+  set-environment-variable
   helm delete metrics-server -n kube-system
   helm repo remove metrics-server
 ;;
 
 prometheus-deploy) #Deploy prometheus.
   #Set variable
-  set-package-variable
+  set-environment-variable
   #追加並更新 helm repository
   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
   helm repo update
@@ -1113,7 +1119,7 @@ prometheus-deploy) #Deploy prometheus.
 
 prometheus-rm) #Delete prometheus.
   #Set variable
-  set-package-variable
+  set-environment-variable
   helm delete kube-prometheus-stack -n monitoring
   helm repo remove prometheus-community
   helm repo update
@@ -1121,7 +1127,7 @@ prometheus-rm) #Delete prometheus.
 
 eck-deploy) #Deploy ECK
   #Set variable
-  set-package-variable
+  set-environment-variable
   node-selector hosts
   #Setup vm memory limit
   for setup_list in ${cp_nodes} ${wk_nodes}
@@ -1158,7 +1164,7 @@ eck-deploy) #Deploy ECK
 
 eck-rm) #Remove ECK
   #Set variable
-  set-package-variable
+  set-environment-variable
   node-selector hosts
   #Setup password
   setup-password-control
@@ -1199,11 +1205,11 @@ eck-check) #Check ECK status
 
 mariadb-galera-deploy) #Deploy mariadb-galera
   #Set variable
-  set-package-variable
+  set-environment-variable
   #Setup password
   setup-password-control
-  kubectl create namespace ${NAMESPACE_9}
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/MariaDB-Galera/mariadb-galera-secret.yaml -w '\n' | sed "s/<password>/${MARIADB_GALERA_PASSWORD}/g" | sed "s/<namespace>/${NAMESPACE_9}/g" | kubectl apply -f -
+  kubectl create namespace ${MARIADB_GALERA_NS}
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/MariaDB-Galera/mariadb-galera-secret.yaml -w '\n' | sed "s/<password>/${MARIADB_GALERA_PASSWORD}/g" | sed "s/<namespace>/${MARIADB_GALERA_NS}/g" | kubectl apply -f -
   #Add helm package
   helm repo list | grep 'bitnami' &> /dev/null
   [ ${?} != 0 ] && helm repo add bitnami https://charts.bitnami.com/bitnami
@@ -1212,10 +1218,11 @@ mariadb-galera-deploy) #Deploy mariadb-galera
   ls ~/yaml/mariadb-galera &> /dev/null
   [ ${?} != 0 ] && mkdir ~/yaml/mariadb-galera
   helm show values bitnami/mariadb-galera > ~/yaml/mariadb-galera/mariadb-galera-values.yaml
+
   #Fix yaml
-  #namespaceOverride: "" >> namespaceOverride: "${NAMESPACE_9}"
-  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "namespaceOverride: \"${NAMESPACE_9}\"" &> /dev/null
-  [ ${?} != 0 ] && sed -i "s/namespaceOverride: \"\"/namespaceOverride: \"${NAMESPACE_9}\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
+  #namespaceOverride: "" >> namespaceOverride: "${MARIADB_GALERA_NS}"
+  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "namespaceOverride: \"${MARIADB_GALERA_NS}\"" &> /dev/null
+  [ ${?} != 0 ] && sed -i "s/namespaceOverride: \"\"/namespaceOverride: \"${MARIADB_GALERA_NS}\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
 
   #type: ClusterIP >> type: LoadBalancer
   cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "type: LoadBalancer" &> /dev/null
@@ -1249,90 +1256,104 @@ mariadb-galera-deploy) #Deploy mariadb-galera
   [ ${?} != 0 ] && sed -i "20,/storageClass:/ s/storageClass: \"\"/storageClass: \"${STORAGE_CLASS}\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
 
   #Deploy mariadb-galera
-  helm install mariadb-galera -f ~/yaml/mariadb-galera/mariadb-galera-values.yaml bitnami/mariadb-galera
+  helm install mariadb-galera -f ~/yaml/mariadb-galera/mariadb-galera-values.yaml bitnami/mariadb-galera -n mariadb-galera
 
+  k9s -c pods -n ${MARIADB_GALERA_NS}
   #Check command
   #cat yaml/mariadb-galera/mariadb-galera-values.yaml | grep -E -A 5 'namespaceOverride: |^  type: LoadBalancer|existingSecret: "|Character set|user: "|plugin_dir=|replicaCount: [0-9]|storageClass:'
 ;;
 
 mariadb-galera-rm) #Remove mariadb-galera
   #Set variable
-  set-package-variable
+  set-environment-variable
   #Setup password
   setup-password-control
-  kubectl scale sts mariadb-galera -n ${NAMESPACE_9} --replicas=0
-  list=$(kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n ${NAMESPACE_9} | grep -v '^[0-9]' | grep -v '^[A-Z]' | awk '{ print $1 }')
+  kubectl scale sts mariadb-galera -n ${MARIADB_GALERA_NS} --replicas=0
+  list=$(kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n ${MARIADB_GALERA_NS} | grep -v '^[0-9]' | grep -v '^[A-Z]' | awk '{ print $1 }')
     for i in ${list}
       do
-        kubectl -n ${NAMESPACE_9} patch ${i} -p '{"metadata":{"finalizers": []}}' --type=merge
+        kubectl -n ${MARIADB_GALERA_NS} patch ${i} -p '{"metadata":{"finalizers": []}}' --type=merge
       done
-  helm delete mariadb-galera
-  [ ${?} == 0 ] && kubectl delete ns ${NAMESPACE_9}
+  helm delete mariadb-galera -n mariadb-galera
+  [ ${?} == 0 ] && kubectl delete ns ${MARIADB_GALERA_NS}
   helm repo remove bitnami
+;;
+
+harbor-deploy) #Deploy harbor
+
+  # Add helm package
+  helm repo add harbor https://helm.goharbor.io
+  helm fetch harbor/harbor --untar
+
+  #Get yaml file
+  ls ~/yaml/harbor &> /dev/null
+  [ $? != 0 ] && mkdir ~/yaml/harbor
+  helm show values harbor/harbor > ~/yaml/harbor/harbor-values.yaml
+
 ;;
 
 jenkins-deploy) #Deploy jenkins on kubernetes.
   #Set variable
-  set-package-variable
-  kubectl create ns ${NAMESPACE_4}
-  kubectl create secret generic kubeconfig --from-file=/home/${USER}/.kube/config -n ${NAMESPACE_4}
+  set-environment-variable
+  kubectl create ns ${JENKINS_NS}
+  kubectl create secret generic kubeconfig --from-file=/home/${USER}/.kube/config -n ${JENKINS_NS}
   #kubectl apply -f https://web.flymks.com/cicd/v1/jenkins.yaml
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Web-service/jenkins.yaml | sed 's/<image-name>/docker.io\/jenkins\/jenkins/g' | kubectl apply -f -
-  k9s -c pods -n ${NAMESPACE_4}
-  kubectl get pods -n ${NAMESPACE_4} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  k9s -c pods -n ${JENKINS_NS}
+  kubectl get pods -n ${JENKINS_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}Jenkins deployed!${NC}" || echo -e "${RED}Jenkins not deploy!${NC}"
 ;;
 
 jenkins-rm) #Delete jenkins on kubernetes.
   #Set variable
-  set-package-variable
+  set-environment-variable
   kubectl delete -f https://web.flymks.com/cicd/v1/jenkins.yaml
-  kubectl delete ns ${NAMESPACE_4}
+  kubectl delete ns ${JENKINS_NS}
   kubectl delete secret generic kubeconfig --from-file=/home/${USER}/.kube/config -n jenkins
 ;;
 
 quay-deploy) #Deploy project-quay on kubernetes.
   #Set variable
-  set-package-variable
+  set-environment-variable
   #quay
-  kubectl create ns ${NAMESPACE_5}
+  kubectl create ns ${QUAY_NS}
   #kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Web-service/quay.yaml
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Web-service/quay.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
-  k9s -c pods -n ${NAMESPACE_5}
-  kubectl get pods -n ${NAMESPACE_5} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  k9s -c pods -n ${QUAY_NS}
+  kubectl get pods -n ${QUAY_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}Project Quay deployed!${NC}" || echo -e "${RED}Project Quay not deploy!${NC}"
 ;;
 
 quay-rm) #Delete project-quay on kubernetes.
   #Set variable
-  set-package-variable
+  set-environment-variable
   kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/quay.yaml
-  kubectl delete ns ${NAMESPACE_5}
+  kubectl delete ns ${QUAY_NS}
 ;;
 
 grafana-deploy) #Deploy grafana on kubernetes.
   #Set variable
-  set-package-variable
+  set-environment-variable
   #gf
-  kubectl create ns ${NAMESPACE_6}
+  kubectl create ns ${GRAFANA_NS}
   #kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Web-service/grafana.yaml
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Web-service/grafana.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
-  k9s -c pods -n ${NAMESPACE_6}
-  kubectl get pods -n ${NAMESPACE_6} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  k9s -c pods -n ${GRAFANA_NS}
+  kubectl get pods -n ${GRAFANA_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}Grafana deployed!${NC}" || echo -e "${RED}Grafana not deploy!${NC}"
 ;;
 
 grafana-rm) #Delete grafana on kubernetes.
   #Set variable
-  set-package-variable
+  set-environment-variable
   #grafana
   kubectl delete -f https://web.flymks.com/grafana/v1/grafana.yaml
-  kubectl delete ns ${NAMESPACE_6}
+  kubectl delete ns ${GRAFANA_NS}
 ;;
 
 landlord-deploy) #Deploy landlord on kubernetes.
   #Set variable
-  set-package-variable
+  set-environment-variable
   #ns & configmap
   kubectl create ns landlord
   kubectl create -n landlord configmap kuser-conf --from-file /home/${USER}/.kube/config
@@ -1343,43 +1364,43 @@ landlord-deploy) #Deploy landlord on kubernetes.
 
   #service
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/1-landlord-service.yaml | kubectl apply -f -
-  k9s -c svc -n ${NAMESPACE_7}
-  kubectl get svc -n ${NAMESPACE_7} | tail -n +2 | tr -s ' ' | cut -d ' ' -f 2 | grep -vE 'LoadBalancer|ClusterIP' &> /dev/null
+  k9s -c svc -n ${LANDLORD_NS}
+  kubectl get svc -n ${LANDLORD_NS} | tail -n +2 | tr -s ' ' | cut -d ' ' -f 2 | grep -vE 'LoadBalancer|ClusterIP' &> /dev/null
 
   #gateway
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/3-landlord-gateway.yaml | kubectl apply -f -
-  k9s -c pods -n ${NAMESPACE_7}
-  kubectl get pods -n ${NAMESPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  k9s -c pods -n ${LANDLORD_NS}
+  kubectl get pods -n ${LANDLORD_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}gateway deployed!${NC}" || echo -e "${RED}gateway not deploy!${NC}"
 
   #kuser
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/4-landlord-kuser.yaml | kubectl apply -f -
-  k9s -c pods -n ${NAMESPACE_7}
-  kubectl get pods -n ${NAMESPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  k9s -c pods -n ${LANDLORD_NS}
+  kubectl get pods -n ${LANDLORD_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}kuser deployed!${NC}" || echo -e "${RED}kuser not deploy!${NC}"
 
   #logger
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/5-landlord-logger.yaml | kubectl apply -f -
-  k9s -c pods -n ${NAMESPACE_7}
-  kubectl get pods -n ${NAMESPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  k9s -c pods -n ${LANDLORD_NS}
+  kubectl get pods -n ${LANDLORD_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}logger deployed!${NC}" || echo -e "${RED}logger not deploy!${NC}"
 
   #mariadb
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/6-landlord-mariadb.yaml | kubectl apply -f -
-  k9s -c pods -n ${NAMESPACE_7}
-  kubectl get pods -n ${NAMESPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  k9s -c pods -n ${LANDLORD_NS}
+  kubectl get pods -n ${LANDLORD_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}mariadb deployed!${NC}" || echo -e "${RED}mariadb not deploy!${NC}"
 
   #tenant
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
-  k9s -c pods -n ${NAMESPACE_7}
-  kubectl get pods -n ${NAMESPACE_7} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
+  k9s -c pods -n ${LANDLORD_NS}
+  kubectl get pods -n ${LANDLORD_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}tenant deployed!${NC}" || echo -e "${RED}tenant not deploy!${NC}"
 ;;
 
 landlord-rm) #Delete landlorsd on kubernetes.
   #Set variable
-  set-package-variable
+  set-environment-variable
   #tenant
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl delete -f -
   #mariadb
@@ -1395,8 +1416,8 @@ landlord-rm) #Delete landlorsd on kubernetes.
   #service
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/1-landlord-service.yaml | kubectl delete -f -
   #configmap & namespace
-  kubectl delete -n ${NAMESPACE_7} configmap kuser-conf
-  kubectl delete ns ${NAMESPACE_7}
+  kubectl delete -n ${LANDLORD_NS} configmap kuser-conf
+  kubectl delete ns ${LANDLORD_NS}
 ;;
 
 images) #Check cluster images.

@@ -35,7 +35,7 @@ function setup-password-control()
   MARIADB_GALERA_PASSWORD='VkB0dGVuMiEK' #Code as base64
 }
 
-function set-package-variable() 
+function set-environment-variable() 
 {
   source ~/bin/kdm_function &> /dev/null
   # Version control
@@ -59,12 +59,13 @@ function set-package-variable()
   PROMETHEUSE_VER=45.10.1
   #Others
   ECK_OP_VER=2.7.0
-  ECK_VER=8.7.0  
+  ECK_VER=8.7.0
+  CORE_DNS_DOMAIN=k8s.org
 }
 
 function setup-pkg-version()
 {
-  set-package-variable
+  set-environment-variable
   [ -z ${2} ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver\" [ latest | sub ]${NC}\n" && exit
   echo "${2}" | grep -vE 'latest|sub' &> /dev/null
   [ ${?} == 0 ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver\" [ latest | sub ]${NC}\n" && exit
@@ -145,7 +146,7 @@ function start-info()
 function crio-available-version-check()
 {
   #source ~/bin/kdm &> /dev/null
-  set-package-variable
+  set-environment-variable
   count=0
   cat /dev/null > /tmp/CRIO_ALL_VERSION
   while [ ${count} -le 9 ]
@@ -168,7 +169,7 @@ function crio-available-version-check()
 
 function show-version-control()
 {
-  source ~/bin/kdm &> /dev/null && set-package-variable
+  source ~/bin/kdm &> /dev/null && set-environment-variable
   CRIO_AVL_VER=`cat /tmp/CRIO_AVL_VER | sed /\n/d`
   echo "${CRIO_AVL_VER}" | grep -v [0-9] &> /dev/null
   [ ${?} == 0 ] && CRIO_AVL_VER="Unconfirmed [Configure with set-var parameter]"
