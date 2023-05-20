@@ -2,7 +2,14 @@
 #Purpose: Deploy kubernetes on ubuntu server 20.04/22.04 LTS & Rocky Linux 8/9 & RHEL 8/9.
 #Create-Date: 2022-08-10
 
-source ~/bin/kdm_function &> /dev/null
+ls ~/bin/kdm_function &> /dev/null
+[ $? == 0 ] && source ~/bin/kdm_function &> /dev/null
+ls ~/kdm/kdm_function &> /dev/null
+[ $? == 0 ] && source ~/kdm/kdm_function &> /dev/null
+
+host-os-detection
+setup-network-package
+check-kdm-path
 
 # Set variables
 # Security settings
@@ -17,7 +24,6 @@ IP=$(ip a | grep -E 'en|eth' | grep 'inet' | awk '{ print $2 }' | cut -d '/' -f 
 NETID=$(ip a | grep 'en' | grep 'inet' | awk '{ print $2 }' | cut -d '.' -f 1-3 | head -n 1)
 [ "${CRIO_OS_VER}" != "macOS" ] && GATEWAY=$(route -n | tr -s " " | grep '^0.0.0.0' | cut -d " " -f 2 | grep "${NETID}")
 [ "${CRIO_OS_VER}" != "macOS" ] && NETMASK=$(route -n | grep 'en' | grep -w 'U' | awk '{ print $3 }')
-
 [ "${CRIO_OS_VER}" == "macOS" ] && GATEWAY=$(netstat -nr | grep '^default' | grep "en[0-9]" | awk '{ print $2 }')
 [ "${CRIO_OS_VER}" == "macOS" ] && NETMASK="??"
 
@@ -46,10 +52,7 @@ CYAN="\033[0;36m"
 WHITE="\033[0;37m"
 
 #Package list
-PACKAGE_LIST="cri-o kubelet kubeadm kubectl helm podman"
-#Kubernetes project storageclass
-STORAGE_CLASS="rook-ceph-block" #rook-ceph-block | local-path
-CEPH_DASHBOARD_URL="ceph.${CORE_DNS_DOMAIN}"
+PACKAGE_LIST="cri-o kubelet kubeadm kubectl helm podman":ingress
 
 # Kubernetes projects namespace
 KUBE_SYSTEM_NS="kube-system"
@@ -66,7 +69,6 @@ MARIADB_GALERA_NS="mariadb-galera"
 
 # Program >>>
 echo
-setup-network-package
 case ${1} in
 
 sys-info) #Show host basic information.
@@ -103,15 +105,6 @@ sys-conf) #Configure file & directory.
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && sudo -S sed -i "s/# %wheel\tALL=(ALL)\tNOPASSWD: ALL/%wheel\tALL=(ALL)\tNOPASSWD: ALL/g" /etc/sudoers
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && sudo -S sed -i "s/# %wheel\tALL=(ALL)\tNOPASSWD: ALL/%wheel\tALL=(ALL)\tNOPASSWD: ALL/g" /etc/sudoers
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && sudo -S sed -i "s/%sudo\tALL=(ALL:ALL) ALL/%sudo\tALL=(ALL:ALL) NOPASSWD: ALL/g" /etc/sudoers
-  
-  ls ~/bin &> /dev/null
-  [ ${?} != 0 ] && mkdir ~/bin
-  ls ~/kdm/kdm &> /dev/null
-  [ ${?} == 0 ] && mv ~/kdm/kdm ~/bin/
-  ls ~/kdm/kdm_function &> /dev/null
-  [ ${?} == 0 ] && mv ~/kdm/kdm_function ~/bin/
-  ls yaml &> /dev/null
-  [ ${?} != 0 ] && mkdir yaml
 
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && sudo subscription-manager repos --enable=codeready-builder-for-rhel-8-x86_64-rpms &> /dev/null
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && sudo dnf update -y && sudo dnf upgrade -y
@@ -296,7 +289,7 @@ EOF" && echo -e "netplane setting\n" && cat /etc/netplan/00-installer-config.yam
 set-hostname) #Setup hostname. [ hostname [ name ] ]
   [ -z ${2} ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-hostname\"${NC} [ <hostname> ]\n" && exit || echo "$2" | sudo tee /etc/hostname &> /dev/null
 
-  echo -en "[${GREEN}●${NC}]Set hostname to: "
+  echo -en "[${GREEN}●${NC}] Set hostname to: "
   cat /etc/hostname && echo
   interrupt
   echo "reboot node..." && sleep 1.5 && sudo reboot
@@ -563,6 +556,10 @@ docker-install)
   package-install-docker ${2}
 ;;
 
+docker-compose-install)
+  package-install-docker ${2}
+;;
+
 daemon-reload)
   node-selector ${@}
   for restart_list in ${cp_nodes} ${wk_nodes}
@@ -647,12 +644,16 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
 
   # Kubernetes setup
   # calico service & pod network
-  #[ "${3}" == "calico" ] && POD_CIDR=172.16.0.0/17
-  #[ "${3}" == "calico" ] && SVC_CIDR=172.16.128.0/17
-  [ "${3}" == "calico" ] && POD_CIDR=10.85.0.0/16
-  [ "${3}" == "calico" ] && SVC_CIDR=10.96.0.0/12
+  [ "${3}" == "calico" ] && POD_CIDR=172.16.0.0/17
+  [ "${3}" == "calico" ] && SVC_CIDR=172.16.128.0/17
+  #[ "${3}" == "calico" ] && POD_CIDR=10.85.0.0/16
+  #[ "${3}" == "calico" ] && SVC_CIDR=10.96.0.0/12
+  #Test area
+  #===
+  #[ ${2} == "high-ava" ] && [ "${3}" == "calico" ] && sudo kubeadm init --upload-certs --config=kubeadm-init-config.yaml --v=5
+  #===
   [ ${2} == "high-ava" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
-  [ ${2} == "single-cp" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
+  [ ${2} == "single-cp" ] && [ "${3}" == "calico" ] && sudo kubeadm init --pod-network-cidr=172.16.0.0/17 --service-cidr=10.96.0.0/12 --service-dns-domain=k8s.org --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=v1.26.3 --config=~/kubeadm-init-config.yaml --v=5
   [ ${?} != 0 ] && [ "${2}" == "calico" ] && interrupt ${RED}\nkubeadm init failure!${NC}
   [ "${3}" == "calico" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
   [ "${3}" == "calico" ] && ls ${HOME}/.kube/config &> /dev/null
@@ -663,10 +664,10 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
   #[ ${?} != 0 ] && echo -e "kubeadm init failure.\n" && exit
 
   # flannel service & pod network
-  [ "${3}" == "flannel" ] && POD_CIDR=172.16.0.0/17
-  [ "${3}" == "flannel" ] && SVC_CIDR=172.16.128.0/17
-  #[ "${3}" == "flannel" ] && POD_CIDR=10.244.0.0/16
-  #[ "${3}" == "flannel" ] && SVC_CIDR=10.98.0.0/24
+  #[ "${3}" == "flannel" ] && POD_CIDR=172.16.0.0/17
+  #[ "${3}" == "flannel" ] && SVC_CIDR=172.16.128.0/17
+  [ "${3}" == "flannel" ] && POD_CIDR=10.244.0.0/16
+  [ "${3}" == "flannel" ] && SVC_CIDR=10.98.0.0/24
   [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
   [ ${2} == "single-cp" ] && [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
   [ ${?} != 0 ] && [ "${2}" == "flannel" ] && interrupt ${RED}\nkubeadm init failure!${NC}
@@ -1067,9 +1068,13 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
           [ ${?} != 0 ] && ssh ${install_list} "echo "${NETID}.${2} quay.${CORE_DNS_DOMAIN} jenkins.${CORE_DNS_DOMAIN} gf.${CORE_DNS_DOMAIN} kg.${CORE_DNS_DOMAIN}" | sudo tee -a /etc/hosts"
         done
       #metallb-system
-      kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml
-      kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb.yaml
-      curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-ConfigMap.yaml | sed "s/NETID/${NETID}/g" | sed "s/START/${2}/g" | sed "s/END/${3}/g" | kubectl apply -f - 
+      #kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml
+      #kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb.yaml
+      #curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-ConfigMap.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | kubectl apply -f - 
+    
+      curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml | kubectl apply -f - 
+      curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-native.yaml | sed "s/<METALLB_VER>/${METALLB_VER}/g" | kubectl apply -f - 
+      curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-config.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | kubectl apply -f - 
       echo "metallb deployed!"
 
       #ingress-nginx
@@ -1085,9 +1090,13 @@ controller-rm) #Delete basic service. [ metallb & nginx-ingress ]
   #ingress-nginx
   kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/ingress-deploy.yaml
   #metallb-system
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-ConfigMap.yaml | sed "s/NETID/${NETID}/g" | sed "s/START/${2}/g" | sed "s/END/${3}/g" | kubectl delete -f -
-  kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb.yaml
-  kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml
+  #curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-ConfigMap.yaml | sed "s/NETID/${NETID}/g" | sed "s/START/${2}/g" | sed "s/END/${3}/g" | kubectl delete -f -
+  #kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb.yaml
+  #kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml
+
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml | kubectl delete -f - 
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-native.yaml | sed "s/<METALLB_VER>/${METALLB_VER}/g" | kubectl delete -f - 
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-config.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | kubectl delete -f - 
 ;;
 
 metrics-deploy) #Deploy metrics-server.
@@ -1220,6 +1229,14 @@ mariadb-galera-deploy) #Deploy mariadb-galera
   helm show values bitnami/mariadb-galera > ~/yaml/mariadb-galera/mariadb-galera-values.yaml
 
   #Fix yaml
+  #storageClass: "" >> storageClass: "${STORAGE_CLASS}"
+  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "storageClass: \"${STORAGE_CLASS}\"" &> /dev/null
+  [ ${?} != 0 ] && sed -i "s/storageClass: \"\"/storageClass: \"${STORAGE_CLASS}\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
+
+  #Change clusterDomain
+  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "namespaceOverride: \"${MARIADB_GALERA_NS}\"" &> /dev/null
+  [ ${?} != 0 ] && sed -i "s/clusterDomain: cluster.local/clusterDomain: ${CORE_DNS_DOMAIN}/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
+
   #namespaceOverride: "" >> namespaceOverride: "${MARIADB_GALERA_NS}"
   cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "namespaceOverride: \"${MARIADB_GALERA_NS}\"" &> /dev/null
   [ ${?} != 0 ] && sed -i "s/namespaceOverride: \"\"/namespaceOverride: \"${MARIADB_GALERA_NS}\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
@@ -1237,23 +1254,25 @@ mariadb-galera-deploy) #Deploy mariadb-galera
   [ ${?} == 0 ] && sed -i "/collation_server=utf8_unicode_ci/d;/init_connect='SET NAMES utf8'/d;/character_set_server=utf8/d" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
 
   #Add Character set setting
-  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "collation_server=utf8mb4_unicode_ci" &> /dev/null
+  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "collation_server=utf8_unicode_ci" &> /dev/null
   [ ${?} != 0 ] && sed -i "s/  ## Character set/  ## Character set\n  character-set-client-handshake=FALSE\n  collation_server=utf8mb4_unicode_ci\n  init_connect=\'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci\'\n  character_set_server=utf8mb4/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
-
-  #user: "" >> user: "${MARIADB_GALERA_USER}"
-  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "user: \"${MARIADB_GALERA_USER}\"" &> /dev/null
-  [ ${?} != 0 ] && sed -i "s/user: \"\"/user: \"${MARIADB_GALERA_USER}\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
 
   #Add default-character-set=utf8mb4
   cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "default-character-set=utf8mb4" &> /dev/null
   [ ${?} != 0 ] && sed -i "360,/plugin_dir=/ s/plugin_dir=\/opt\/bitnami\/mariadb\/plugin$/plugin_dir=\/opt\/bitnami\/mariadb\/plugin\n  default-character-set=utf8mb4/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
 
+  #user: "" >> user: "${MARIADB_GALERA_USER}"
+  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "user: \"${MARIADB_GALERA_USER}\"" &> /dev/null
+  [ ${?} != 0 ] && sed -i "s/user: \"\"/user: \"${MARIADB_GALERA_USER}\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
+
+  #wsrep_mode=REPLICATE_MYISAM >> wsrep_replicate_myisam=ON
+  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "wsrep_mode=REPLICATE_MYISAM" &> /dev/null
+  [ ${?} == 0 ] && sed -i "s/wsrep_mode=REPLICATE_MYISAM/wsrep_replicate_myisam=ON/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
+
+  #annotations: {} >> annotations: metallb.universe.tf/loadBalancerIPs
+
   #replicaCount: [0-9] >> replicaCount: 3
   sed -i "s/replicaCount: [0-9]/replicaCount: 3/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
-
-  #storageClass: "" >> storageClass: "${STORAGE_CLASS}"
-  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "storageClass: storageClass: \"${STORAGE_CLASS}\"" &> /dev/null
-  [ ${?} != 0 ] && sed -i "20,/storageClass:/ s/storageClass: \"\"/storageClass: \"${STORAGE_CLASS}\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
 
   #Deploy mariadb-galera
   helm install mariadb-galera -f ~/yaml/mariadb-galera/mariadb-galera-values.yaml bitnami/mariadb-galera -n mariadb-galera
@@ -1963,6 +1982,50 @@ parm-check) #List all script parameter.
     done
 ;;
 
+test-images-push)
+  #Pull all system images
+  #sudo kubeadm config images pull --image-repository=registry.k8s.io --kubernetes-version=1.26.3
+  #上述指令要解決 pull x509 憑證問題
+  harbor_domain=registry.vattenlab.com
+  harbor_project_1=kube-system
+  target_image_list_1=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'registry.k8s.io' | tr -s ' ' ':')
+  result_image_list_1=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'registry.k8s.io' | tr -s ' ' ':' | sed 's/registry.k8s.io\///g')
+  count=0
+  for target_list in ${target_image_list_1}
+    do
+      echo Target: ${target_list}
+      result_list=$(echo ${target_list} | sed 's/registry.k8s.io\///g')
+      sudo podman tag ${target_list} ${harbor_domain}/${harbor_project_1}/${result_list}
+      echo Result: ${result_list}
+      sudo podman push ${harbor_domain}/${harbor_project_1}/${result_list} --tls-verify=false
+    done
+
+  harbor_project_2=calico
+  target_image_list_2=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'docker.io/calico/' | tr -s ' ' ':')
+  result_image_list_2=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'docker.io/calico/' | tr -s ' ' ':' | sed 's/docker.io\/calico\///g')
+  for target_list in ${target_image_list_2}
+    do
+      echo Target: ${target_list}
+      result_list=$(echo ${target_list} | sed 's/docker.io\/calico\///g')
+      sudo podman tag ${target_list} ${harbor_domain}/${harbor_project_2}/${result_list}
+      echo Result: ${result_list}
+      sudo podman push ${harbor_domain}/${harbor_project_2}/${result_list} --tls-verify=false
+    done
+;;
+
+test-images-rm)
+  #Pull all system images
+  #sudo kubeadm config images pull --image-repository=registry.k8s.io --kubernetes-version=1.26.3
+  #上述指令要解決 pull x509 憑證問題
+  harbor_domain=registry.vattenlab.com
+  target_image_list_1=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'registry.vattenlab.com' | tr -s ' ' ':')
+  count=0
+  for target_list in ${target_image_list_1}
+    do
+      sudo podman rmi ${target_list}
+    done
+;;
+
 "")
   start-info
   echo
@@ -1970,7 +2033,7 @@ parm-check) #List all script parameter.
 
 *)
   echo -e "${YELLOW} \"${@}\" ${NC}is not effective parameter!"
-  echo -e "${RED} Input parameter \"help\" display more information${NC}"
+  echo -e "${YELLOW} Input parameter \"help\" display more information${NC}"
   echo
 ;;
 

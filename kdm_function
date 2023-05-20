@@ -12,11 +12,23 @@ function host-os-detection()
   #[ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${install_list} "cat /etc/os-release | cut -d '"' -f 2 | sudo tee /etc/yum/vars/releasever"
 }
 
+function check-kdm-path()
+{
+  ls ~/bin &> /dev/null
+  [ ${?} != 0 ] && mkdir ~/bin
+  ls ~/kdm/kdm &> /dev/null
+  [ ${?} == 0 ] && mv ~/kdm/kdm ~/bin/
+  ls ~/kdm/kdm_function &> /dev/null
+  [ ${?} == 0 ] && mv ~/kdm/kdm_function ~/bin/
+  ls yaml &> /dev/null
+  [ ${?} != 0 ] && mkdir yaml
+}
+
 function setup-network-package()
 {
   # Setup basic network package
   host-os-detection
-install=1
+  install=1
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && which wget &> /dev/null && install=0
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && CRIO_OS_VER="CentOS_8_Stream" && which wget &> /dev/null && install=0
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${install}" == "1" ] && sudo dnf update -y && sudo dnf install -y --allowerasing dnf-command\(versionlock\) jq net-tools dnsutils nc wget && clear
@@ -38,29 +50,37 @@ function setup-password-control()
 function set-environment-variable() 
 {
   source ~/bin/kdm_function &> /dev/null
-  # Version control
+  #Package version control
   VER_CONTROL=sub
   CRIO_RELEASE=1.26
-  CRIO_SUBVER=${CRIO_RELEASE}.1
+  CRIO_SUBVER=${CRIO_RELEASE}.3
   KUBE_RELEASE=1.26
-  KUBE_SUBVER=${KUBE_RELEASE}.1
+  KUBE_SUBVER=${KUBE_RELEASE}.3
   KUBE_INIT_VER=v${KUBE_SUBVER}
-  KUBE_REGISTRY=registry.k8s.io
+  KUBE_REGISTRY=registry.k8s.io #registry.vattenlab.com
   HELM_VER=3.11.2-1
   PODMAN_VER=4:4.5.0-*
-  #CNI
+  #Docker
+  HARBOR_VER=v2.8.0
+  DOCKER_COMPOSE_VER=2.17.3
+  #Kubernetes CNI
   CALICO_VER=v3.25.1
-  #CSI
+  CORE_DNS_DOMAIN=k8s.org
+  #Kubernetes CSI
   ROOK_TAG=v1.10.12
   ROOK_GIT_RELEASE='release-1.10'
+  STORAGE_CLASS="rook-ceph-block" #rook-ceph-block | local-path
+  CEPH_DASHBOARD_URL="ceph.${CORE_DNS_DOMAIN}"
   LOCAL_PATH_VER=v0.0.24
-  #Monitoring
+  #Kubernetes Monitoring
   METRICS_VER=3.9.0
   PROMETHEUSE_VER=45.10.1
-  #Others
+  #Kubernetes Others
   ECK_OP_VER=2.7.0
   ECK_VER=8.7.0
-  CORE_DNS_DOMAIN=k8s.org
+  METALLB_VER=v0.13.9
+  METALLB_POOL_NAME=metallb-pool-1
+  #INGRESS_VER=
 }
 
 function setup-pkg-version()
@@ -751,10 +771,15 @@ function package-configure-crio()
 function image-repository-setting()
 {
   #Setup image repository registries
-  target='#\ unqualified-search-registries\ =\ \[\"example.com\"\]'
-  replace='unqualified-search-registries = \[\"docker.io\", \"quay.io\"\]'
-  sed_context="sudo sed -i 's/${target}/${replace}/g' /etc/containers/registries.conf"
+  #target='#\ unqualified-search-registries\ =\ \[\"example.com\"\]'
+  #replace='unqualified-search-registries = \[\"docker.io\", \"quay.io\"\]'
+  #sed_context="sudo sed -i 's/${target}/${replace}/g' /etc/containers/registries.conf"
   
+  source=$(cat /etc/containers/registries.conf | grep 'unqualified-search-registries')
+  replace='\"docker.io\", \"quay.io\"'
+  target='\"docker.io\", \"quay.io\", \"registry.vattenlab.com\"'
+  sudo sed -i "s/${replace}/${target}/g" /etc/containers/registries.conf
+
   ssh ${install_list} cat /etc/containers/registries.conf | grep "${replace}" &> /dev/null
   [ ${?} != 0 ] && ssh ${install_list} "${sed_context}"
 
@@ -852,6 +877,13 @@ function package-install-docker()
   ssh ${1} "echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null"
   ssh ${1} sudo apt update
   ssh ${1} sudo apt install -qy docker-ce docker-ce-cli docker-buildx-plugin docker-compose-plugin
+}
+
+function package-install-docker-compose()
+{
+  #insatll docker-compose
+  ssh ${1} sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VER}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/bin/docker-compose
+  ssh ${1} sudo chmod +x /usr/bin/docker-compose
 }
 
 function package-remove-k9s()
