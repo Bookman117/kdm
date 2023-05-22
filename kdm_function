@@ -1,4 +1,4 @@
-# Environment pre-setting
+#kdm environment pre-setting
 function host-os-detection()
 {
   cat /etc/os-release &> /dev/null
@@ -60,6 +60,8 @@ function set-environment-variable()
   KUBE_REGISTRY=registry.k8s.io #registry.vattenlab.com
   HELM_VER=3.11.2-1
   PODMAN_VER=4:4.5.0-*
+  K8S_GPG_PATH=/etc/apt/trusted.gpg.d/ #/usr/share/keyrings/ | /etc/apt/keyrings/
+  GPG_PATH=/etc/apt/trusted.gpg.d/ #/usr/share/keyrings/ | /etc/apt/keyrings/
   #Docker
   HARBOR_VER=v2.8.0
   DOCKER_COMPOSE_VER=2.17.3
@@ -539,6 +541,7 @@ function exclude-non-join()
 
 function node-power()
 {
+  echo
   echo "${@}" | grep -wE "reboot|off" &> /dev/null
   [ ${?} != 0 ] && echo -e "${RED}Please input parameter [ reboot | off ]${NC}\n" && exit
   echo "${@}" | grep -w "reboot" &> /dev/null && power=reboot
@@ -624,10 +627,12 @@ gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 exclude=kubelet kubeadm kubectl
 EOF"' && echo -e " [${GREEN}●${NC}] Repository\t| kubernetes.repo has been added"
+  #[ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo curl -fsSLo ${K8S_GPG_PATH}kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg" &> /dev/null
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring ${K8S_GPG_PATH}cloud.google.gpg add -" &> /dev/null
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list" &> /dev/null
+  #[ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "echo "deb [signed-by=${K8S_GPG_PATH}kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list" &> /dev/null
+  #[ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "ls -al /etc/apt/sources.list.d/*kube* &> /dev/null" && echo -e " [${GREEN}●${NC}] Repository\t| Kubernetes package repository added" || echo -e " [${RED}●${NC}] Repository\t| Kubernetes package repository not added"
 
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg" &> /dev/null
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list" &> /dev/null
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "ls -al /etc/apt/sources.list.d/*kube* &> /dev/null" && echo -e " [${GREEN}●${NC}] Repository\t| Kubernetes package repository added" || echo -e " [${RED}●${NC}] Repository\t| Kubernetes package repository not added"
   #helm package repository
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null" &> /dev/null
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list" &> /dev/null
@@ -671,34 +676,34 @@ function pkg-check()
       #cri-o
       status=0
       ssh ${clist} "which crio > /dev/null 2>&1"
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] crio:\tnot install" && status=1
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] crio\t| not install" && status=1
       #Status active
       ssh ${clist} "sudo systemctl status crio 2> /dev/null | grep "Active:" | grep "failed" &> /dev/null" && status=0
-      [ ${?} != 0 ] && [ "${status}" == 0 ] && echo -e " [${GREEN}●${NC}] crio:\t`ssh ${clist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${clist} ${crio_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${crio_time} | sed 's/^.//' | grep -v 'inactive'`"
+      [ ${?} != 0 ] && [ "${status}" == 0 ] && echo -e " [${GREEN}●${NC}] crio\t| `ssh ${clist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${clist} ${crio_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${crio_time} | sed 's/^.//' | grep -v 'inactive'`"
       #Status failed [if cri-o has been install]
       ssh ${clist} "sudo systemctl status crio 2> /dev/null | grep "Active:" | grep "failed" &> /dev/null" ssh ${clist} sudo systemctl status crio | grep "Loaded:" | grep -v "not-found" && status=0
-      [ ${?} == 0 ] && [ "${status}" == 0 ] && echo -e " [${YELLOW}●${NC}] crio:\t`ssh ${clist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${clist} ${crio_status} | awk '{ print $2,$3,$4 }'` | `ssh ${clist} ${crio_time} | sed 's/^.//'`"
+      [ ${?} == 0 ] && [ "${status}" == 0 ] && echo -e " [${YELLOW}●${NC}] crio\t| `ssh ${clist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${clist} ${crio_status} | awk '{ print $2,$3,$4 }'` | `ssh ${clist} ${crio_time} | sed 's/^.//'`"
       #kubelet
       ssh ${clist} "which kubelet" &> /dev/null
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] kubelet:\tnot install" && status=0 || status=1
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] kubelet\t| not install" && status=0 || status=1
       [ "${status}" == "1" ] && ssh ${clist} "${kubelet_active}" &> /dev/null && active=0 || active=1
-      [ "${status}" == "1" ] && [ "${active}" == "0" ] && echo -e " [${GREEN}●${NC}] kubelet:\t`ssh ${clist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${clist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
-      [ "${status}" == "1" ] && [ "${active}" == "1" ] && echo -e " [${YELLOW}●${NC}] kubelet:\t`ssh ${clist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${clist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
+      [ "${status}" == "1" ] && [ "${active}" == "0" ] && echo -e " [${GREEN}●${NC}] kubelet\t| `ssh ${clist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${clist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
+      [ "${status}" == "1" ] && [ "${active}" == "1" ] && echo -e " [${YELLOW}●${NC}] kubelet\t| `ssh ${clist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${clist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${clist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
       #kubeadm
       ssh ${clist} "which kubeadm" &> /dev/null
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] kubeadm:\tnot install" || echo -e " [${GREEN}●${NC}] kubeadm:\t`ssh ${clist} ${kubeadm_version} 2>&1 | awk '{ print $2 }' `"
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] kubeadm\t| not install" || echo -e " [${GREEN}●${NC}] kubeadm\t| `ssh ${clist} ${kubeadm_version} 2>&1 | awk '{ print $2 }' `"
       #kubectl
       ssh ${clist} "which kubectl" &> /dev/null
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] kubectl:\tnot install" || echo -e " [${GREEN}●${NC}] kubectl:\t`ssh ${clist} ${kubectl_versio} 2>&1 | sed '/localhost:8080/d' | awk '{ print $2 }'`"
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] kubectl\t| not install" || echo -e " [${GREEN}●${NC}] kubectl\t| `ssh ${clist} ${kubectl_versio} 2>&1 | sed '/localhost:8080/d' | awk '{ print $2 }'`"
       #helm
       ssh ${clist} "which helm" &> /dev/null
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] helm:\tnot install" || echo -e " [${GREEN}●${NC}] helm:\t`ssh ${clist} helm version | awk '{ print $1 }' | cut -d '"' -f 2 | sed 's/v//g'`"
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] helm\t| not install" || echo -e " [${GREEN}●${NC}] helm\t| `ssh ${clist} helm version | awk '{ print $1 }' | cut -d '"' -f 2 | sed 's/v//g'`"
       #podman
       ssh ${clist} "which podman" &> /dev/null
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] podman:\tnot install" || echo -e " [${GREEN}●${NC}] podman:\t`ssh ${clist} sudo podman version 2> /dev/null | grep '^Version' | awk '{ print $2 }'`"
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] podman\t| not install" || echo -e " [${GREEN}●${NC}] podman\t| `ssh ${clist} sudo podman version 2> /dev/null | grep '^Version' | awk '{ print $2 }'`"
       #k9s
       ssh ${clist} "which k9s" &> /dev/null 
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] k9s:\tnot install" || echo -e " [${GREEN}●${NC}] k9s:\t`ssh ${clist} k9s version -s | grep Version | awk '{ print $2 }' | sed 's/v//g'`"
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] k9s\t\t| not install" || echo -e " [${GREEN}●${NC}] k9s\t| `ssh ${clist} k9s version -s | grep Version | awk '{ print $2 }' | sed 's/v//g'`"
       echo
     done
 
@@ -711,23 +716,23 @@ function pkg-check()
       #cri-o
       status=0
       ssh ${wlist} "which crio > /dev/null 2>&1"
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] crio\tnot install" && status=1
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] crio\t| not install" && status=1
       ssh ${wlist} "sudo systemctl status crio 2> /dev/null | grep "Active:" | grep "failed" &> /dev/null" && status=0
-      [ ${?} != 0 ] && [ "${status}" == 0 ] && echo -e " [${GREEN}●${NC}] crio:\t`ssh ${wlist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${wlist} ${crio_status} | awk '{ print $2,$3 }'` | `ssh ${wlist} ${crio_time} | sed 's/^.//' | grep -v 'inactive'`"
+      [ ${?} != 0 ] && [ "${status}" == 0 ] && echo -e " [${GREEN}●${NC}] crio\t| `ssh ${wlist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${wlist} ${crio_status} | awk '{ print $2,$3 }'` | `ssh ${wlist} ${crio_time} | sed 's/^.//' | grep -v 'inactive'`"
       ssh ${wlist} "sudo systemctl status crio 2> /dev/null | grep "Active:" | grep "failed" &> /dev/null" && status=0
-      [ ${?} == 0 ] && [ "${status}" == 0 ] && echo -e " [${YELLOW}●${NC}] crio:\t`ssh ${wlist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${wlist} ${crio_status} | awk '{ print $2,$3,$4 }'` | `ssh ${wlist} ${crio_time} | sed 's/^.//'`"
+      [ ${?} == 0 ] && [ "${status}" == 0 ] && echo -e " [${YELLOW}●${NC}] crio\t| `ssh ${wlist} ${crio_version} 2>&1 | sed '/time/d' | awk '{ print $2 }'` | `ssh ${wlist} ${crio_status} | awk '{ print $2,$3,$4 }'` | `ssh ${wlist} ${crio_time} | sed 's/^.//'`"
       #kubelet
       ssh ${wlist} "which kubelet" &> /dev/null
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] kubelet\tnot install" && status=0 || status=1
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] kubelet\t| not install" && status=0 || status=1
       [ "${status}" == "1" ] && ssh ${wlist} "${kubelet_active}" &> /dev/null && active=0 || active=1
-      [ "${status}" == "1" ] && [ "${active}" == "0" ] && echo -e " [${GREEN}●${NC}] kubelet:\t`ssh ${wlist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${wlist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${wlist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
-      [ "${status}" == "1" ] && [ "${active}" == "1" ] && echo -e " [${YELLOW}●${NC}] kubelet:\t`ssh ${wlist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${wlist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${wlist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
+      [ "${status}" == "1" ] && [ "${active}" == "0" ] && echo -e " [${GREEN}●${NC}] kubelet\t| `ssh ${wlist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${wlist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${wlist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
+      [ "${status}" == "1" ] && [ "${active}" == "1" ] && echo -e " [${YELLOW}●${NC}] kubelet\t| `ssh ${wlist} ${kubelet_version} | awk '{ print $2 }'` | `ssh ${wlist} ${kubelet_status} | awk '{ print $2,$3 }'` | `ssh ${wlist} ${kubelet_time} | sed 's/^.//' | grep -v 'inactive'`"
       #kubeadm
       ssh ${wlist} "which kubeadm " &> /dev/null
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] kubeadm:\tnot install" || echo -e " [${GREEN}●${NC}] kubeadm:\t`ssh ${wlist} ${kubeadm_version} 2>&1 | awk '{ print $2 }' `"
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] kubeadm\t| not install" || echo -e " [${GREEN}●${NC}] kubeadm\t| `ssh ${wlist} ${kubeadm_version} 2>&1 | awk '{ print $2 }' `"
       #podman
       ssh ${wlist} "which podman" &> /dev/null
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] podman:\tnot install" || echo -e " [${GREEN}●${NC}] podman:\t`ssh ${wlist} sudo podman version 2> /dev/null | grep '^Version' | awk '{ print $2 }'`"
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] podman\t| not install" || echo -e " [${GREEN}●${NC}] podman\t| `ssh ${wlist} sudo podman version 2> /dev/null | grep '^Version' | awk '{ print $2 }'`"
       echo
     done
 }
@@ -738,15 +743,15 @@ function package-install-crio()
   status=0
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && CRI_PROVIDES=$(sudo dnf provides cri-o 2> /dev/null | grep 'Provide' | head -n 5 | cut -d '=' -f 2 | grep ${CRIO_RELEASE} | head -n 1 | sed 's/^.//')
 
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${VER_CONTROL}" == "sub" ] && ssh ${install_list} "sudo dnf install -y cri-o-${CRIO_SUBVER}-* crun cri-tools" > /dev/null 2>&1 && status=1
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${VER_CONTROL}" == "sub" ] && ssh ${install_list} "sudo dnf install -y cri-o-${CRIO_SUBVER}-* crun" > /dev/null 2>&1 && status=1
   [ "${status}" == "0" ] && ssh ${install_list} "sudo dnf install -y cri-o-${CRI_PROVIDES} crun" > /dev/null 2>&1 && status=1
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${VER_CONTROL}" == "latest" ] && ssh ${install_list} "sudo dnf install -y cri-o-${CRIO_RELEASE}.* crun cri-tools" > /dev/null 2>&1
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${VER_CONTROL}" == "latest" ] && ssh ${install_list} "sudo dnf install -y cri-o-${CRIO_RELEASE}.* crun" > /dev/null 2>&1
 
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${VER_CONTROL}" == "sub" ] && ssh ${install_list} "sudo dnf install -y cri-o-${CRIO_SUBVER}-* crun cri-tools" > /dev/null 2>&1 && status=1
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${VER_CONTROL}" == "sub" ] && ssh ${install_list} "sudo dnf install -y cri-o-${CRIO_SUBVER}-* crun" > /dev/null 2>&1 && status=1
   [ "${status}" == "0" ] && ssh ${install_list} "sudo dnf install -y cri-o-${CRI_PROVIDES} crun" > /dev/null 2>&1 && status=1
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${VER_CONTROL}" == "latest" ] && ssh ${install_list} "sudo dnf install -y cri-o-${CRIO_RELEASE}.* crun cri-tools" > /dev/null 2>&1
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${VER_CONTROL}" == "sub" ] && ssh ${install_list} "sudo apt install -qy -o Dpkg::Options::="--force-confold" cri-o=${CRIO_SUBVER}~* crun cri-tools" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${VER_CONTROL}" == "latest" ] && ssh ${install_list} "sudo apt install -qy -o Dpkg::Options::="--force-confold" cri-o=${CRIO_RELEASE}~* crun cri-tools" > /dev/null 2>&1
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${VER_CONTROL}" == "latest" ] && ssh ${install_list} "sudo dnf install -y cri-o-${CRIO_RELEASE}.* crun" > /dev/null 2>&1
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${VER_CONTROL}" == "sub" ] && ssh ${install_list} "sudo apt install -qy -o Dpkg::Options::="--force-confold" cri-o=${CRIO_SUBVER}~* crun" &> /dev/null && status=1
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${VER_CONTROL}" == "latest" ] && ssh ${install_list} "sudo apt install -qy -o Dpkg::Options::="--force-confold" cri-o=${CRIO_RELEASE}~* crun" > /dev/null 2>&1
 
   ssh ${install_list} "sudo sed -i '/'1100:200'/d' /etc/cni/net.d/100-crio-bridge.conflist" &> /dev/null
   ssh ${install_list} "sudo sed -i '/\"dst\": \"::\/0\"/d' /etc/cni/net.d/100-crio-bridge.conflist" &> /dev/null
@@ -830,6 +835,7 @@ function package-install-kube-package()
 
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt-mark unhold kubeadm kubelet kubectl" &> /dev/null
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy kubernetes-cni" &> /dev/null
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy apt-transport-https" &> /dev/null
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy kubeadm=${KUBE_SUBVER}-* kubelet=${KUBE_SUBVER}-* kubectl=${KUBE_SUBVER}-*" &> /dev/null
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo systemctl daemon-reload" &> /dev/null
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt-mark hold kubeadm kubelet kubectl" &> /dev/null
@@ -855,7 +861,7 @@ function package-install-k9s()
   ssh ${install_list} "rm -r ~/Downloads/" &> /dev/null
 
   ssh ${install_list} "ls -al ~/bin/k9s" &> /dev/null
-  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| k9s installed" || echo -e " [${RED}●${NC}] k9s not install"
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| k9s installed" || echo -e " [${RED}●${NC}] k9s\t\t| not install"
 }
 
 function package-install-helm()
@@ -866,7 +872,7 @@ function package-install-helm()
 
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt -qy update" &> /dev/null
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy helm=${HELM_VER}" &> /dev/null
-  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| helm installed" || echo -e " [${RED}●${NC}] Package\t| helm not installed"
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| helm installed" || echo -e " [${RED}●${NC}] Package\t| helm\t| not installed"
 }
 
 function package-install-docker()
@@ -890,11 +896,11 @@ function package-remove-k9s()
 {
   status=0
   ssh ${remove_list} "which k9s" &> /dev/null || status=2
-  [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] k9s not install"
+  [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] k9s\t\t| not install"
   [ "${status}" == "0" ] && ssh ${remove_list} "rm ~/bin/k9s" &> /dev/null
-  [ ${?} == 0 ] && echo -e "[${GREEN}●${NC}] k9s removed"
+  [ ${?} == 0 ] && echo -e "[${GREEN}●${NC}] k9s\t| removed"
   ssh ${remove_list} "which k9s" &> /dev/null && status=1
-  [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] k9s not remove"
+  [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] k9s\t| not remove"
 }
 
 function package-remove-kube()
@@ -902,89 +908,89 @@ function package-remove-kube()
   #RHEL
   status=0
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "which kubeadm" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubeadm not install"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubeadm\t| not install"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf versionlock delete kubeadm" &> /dev/null
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf remove -y kubeadm" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "RHEL_8" ] &&  echo -e "[${GREEN}●${NC}] kubeadm removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "RHEL_8" ] &&  echo -e "[${GREEN}●${NC}] kubeadm\t| removed"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "which kubeadm" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubeadm not remove"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubeadm\t| not remove"
 
   status=0
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "which kubectl" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubectl not install"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubectl\t| not install"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf versionlock delete kubectl" &> /dev/null
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf remove -y kubectl" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "RHEL_8" ] && echo -e "[${GREEN}●${NC}] kubectl removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "RHEL_8" ] && echo -e "[${GREEN}●${NC}] kubectl\t| removed"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "which kubectl" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubectl not remove"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubectl\t| not remove"
 
   status=0
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "which kubelet" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubelet not install"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubelet\t| not install"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf versionlock delete kubelet" &> /dev/null
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo systemctl disable --now kubelet" &> /dev/null
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf remove -y kubelet" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "RHEL_8" ] && echo -e "[${GREEN}●${NC}] kubelet removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "RHEL_8" ] && echo -e "[${GREEN}●${NC}] kubelet\t| removed"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "which kubelet" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubelet not remove"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubelet\t| not remove"
 
   #Rocky
   status=0
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "which kubeadm" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubeadm not install"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubeadm\t| not install"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf versionlock delete kubeadm" &> /dev/null
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf remove -y kubeadm" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && echo -e "[${GREEN}●${NC}] kubeadm removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && echo -e "[${GREEN}●${NC}] kubeadm\t| removed"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "which kubeadm" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubeadm not remove"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubeadm\t| not remove"
 
   status=0
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "which kubectl" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubelet not install"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubelet\t| not install"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf versionlock delete kubectl" &> /dev/null
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf remove -y kubectl" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && echo -e "[${GREEN}●${NC}] kubectl removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && echo -e "[${GREEN}●${NC}] kubectl\t| removed"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "which kubectl" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubectl not remove"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubectl\t| not remove"
 
   status=0
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "which kubelet" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubelet not install"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubelet\t| not install"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf versionlock delete kubelet" &> /dev/null
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo systemctl disable --now kubelet" &> /dev/null
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf remove -y kubelet" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] &&  echo -e "[${GREEN}●${NC}] kubelet removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] &&  echo -e "[${GREEN}●${NC}] kubelet\t| removed"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "which kubelet" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubelet not remove"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubelet\t| not remove"
 
   #Ubuntu
   status=0
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which kubeadm" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubeadm not install"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubeadm\t| not install"
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo apt-mark unhold kubeadm" &> /dev/null
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo apt purge -qy --allow-change-held-packages kubeadm" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] &&  echo -e "[${GREEN}●${NC}] kubeadm removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] &&  echo -e "[${GREEN}●${NC}] kubeadm\t| removed"
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which kubeadm" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubeadm not remove"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubeadm\t| not remove"
   
   status=0
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which kubectl" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubectl not install"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubectl\t| not install"
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo apt-mark unhold kubectl" &> /dev/null
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo apt purge -qy --allow-change-held-packages kubectl" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] &&  echo -e "[${GREEN}●${NC}] kubectl removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] &&  echo -e "[${GREEN}●${NC}] kubectl\t| removed"
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which kubectl" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubectl not remove"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubectl\t| not remove"
   
   status=0
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which kubelet" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubelet not install"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] kubelet\t| not install"
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo apt-mark unhold kubelet" &> /dev/null
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo systemctl disable --now kubelet" &> /dev/null
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo apt purge -qy --allow-change-held-packages kubelet kubernetes-cni" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] &&  echo -e "[${GREEN}●${NC}] kubelet removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] &&  echo -e "[${GREEN}●${NC}] kubelet\t| removed"
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which kubelet" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubelet not remove"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] kubelet\t| not remove"
 }
 
 function package-remove-crio()
@@ -992,35 +998,35 @@ function package-remove-crio()
   #RHEL
   status=0
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "which crio" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] cri-o not install"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] cri-o\t| not install"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo systemctl disable --now cri-o" &> /dev/null
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf remove -y cri-o cri-tools*" &> /dev/null
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf remove -y cri-o" &> /dev/null
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo rm $(which crio)" &> /dev/null
   [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "RHEL_8" ] && echo -e "[${GREEN}●${NC}] cri-o removed"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "which crio" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] cri-o not remove"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] cri-o\t| not remove"
 
   #Rocky
   status=0
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "which crio" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] cri-o not install"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] cri-o\t| not install"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo systemctl disable --now cri-o" &> /dev/null
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf remove -y cri-o cri-tools*" &> /dev/null
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf remove -y cri-o" &> /dev/null
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo rm $(which crio)"
   [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && echo -e "[${GREEN}●${NC}] cri-o removed"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "which crio" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] cri-o not remove"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] cri-o\t| not remove"
 
   #Ubuntu
   status=0
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which crio" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] cri-o not install"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] cri-o\t| not install"
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo systemctl disable --now crio" &> /dev/null
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo apt purge -qy --allow-change-held-packages cri-o cri-tools cri-o-runc" &> /dev/null
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo apt purge -qy --allow-change-held-packages cri-o" &> /dev/null
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo rm $(which crio)" &> /dev/null
   [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && echo -e "[${GREEN}●${NC}] cri-o removed"
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which crio" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] cri-o not remove"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] cri-o\t| not remove"
 }
 
 function package-remove-helm()
@@ -1028,29 +1034,29 @@ function package-remove-helm()
   #RHEL
   status=0
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "which helm" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] helm not install"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] helm\t| not install"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} 'sudo rm `which helm`' &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "RHEL_8" ] && echo -e "[${GREEN}●${NC}] helm removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "RHEL_8" ] && echo -e "[${GREEN}●${NC}] helm\t| removed"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "which helm" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] helm not remove"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] helm\t| not remove"
 
   #Rocky
   status=0
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "which helm" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] helm not install"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] helm\t| not install"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} 'sudo rm `which helm`' &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && echo -e "[${GREEN}●${NC}] helm removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && echo -e "[${GREEN}●${NC}] helm\t| removed"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "which helm" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] helm not remove"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] helm\t| not remove"
 
   #Ubuntu
   status=0
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which helm" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] helm not install"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] helm\t| not install"
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo apt remove -qy --purge --allow-change-held-packages helm" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && echo -e "[${GREEN}●${NC}] helm removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && echo -e "[${GREEN}●${NC}] helm\t| removed"
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which helm" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] helm not remove"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] helm\t| not remove"
 }
 
 function package-remove-podman()
@@ -1058,29 +1064,29 @@ function package-remove-podman()
   #RHEL
   status=0
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "which podman" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] podman not install"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] podman\t| not install"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf remove -y podman" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "RHEL_8" ] && echo -e "[${GREEN}●${NC}] podman removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "RHEL_8" ] && echo -e "[${GREEN}●${NC}] podman\t| removed"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "which podman" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] podman not remove"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] podman\t| not remove"
 
   #Rocky
   status=0
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "which podman" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] podman not install"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] podman\t| not install"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo dnf remove -y podman" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && echo -e "[${GREEN}●${NC}] podman removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && echo -e "[${GREEN}●${NC}] podman\t| removed"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "which podman" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] podman not remove"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] podman\t| not remove"
 
   #Ubuntu
   status=0
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which podman" &> /dev/null || status=2
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] podman not install"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e "[${RED}●${NC}] podman\t| not install"
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo apt remove -qy --purge --allow-change-held-packages podman buildah" &> /dev/null
-  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && echo -e "[${GREEN}●${NC}] podman removed"
+  [ ${?} == 0 ] && [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && echo -e "[${GREEN}●${NC}] podman\t| removed"
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which podman" &> /dev/null && status=1
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] podman not remove"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${RED}●${NC}] podman\t| not remove"
 }
 
 function package-remove-daemon-reload()
@@ -1088,18 +1094,18 @@ function package-remove-daemon-reload()
   status=0
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${remove_list} "sudo dnf autoremove -y"
   [ "${CRIO_OS_VER}" == "RHEL_8" ] && ssh ${cremove_listlist} "sudo systemctl daemon-reload" &> /dev/null && status=1 || status=0
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${GREEN}●${NC}] daemon reloaded"
-  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && echo -e "[${RED}●${NC}] daemon not reload"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "1" ] && echo -e "[${GREEN}●${NC}] daemon\t| reloaded"
+  [ "${CRIO_OS_VER}" == "RHEL_8" ] && [ "${status}" == "0" ] && echo -e "[${RED}●${NC}] daemon\t| not reload"
   
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "sudo dnf autoremove -y"
   [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && ssh ${remove_list} "sudo systemctl daemon-reload" &> /dev/null && status=1 || status=0
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${GREEN}●${NC}] daemon reloaded"
-  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && echo -e "[${RED}●${NC}] daemon not reload"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "1" ] && echo -e "[${GREEN}●${NC}] daemon\t| reloaded"
+  [ "${CRIO_OS_VER}" == "CentOS_8_Stream" ] && [ "${status}" == "0" ] && echo -e "[${RED}●${NC}] daemon\t| not reload"
   
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "sudo apt -qy --allow-change-held-packages autoremove" &> /dev/null
   [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "sudo systemctl daemon-reload" && status=1 || status=0
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${GREEN}●${NC}] daemon reloaded"
-  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && echo -e "[${RED}●${NC}] daemon not reload"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e "[${GREEN}●${NC}] daemon\t| reloaded"
+  [ "${CRIO_OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && echo -e "[${RED}●${NC}] daemon\t| not reload"
 }
 
 function kubectl-instal-check()
@@ -1107,7 +1113,7 @@ function kubectl-instal-check()
   status=0
   ssh ${1} "which kubectl" &> /dev/null
   [ ${?} == 0 ] && kubectl_check=$(ssh ${1} kubectl version -o yaml 2> /dev/null | grep -A 10 'clientVersion' | grep 'gitVersion' | awk '{ print $2 }') && status=1
-  [ "${status}" == "1" ] && echo -e " [${GREEN}●${NC}] Package\t| kubectl ${kubectl_check} installed" || echo -e " [${YELLOW}●${NC}] Package\t| kubectl not install"
+  [ "${status}" == "1" ] && echo -e " [${GREEN}●${NC}] Package\t| kubectl ${kubectl_check} installed" || echo -e " [${YELLOW}●${NC}] Package\t| kubectl\t| not install"
 }
 
 function kubeadm-install-check()
@@ -1115,7 +1121,7 @@ function kubeadm-install-check()
   status=0
   ssh ${1} "which kubeadm" &> /dev/null
   [ ${?} == 0 ] && kubeadm_check=$(ssh ${1} kubeadm version -o yaml 2> /dev/null | grep "gitVersion" | awk '{ print $2 }') && status=1
-  [ "${status}" == "1" ] && echo -e " [${GREEN}●${NC}] Package\t| kubeadm ${kubeadm_check} installed" || echo -e " [${YELLOW}●${NC}] Package\t| kubeadm not install"
+  [ "${status}" == "1" ] && echo -e " [${GREEN}●${NC}] Package\t| kubeadm ${kubeadm_check} installed" || echo -e " [${YELLOW}●${NC}] Package\t| kubeadm\t| not install"
 }
 
 function kubelet-install-check()
@@ -1123,7 +1129,7 @@ function kubelet-install-check()
   status=0
   ssh ${1} "which kubelet" &> /dev/null
   [ ${?} == 0 ] && kubelet_check=$(ssh ${1} kubelet --version 2> /dev/null | grep "^Kubernetes" | awk '{ print $2 }') && status=1
-  [ "${status}" == "1" ] && echo -e " [${GREEN}●${NC}] Package\t| kubelet ${kubelet_check} installed" || echo -e " [${YELLOW}●${NC}] Package\t| kubelet not install"
+  [ "${status}" == "1" ] && echo -e " [${GREEN}●${NC}] Package\t| kubelet ${kubelet_check} installed" || echo -e " [${YELLOW}●${NC}] Package\t| kubelet\t| not install"
   ssh ${1} ls -l /etc/systemd/system/kubelet.service.d/ 2> /dev/null | grep -w "10-kubeadm.conf$" &> /dev/null
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| 10-kubeadm.conf checked" && status=0 || echo -e " [${RED}●${NC}] Package\t| 10-kubeadm.conf not configured correctly" && status=0
   [ ${status} == "1" ] && target=$(ls /etc/systemd/system/kubelet.service.d/ 2> /dev/null) && ssh ${1} sudo mv /etc/systemd/system/kubelet.service.d/${target} /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 2> /dev/null
@@ -1139,7 +1145,7 @@ function podman-install-check()
 {
   podman_check=$(ssh ${1} podman version 2> /dev/null | grep '^Version' | awk '{ print $2 }')
   ssh ${1} "which podman" &> /dev/null
-  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| podman ${podman_check} installed" || echo -e " [${YELLOW}●${NC}] Package\t| podman not install"
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| podman ${podman_check} installed" || echo -e " [${YELLOW}●${NC}] Package\t| podman\t| not install"
 }
 
 function daemon-enable()
@@ -1155,13 +1161,13 @@ function daemon-enable()
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Daemon\t| kubelet restarted" || echo -e " [${RED}●${NC}] Daemon\t| kubelet not restart"
 
   ssh ${1} "sudo systemctl daemon-reload" &> /dev/null
-  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Daemon\t| daemon has been reload" || echo -e " [${YELLOW}●${NC}] Daemon\t| daemon not reload"
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Daemon\t| daemon has been reload" || echo -e " [${YELLOW}●${NC}] Daemon\t| daemon\t| not reload"
 }
 
 function daemon-reload()
 {
   ssh ${1} sudo systemctl daemon-reload &> /dev/null
-  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Daemon\t| daemon reload" || echo -e " [${RED}●${NC}] Daemon\t| daemon not reload"
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Daemon\t| daemon reload" || echo -e " [${RED}●${NC}] Daemon\t| daemon\t| not reload"
   ssh ${1} sudo systemctl restart cri-o &> /dev/null
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Daemon\t| cri-o reload" || echo -e " [${RED}●${NC}] Daemon\t| cri-o not reload"
   ssh ${1} sudo systemctl restart kubelet &> /dev/null

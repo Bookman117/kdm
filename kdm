@@ -52,7 +52,7 @@ CYAN="\033[0;36m"
 WHITE="\033[0;37m"
 
 #Package list
-PACKAGE_LIST="cri-o kubelet kubeadm kubectl helm podman":ingress
+PACKAGE_LIST="cri-o kubelet kubeadm kubectl helm podman"
 
 # Kubernetes projects namespace
 KUBE_SYSTEM_NS="kube-system"
@@ -352,7 +352,9 @@ sync-kdm) #scp kdm to every nodes.
       [ ${?} != 0 ] && ssh ${install_list} "mkdir ~/bin &> /dev/null"
       echo -e "${YELLOW}Send to ${install_list}${NC}"
       scp bin/kdm ${install_list}:bin/ &> /dev/null
-      [ ${?} == 0 ] && echo -e "[${GREEN}●${NC}] Sync successed" || echo -e "[${RED}○${NC}] Sync unsuccess"
+      [ ${?} == 0 ] && echo -e "[${GREEN}●${NC}] kdm sync successed" || echo -e "[${RED}○${NC}] kdm sync unsuccess"
+      scp bin/kdm_function ${install_list}:bin/ &> /dev/null
+      [ ${?} == 0 ] && echo -e "[${GREEN}●${NC}] kdm_function sync successed" || echo -e "[${RED}○${NC}] kdm_function sync unsuccess"
     done && echo
 ;;
 
