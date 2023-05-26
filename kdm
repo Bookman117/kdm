@@ -215,7 +215,11 @@ EOF"
 
 set-ip) #Setup IP Address. [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]
 #Need fix input parameter.
-  echo "${2}" | grep '\/' || echo -e "${RED}Please input parameter after ${YELLOW}\"set-ip\"${NC} [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]\n" && exit
+  echo "${2}" | grep '\/' &> /dev/null
+  if [ ${?} != 0 ]
+    then
+      echo -e "${RED}Please input parameter after ${YELLOW}\"set-ip\"${NC} [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]\n" && exit
+  fi
   if [ ${#} != 2 ]
     then
       echo -e "${RED}Please input parameter after ${YELLOW}\"set-ip\"${NC} [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]\n" && exit
@@ -284,7 +288,6 @@ network:
       nameservers:
         addresses: [8.8.8.8]
 EOF" && echo -e "netplane setting\n" && cat /etc/netplan/00-installer-config.yaml; echo
-
   fi
 ;;
 
@@ -657,7 +660,7 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
   #[ ${2} == "high-ava" ] && [ "${3}" == "calico" ] && sudo kubeadm init --upload-certs --config=kubeadm-init-config.yaml --v=5
   #===
   [ ${2} == "high-ava" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
-  [ ${2} == "single-cp" ] && [ "${3}" == "calico" ] && sudo kubeadm init --pod-network-cidr=172.16.0.0/17 --service-cidr=10.96.0.0/12 --service-dns-domain=k8s.org --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=v1.26.3 --config=~/kubeadm-init-config.yaml --v=5
+  [ ${2} == "single-cp" ] && [ "${3}" == "calico" ] && sudo kubeadm init --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
   [ ${?} != 0 ] && [ "${2}" == "calico" ] && interrupt ${RED}\nkubeadm init failure!${NC}
   [ "${3}" == "calico" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
   [ "${3}" == "calico" ] && ls ${HOME}/.kube/config &> /dev/null
