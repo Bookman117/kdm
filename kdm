@@ -215,9 +215,9 @@ EOF"
 
 set-ip) #Setup IP Address. [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]
 #Need fix input parameter.
+  echo "${2}" | grep '\/' || echo -e "${RED}Please input parameter after ${YELLOW}\"set-ip\"${NC} [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]\n" && exit
   if [ ${#} != 2 ]
     then
-      echo "${2}" | grep '\/' || echo -e "${RED}Please input parameter after ${YELLOW}\"set-ip\"${NC} [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]\n" && exit
       echo -e "${RED}Please input parameter after ${YELLOW}\"set-ip\"${NC} [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]\n" && exit
     else
 
