@@ -1052,6 +1052,9 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
 
 controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NETID just input xxx xxx ]
   #Set variable
+  ls ~/yaml/controller &> /dev/null
+  [ $? != 0 ] && mkdir -p ~/yaml/controller
+
   set-environment-variable
   if [ -z ${2} ]
     then
@@ -1067,20 +1070,23 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
       for install_list in ${CP_NODES} ${WK_NODES}
         do
           ssh ${install_list} cat /etc/hosts | grep "${NETID}.${2}"
-          [ ${?} != 0 ] && ssh ${install_list} "echo "${NETID}.${2} quay.${CORE_DNS_DOMAIN} jenkins.${CORE_DNS_DOMAIN} gf.${CORE_DNS_DOMAIN} kg.${CORE_DNS_DOMAIN}" | sudo tee -a /etc/hosts"
+          [ ${?} != 0 ] && ssh ${install_list} "echo "${NETID}.${2} ${CORE_DNS_DOMAIN}" | sudo tee -a /etc/hosts"
         done
       #metallb-system
+      #Old version
       #kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml
       #kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb.yaml
       #curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-ConfigMap.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | kubectl apply -f - 
+      #curl https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-ConfigMap.yaml | sed 's/NETID/192.168.115/g'| sed 's/START/100/g' | sed 's/END/109/g'
     
       curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml | kubectl apply -f - 
-      curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-native.yaml | sed "s/<METALLB_VER>/${METALLB_VER}/g" | kubectl apply -f - 
-      curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-config.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | kubectl apply -f - 
+      curl -s https://raw.githubusercontent.com/metallb/metallb/${METALLB_VER}/config/manifests/metallb-native.yaml | kubectl apply -f - 
+      #curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-config.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | kubectl apply -f - 
+      curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-pool.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | sed "s/<pool-name>/${METALLB_POOL_NAME}/g" | kubectl apply -f - 
       echo "metallb deployed!"
 
       #ingress-nginx
-      kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/ingress-deploy.yaml
+      https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/ingress-deploy.yaml | sed "s/<ingress-name>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
       echo "ingress-nginx deployed!"
       k9s -c pods -A
   fi
@@ -1097,8 +1103,9 @@ controller-rm) #Delete basic service. [ metallb & nginx-ingress ]
   #kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml
 
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml | kubectl delete -f - 
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-native.yaml | sed "s/<METALLB_VER>/${METALLB_VER}/g" | kubectl delete -f - 
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-config.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | kubectl delete -f - 
+  curl -s https://raw.githubusercontent.com/metallb/metallb/${METALLB_VER}/config/manifests/metallb-native.yaml | kubectl delete -f - 
+  #curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-config.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | kubectl delete -f - 
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-pool.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | sed "s/<pool-name>/${METALLB_POOL_NAME}/g" | kubectl delete -f - 
 ;;
 
 metrics-deploy) #Deploy metrics-server.
