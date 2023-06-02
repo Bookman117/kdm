@@ -65,7 +65,7 @@ function set-environment-variable()
   #Kubernetes CNI
   KUBE_VIP_VER=v0.6.0 #v0.4.1
   CALICO_VER=v3.25.1 #v3.26.0（會無法部署 rook-ceph）
-  CORE_DNS_DOMAIN=vattensoft.t1.com #k8s.org
+  CORE_DNS_DOMAIN=vattensoft.lab.com #k8s.org
   #Kubernetes CSI
   ROOK_TAG=v1.10.12 #v1.11.3
   ROOK_GIT_RELEASE='release-1.10'
@@ -193,7 +193,7 @@ function crio-available-version-check()
       curl -s https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/${CRIO_RELEASE}:/${list}/${OS_VER}/Release.key | grep 'BEGIN PGP PUBLIC KEY BLOCK' &> /dev/null
       [ ${?} == 0 ] && echo -n "${list} " >> /tmp/CRIO_AVL_VER && echo -e " [${GREEN}●${NC}] cri-o version: ${list} is available"
     done
-  CRIO_AVL_VER=`cat /tmp/CRIO_AVL_VER | sed /\n/d`
+  CRIO_AVL_VER=`cat /tmp/CRIO_AVL_VER 2> /dev/null | sed /\n/d`
 }
 
 function show-version-control()

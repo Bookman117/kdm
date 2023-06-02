@@ -1731,47 +1731,62 @@ cluster-rm) #Remove kubernetes cluster.
   kubectl get storageclass -A 2> /dev/null | grep 'rook-ceph' &> /dev/null
   [ ${?} == 0 ] && rook_detection=1
 
+  #metrics detection
+  kubectl get ns -A 2> /dev/null | grep 'metrics' &> /dev/null
+  [ ${?} == 0 ] && metrics_detection=1
+    
+  #Prometheus detection
+  kubectl get ns -A 2> /dev/null | grep 'monitoring' &> /dev/null
+  [ ${?} == 0 ] && prometheus_detection=1
+
+  #elastic detection
+  kubectl get ns -A 2> /dev/null | grep 'elastic-system' &> /dev/null
+  [ ${?} == 0 ] && elastic_detection=1
+
   #calico detection
   kubectl get ns -A 2> /dev/null | grep 'calico' &> /dev/null
   [ ${?} == 0 ] && calico_detection=1
 
-  #calico detection
-  kubectl get ns -A 2> /dev/null | grep 'metrics' &> /dev/null
-  [ ${?} == 0 ] && metrics_detection=1
-
+  #cluster remove info
   start-info; echo
   echo -e "${YELLOW}StorageClass: $(kubectl get storageclass -A 2> /dev/null | grep -E 'rook-ceph|local-path' | awk '{ print $1 }' | sed ":a;N;s/\n/\ | /g")${NC}"
-
   echo
   interrupt ${RED}Please confirm this command will destruction cluster!${NC}
-
   echo -n "As you wish"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
+
   #Check kubernetes status
   status=0
   kubectl get nodes &> /dev/null
   [ ${?} == 0 ] && status=1
 
+  #Metrics
+  [ "${metrics_detection}" == "1" ] && [ "${status}" == "1" ] && helm delete metrics-server -n kube-system
+  [ "${metrics_detection}" == "1" ] && [ "${status}" == "1" ] && helm repo remove metrics-server
+  
+  #Prometheus
+  [ "${prometheus_detection}" == "1" ] && [ "${status}" == "1" ] && helm delete kube-prometheus-stack -n monitoring
+  [ "${prometheus_detection}" == "1" ] && [ "${status}" == "1" ] && helm repo remove prometheus-community
+
+  #Delete Kibana & Ingress rule
+  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | kubectl delete -f -
+  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VER}/g" | kubectl delete -f -
+  
+  #Delete elasticsearch
+  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl delete -f -
+  #Delete Superuser
+  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl delete -f -
+  #Delete crd & operator
+  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && kubectl delete -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/operator.yaml
+  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && kubectl delete -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/crds.yaml
+  
   #calico
   [ "${calico_detection}" == "1" ] && [ "${status}" == "1" ] && helm delete calico -n tigera-operator
   [ "${calico_detection}" == "1" ] && [ "${status}" == "1" ] && kubectl delete namespace tigera-operator
   [ "${calico_detection}" == "1" ] && [ "${status}" == "1" ] && helm repo remove projectcalico
-  #metrics
-  [ "${metrics_detection}" == "1" ] && [ "${status}" == "1" ] && helm delete metrics-server -n kube-system
-  [ "${metrics_detection}" == "1" ] && [ "${status}" == "1" ] && helm repo remove metrics-server
-  #delete all namespace
-  [ "${status}" == "1" ] && kubectl delete all --all --all-namespaces
-  [ "${status}" == "1" ] && kubectl delete --all namespaces
 
-  #Delete Kibana & Ingress rule
-  [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | kubectl delete -f -
-  [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VER}/g" | kubectl delete -f -
-  #Delete elasticsearch
-  [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl delete -f -
-  #Delete Superuser
-  [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl delete -f -
-  #Delete crd & operator
-  [ "${status}" == "1" ] && kubectl delete -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/operator.yaml
-  [ "${status}" == "1" ] && kubectl delete -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/crds.yaml
+  #delete all namespace
+  [ "${status}" == "1" ] && kubectl delete all --all --all-namespaces 2> /dev/null
+  [ "${status}" == "1" ] && kubectl delete --all namespaces 2> /dev/null
 
   for wclist in ${wk_nodes} ${cp_nodes}
     do
