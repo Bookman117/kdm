@@ -47,15 +47,54 @@ function setup-password-control()
   MARIADB_GALERA_PASSWORD='VkB0dGVuMiEK' #Code as base64
 }
 
+function set-text-color-variable()
+{
+  #Text color setting
+  NC="\033[0m" #Color reset
+  BLACK="\033[0;30m"
+  RED="\033[0;31m"
+  GREEN="\033[0;32m"
+  YELLOW="\033[0;33m"
+  BLUE="\033[0;34m"
+  PURPLE="\033[0;35m"
+  CYAN="\033[0;36m"
+  WHITE="\033[0;37m"
+}
+
+function set-network-variable()
+{
+  #Network info
+  IP=$(ip a | grep -E 'en|eth' | grep 'inet' | awk '{ print $2 }' | cut -d '/' -f 1 | head -n 1)
+  NETID=$(ip a | grep 'en' | grep 'inet' | awk '{ print $2 }' | cut -d '.' -f 1-3 | head -n 1)
+  [ "${OS_VER}" != "macOS" ] && GATEWAY=$(route -n | tr -s " " | grep '^0.0.0.0' | cut -d " " -f 2 | grep "${NETID}")
+  [ "${OS_VER}" != "macOS" ] && NETMASK=$(route -n | grep 'en' | grep -w 'U' | awk '{ print $3 }')
+  [ "${OS_VER}" == "macOS" ] && GATEWAY=$(netstat -nr | grep '^default' | grep "en[0-9]" | awk '{ print $2 }')
+  [ "${OS_VER}" == "macOS" ] && NETMASK="??"
+
+  #Kube-VIP
+  VIP_TARGET=$(($(cat /etc/hosts | grep "${NETID}" | grep '\-m1' | awk '{ print $1 }' | cut -d '.' -f 4)-1))
+  KUBE_VIP="${NETID}.${VIP_TARGET}"
+  KUBE_INTERFACE=$(ip a | grep -B 3 "${IP}" | grep 'ens' | head -n 1 | awk '{ print $2 }' | sed 's/://g')
+  echo "${OS_VERSION}" | grep 'Rocky Linux 8' &> /dev/null
+  [ ${?} == 0 ] && NETWORK_UUID=$(cat /etc/sysconfig/network-scripts/ifcfg-${KUBE_INTERFACE} | grep 'UUID' | cut -d '=' -f 2)
+}
+
 function set-environment-variable() 
 {
   source ~/bin/kdm_function &> /dev/null
+  export KUBE_EDITOR=nano
+  LOG_OUTPUT_LEVEL="" #--v=5
+  #Package list
+  PACKAGE_LIST="cri-o kubelet kubeadm kubectl helm podman"
+  #Linux security settings
+  SELINUX_MODE=enforcing #disable | permissive | enforcing
+  FIREWALLD_ENABLE=disable #disable | enable
   #Linux package version control
   VER_CONTROL=sub
-  CRIO_RELEASE=1.26
-  CRIO_SUBVER=${CRIO_RELEASE}.3
-  KUBE_RELEASE=1.26
-  KUBE_SUBVER=${KUBE_RELEASE}.3
+  CRIO_RELEASE=1.27
+  CRIO_SUBVER=${CRIO_RELEASE}.0
+  KUBE_RELEASE=1.27
+  KUBE_SUBVER=${KUBE_RELEASE}.0
   KUBE_INIT_VER=v${KUBE_SUBVER}
   KUBE_REGISTRY=registry.k8s.io #registry.vattenlab.com
   HELM_VER=3.11 #3.11.2-1
@@ -64,19 +103,19 @@ function set-environment-variable()
   GPG_PATH=/etc/apt/trusted.gpg.d/ #/usr/share/keyrings/ | /etc/apt/keyrings/
   #Kubernetes CNI
   KUBE_VIP_VER=v0.6.0 #v0.4.1
-  CALICO_VER=v3.25.1 #v3.26.0（會無法部署 rook-ceph）
+  CALICO_VER=v3.26.1 #v3.25.1 #（v3.26.0 會無法部署 rook-ceph）
   CORE_DNS_DOMAIN=vattensoft.lab.com #k8s.org
   #Kubernetes CSI
-  ROOK_TAG=v1.10.12 #v1.11.3
+  ROOK_TAG=v1.11.8 #v1.10.12
   ROOK_GIT_RELEASE='release-1.10'
-  STORAGE_CLASS="rook-ceph-block" #rook-ceph-block | local-path
+  STORAGE_CLASS="local-path" #rook-ceph-block | local-path
   CEPH_DASHBOARD_URL="ceph.${CORE_DNS_DOMAIN}"
   LOCAL_PATH_VER=v0.0.24
   #Kubernetes Monitoring
   METRICS_VER=3.10.0
   PROMETHEUSE_VER=46.5.0 #45.10.1
   #Kubernetes service
-  METALLB_VER=v0.13.9
+  METALLB_VER=v0.13.10
   METALLB_POOL_NAME=metal-1
   INGRESS_CLASS_NAME=ingress-1
   #INGRESS_VER=
@@ -85,6 +124,30 @@ function set-environment-variable()
   #Docker
   HARBOR_VER=v2.8.0
   DOCKER_COMPOSE_VER=2.17.3
+}
+
+function kubernetes-node-variable()
+{
+  #node & service
+  CP_NODES=$(cat /etc/hosts | grep -vE '#|ip6' | grep "${NETID}" | awk '{ print $2 }' | grep "\-m" | tr -s '\n' ' ')
+  WK_NODES=$(cat /etc/hosts | grep -vE '#|ip6' | grep "${NETID}" | awk '{ print $2 }' | grep "\-w" | tr -s '\n' ' ')
+  ALL_NODES=$(cat /etc/hosts | grep -vE '#|ip6' | grep "${NETID}" | awk '{ print $2 }' | grep -E "\-m|\-w" | tr -s '\n' ' ')
+  ALL_NODES_EX_LOCALHOST=$(cat /etc/hosts | grep -vE '#|ip6' | grep "${NETID}" | awk '{ print $2 }' | grep -E "\-m|\-w" | grep -v `hostname` | tr -s '\n' ' ')
+}
+
+function kubernetes-namespace-variable()
+{
+  #Kubernetes projects namespace
+  KUBE_SYSTEM_NS="kube-system"
+  LOCAL_PATH_NS="local-path-storage"
+  MATELLB_NS="metallb-system"
+  INGRESS_NGINX_NS="ingress-nginx"
+  JENKINS_NS="jenkins"
+  QUAY_NS="quay"
+  GRAFANA_NS="gf" #grafana
+  LANDLORD_NS="landlord"
+  ROOK_CEPH_NS="rook-ceph"
+  MARIADB_GALERA_NS="mariadb-galera"
 }
 
 function setup-pkg-version()
@@ -438,6 +501,7 @@ function system-disable-ipv6()
 
 function interrupt()
 {
+  echo
   [ ${#} == 0 ] || echo -e "${@}"
   read -s -n1 -p "$(echo -e ${RED}Press 'N/n' to stop, other key to continue.${NC})" ans; echo -e "\n"
   case ${ans} in
@@ -561,7 +625,7 @@ function node-power()
   echo -e "${YELLOW}nodes ${powclearer} procedure${NC}"
   for list in ${wk_nodes} ${cp_nodes}
     do
-      echo -e " [${RED}●${NC}] ${list} ${power} execute${NC}"
+      echo -e " [${GREEN}●${NC}] ${list} ${power} execute${NC}"
       sleep 3
       ssh ${list} "sudo ${power}" 2> /dev/null
     done; echo
@@ -867,7 +931,7 @@ function package-install-k9s()
   ssh ${install_list} "rm -r ~/Downloads/" &> /dev/null
 
   ssh ${install_list} "ls -al ~/bin/k9s" &> /dev/null
-  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| k9s installed" || echo -e " [${RED}●${NC}] k9s\t\t| not install"
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| k9s installed" || echo -e " [${RED}●${NC}] k9s\t| not install"
 }
 
 function package-install-helm()
@@ -902,11 +966,11 @@ function package-remove-k9s()
 {
   status=0
   ssh ${remove_list} "which k9s" &> /dev/null || status=2
-  [ "${status}" == "2" ] && echo -e " [${RED}●${NC}] k9s\t\t| not install"
+  [ "${status}" == "2" ] && echo -e " [${RED}●${NC}] k9s\t| not install"
   [ "${status}" == "0" ] && ssh ${remove_list} "rm ~/bin/k9s" &> /dev/null
-  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] k9s\t\t| removed"
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] k9s\t| removed"
   ssh ${remove_list} "which k9s" &> /dev/null && status=1
-  [ "${status}" == "1" ] && echo -e " [${RED}●${NC}] k9s\t\t| not remove"
+  [ "${status}" == "1" ] && echo -e " [${RED}●${NC}] k9s\t| not remove"
 }
 
 function package-remove-kube()
@@ -1341,7 +1405,6 @@ function node-check()
 function rook-wipe-data()
 {
   node-selector ${@}
-  echo
   interrupt ${RED}Please confirm this command will override disk on ${YELLOW} ${cp_nodes} ${wk_nodes}${NC}
   echo -e "${YELLOW}Rook data wipe procedure${NC}"
   

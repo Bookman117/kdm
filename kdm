@@ -2,72 +2,28 @@
 #Purpose: Deploy kubernetes on ubuntu server 20.04/22.04 LTS & Rocky Linux 8/9 & RHEL 8/9.
 #Create-Date: 2022-08-10
 
+#Source function & variable
 ls ~/bin/kdm_function &> /dev/null
 [ $? == 0 ] && source ~/bin/kdm_function &> /dev/null
 ls ~/kdm/kdm_function &> /dev/null
 [ $? == 0 ] && source ~/kdm/kdm_function &> /dev/null
 
+#Environments pre-setting
 host-os-detection
 setup-network-package
 check-kdm-path
 
-# Set variables
-# Security settings
-SELINUX_MODE=enforcing #disable | permissive | enforcing
-FIREWALLD_ENABLE=disable #disable | enable
+#Variables
+#Network variable
+set-network-variable
+#Kubernetes node variable
+kubernetes-node-variable
+#Text color
+set-text-color-variable
+#Kubernetes projects namespace variable
+kubernetes-namespace-variable
 
-# Storage settings
-CEPH_DISK="/dev/sdb"
-
-# Network info
-IP=$(ip a | grep -E 'en|eth' | grep 'inet' | awk '{ print $2 }' | cut -d '/' -f 1 | head -n 1)
-NETID=$(ip a | grep 'en' | grep 'inet' | awk '{ print $2 }' | cut -d '.' -f 1-3 | head -n 1)
-[ "${OS_VER}" != "macOS" ] && GATEWAY=$(route -n | tr -s " " | grep '^0.0.0.0' | cut -d " " -f 2 | grep "${NETID}")
-[ "${OS_VER}" != "macOS" ] && NETMASK=$(route -n | grep 'en' | grep -w 'U' | awk '{ print $3 }')
-[ "${OS_VER}" == "macOS" ] && GATEWAY=$(netstat -nr | grep '^default' | grep "en[0-9]" | awk '{ print $2 }')
-[ "${OS_VER}" == "macOS" ] && NETMASK="??"
-
-# Kube-VIP
-VIP_TARGET=$(($(cat /etc/hosts | grep "${NETID}" | grep '\-m1' | awk '{ print $1 }' | cut -d '.' -f 4)-1))
-KUBE_VIP="${NETID}.${VIP_TARGET}"
-KUBE_INTERFACE=$(ip a | grep -B 3 "${IP}" | grep 'ens' | head -n 1 | awk '{ print $2 }' | sed 's/://g')
-echo "${OS_VERSION}" | grep 'Rocky Linux 8' &> /dev/null
-[ ${?} == 0 ] && NETWORK_UUID=$(cat /etc/sysconfig/network-scripts/ifcfg-${KUBE_INTERFACE} | grep 'UUID' | cut -d '=' -f 2)
-
-# node & service
-CP_NODES=$(cat /etc/hosts | grep -vE '#|ip6' | grep "${NETID}" | awk '{ print $2 }' | grep "\-m" | tr -s '\n' ' ')
-WK_NODES=$(cat /etc/hosts | grep -vE '#|ip6' | grep "${NETID}" | awk '{ print $2 }' | grep "\-w" | tr -s '\n' ' ')
-ALL_NODES=$(cat /etc/hosts | grep -vE '#|ip6' | grep "${NETID}" | awk '{ print $2 }' | grep -E "\-m|\-w" | tr -s '\n' ' ')
-ALL_NODES_EX_LOCALHOST=$(cat /etc/hosts | grep -vE '#|ip6' | grep "${NETID}" | awk '{ print $2 }' | grep -E "\-m|\-w" | grep -v `hostname` | tr -s '\n' ' ')
-
-# Text color setting
-NC="\033[0m" # Color reset
-BLACK="\033[0;30m"
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-YELLOW="\033[0;33m"
-BLUE="\033[0;34m"
-PURPLE="\033[0;35m"
-CYAN="\033[0;36m"
-WHITE="\033[0;37m"
-
-#Package list
-PACKAGE_LIST="cri-o kubelet kubeadm kubectl helm podman"
-
-# Kubernetes projects namespace
-KUBE_SYSTEM_NS="kube-system"
-LOCAL_PATH_NS="local-path-storage"
-MATELLB_NS="metallb-system"
-INGRESS_NGINX_NS="ingress-nginx"
-JENKINS_NS="jenkins"
-QUAY_NS="quay"
-GRAFANA_NS="gf" #grafana
-LANDLORD_NS="landlord"
-ROOK_CEPH_NS="rook-ceph"
-MARIADB_GALERA_NS="mariadb-galera"
-# ---
-
-# Program >>>
+#Program >>>
 echo
 case ${1} in
 
@@ -499,6 +455,7 @@ pkg-install) #Install basic package & setup environment.
           #enable crio、kubelet
           daemon-enable ${install_list}
       fi
+      echo
     done
   echo && echo -e "${YELLOW}Package Check list${NS}"
   package-check ${check_list} && echo
@@ -651,18 +608,18 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
   KUBEADM_VER=$(kubeadm version -o yaml | grep "gitVersion:" | head -n 1 | awk '{ print $2 }' | sed 's|v||g')
   [ "${KUBE_INIT_VER}" != "${KUBEADM_VER}" ] && KUBE_INIT_VER=$(kubeadm version -o yaml | grep "gitVersion:" | head -n 1 | awk '{ print $2 }' | sed 's|v||g')
 
-  # Kubernetes setup
-  # calico service & pod network
+  #Kubernetes setup
+  #calico service & pod network
   [ "${3}" == "calico" ] && POD_CIDR=172.16.0.0/17
   [ "${3}" == "calico" ] && SVC_CIDR=172.16.128.0/17
   #[ "${3}" == "calico" ] && POD_CIDR=10.85.0.0/16
   #[ "${3}" == "calico" ] && SVC_CIDR=10.96.0.0/12
   #Test area
   #===
-  #[ ${2} == "high" ] && [ "${3}" == "calico" ] && sudo kubeadm init --upload-certs --config=kubeadm-init-config.yaml --v=5
+  #[ ${2} == "high" ] && [ "${3}" == "calico" ] && sudo kubeadm init --upload-certs --config=kubeadm-init-config.yaml ${LOG_OUTPUT_LEVEL}
   #===
-  [ ${2} == "high" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
-  [ ${2} == "single" ] && [ "${3}" == "calico" ] && sudo kubeadm init --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
+  [ ${2} == "high" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
+  [ ${2} == "single" ] && [ "${3}" == "calico" ] && sudo kubeadm init --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
   [ ${?} != 0 ] && [ "${2}" == "calico" ] && interrupt ${RED}\nkubeadm init failure!${NC}
   [ "${3}" == "calico" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
   [ "${3}" == "calico" ] && ls ${HOME}/.kube/config &> /dev/null
@@ -672,13 +629,13 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
   [ "${3}" == "calico" ] && helm install calico projectcalico/tigera-operator --version ${CALICO_VER} --namespace tigera-operator
   #[ ${?} != 0 ] && echo -e "kubeadm init failure.\n" && exit
 
-  # flannel service & pod network
+  #flannel service & pod network
   #[ "${3}" == "flannel" ] && POD_CIDR=172.16.0.0/17
   #[ "${3}" == "flannel" ] && SVC_CIDR=172.16.128.0/17
   [ "${3}" == "flannel" ] && POD_CIDR=10.244.0.0/16
   [ "${3}" == "flannel" ] && SVC_CIDR=10.98.0.0/24
-  [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
-  [ ${2} == "single" ] && [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} --v=5
+  [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
+  [ ${2} == "single" ] && [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
   [ ${?} != 0 ] && [ "${2}" == "flannel" ] && interrupt ${RED}\nkubeadm init failure!${NC}
   [ "${3}" == "flannel" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
   [ "${3}" == "flannel" ] && ls ${HOME}/.kube/config &> /dev/null
@@ -695,7 +652,7 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
   echo && k9s -c pods -A
 ;;
 
-cp-join) # Let control-plane nodes join cluster. [ hosts | node ]
+cp-join) #Let control-plane nodes join cluster. [ hosts | node ]
   #Set variable
   set-environment-variable
   [ -z ${2} ] && cp-node-message ${@} && exit
@@ -726,7 +683,7 @@ cp-join) # Let control-plane nodes join cluster. [ hosts | node ]
       ssh ${clist} "ls ~/yaml/system &> /dev/null"
       [ ${?} != 0 ] && ssh ${clist} "mkdir -p ~/yaml/system"
       scp ~/yaml/system/kube-vip-arp.yaml ${clist}:yaml/system/
-      ssh ${clist} "${JOIN} --control-plane --certificate-key ${certs} --v=5"
+      ssh ${clist} "${JOIN} --control-plane --certificate-key ${certs} ${LOG_OUTPUT_LEVEL}"
       [ ${?} != 0 ] && interrupt ${RED}\nkubeadm join failure!${NC}
       echo -en "${GREEN}"
 
@@ -767,7 +724,7 @@ wk-join) #Let worker nodes join cluster. [ hosts | node ]
   for wlist in ${wk_nodes}
     do
       echo -e "${YELLOW}${wlist} | join procedure${NC}"
-      ssh ${wlist} "${JOIN} --v=5"
+      ssh ${wlist} "${JOIN} ${LOG_OUTPUT_LEVEL}"
       echo -en "${GREEN}"
       kubectl label node ${wlist} node-role.kubernetes.io/worker=
       echo -en "${NC}"
@@ -1047,14 +1004,9 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
           [ ${?} != 0 ] && ssh ${install_list} "echo "${NETID}.${2} ${CORE_DNS_DOMAIN}" | sudo tee -a /etc/hosts"
         done
       #metallb-system
-      #Old version
-      #kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml
-      #kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb.yaml
-      #curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-ConfigMap.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | kubectl apply -f - 
-      #curl https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-ConfigMap.yaml | sed 's/NETID/192.168.115/g'| sed 's/START/100/g' | sed 's/END/109/g'
-    
       curl -s https://raw.githubusercontent.com/metallb/metallb/${METALLB_VER}/config/manifests/metallb-native.yaml | kubectl apply -f - 
       
+      #Wait for all speaker deployed
       kubectl get po -n metallb-system | tail -n +2 | awk '{ print $2,$3 }' | grep -v '1/1 Running' &> /dev/null
       while [ $? == 0 ]
         do
@@ -1063,15 +1015,15 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
           kubectl get po -n metallb-system | tail -n +2 | awk '{ print $2,$3 }' | grep -v '1/1 Running' &> /dev/null || break
         done
 
+      #Deploy ip-pool
       echo "Starting deploy metallb ip-pool"
-
-      #curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-config.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | kubectl apply -f - 
       curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-pool.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | sed "s/<pool-name>/${METALLB_POOL_NAME}/g" | kubectl apply -f - 
       echo "metallb deployed!"
 
       #ingress-nginx
       curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/ingress-deploy.yaml | sed "s/<ingress-name>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
       echo "ingress-nginx deployed!"
+
       k9s -c pods -A
   fi
 ;;
@@ -1082,11 +1034,6 @@ controller-rm) #Delete basic service. [ metallb & nginx-ingress ]
   #ingress-nginx
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/ingress-deploy.yaml | sed "s/<ingress-name>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
   #metallb-system
-  #curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-ConfigMap.yaml | sed "s/NETID/${NETID}/g" | sed "s/START/${2}/g" | sed "s/END/${3}/g" | kubectl delete -f -
-  #kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb.yaml
-  #kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-namespace.yaml
-  #curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-config.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | kubectl delete -f - 
-
   curl -s https://raw.githubusercontent.com/metallb/metallb/${METALLB_VER}/config/manifests/metallb-native.yaml | kubectl delete -f - 
   curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/metallb-pool.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | sed "s/<pool-name>/${METALLB_POOL_NAME}/g" | kubectl delete -f - 
 ;;
@@ -1292,7 +1239,7 @@ mariadb-galera-rm) #Remove mariadb-galera
 
 harbor-deploy) #Deploy harbor
 
-  # Add helm package
+  #Add helm package
   helm repo add harbor https://helm.goharbor.io
   helm fetch harbor/harbor --untar
 
@@ -1732,7 +1679,7 @@ cluster-rm) #Remove kubernetes cluster.
   [ ${?} == 0 ] && rook_detection=1
 
   #metrics detection
-  kubectl get ns -A 2> /dev/null | grep 'metrics' &> /dev/null
+  kubectl get po -A | grep 'metrics' &> /dev/null
   [ ${?} == 0 ] && metrics_detection=1
     
   #Prometheus detection
@@ -1750,7 +1697,6 @@ cluster-rm) #Remove kubernetes cluster.
   #cluster remove info
   start-info; echo
   echo -e "${YELLOW}StorageClass: $(kubectl get storageclass -A 2> /dev/null | grep -E 'rook-ceph|local-path' | awk '{ print $1 }' | sed ":a;N;s/\n/\ | /g")${NC}"
-  echo
   interrupt ${RED}Please confirm this command will destruction cluster!${NC}
   echo -n "As you wish"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
 
