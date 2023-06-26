@@ -264,6 +264,15 @@ set-ver) #Set kube*、cri-o package version.
   echo
 ;;
 
+set-sc)
+  [ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ rook-ceph-block | local-path ]${NC}\n" && exit
+  set-environment-variable
+  sed -i "s/STORAGE_CLASS=\"${STORAGE_CLASS}\"/STORAGE_CLASS=\"${2}\"/g" ~/bin/kdm_function
+  source ~/bin/kdm_function
+  set-environment-variable
+  echo -e "storageClass: ${YELLOW}${STORAGE_CLASS}${NC}\n"
+;;
+
 set-selinux) #Setting SELinux mod [ set | apply ]
 [ -z ${2} ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-selinux\" [ set | apply ]${NC}\n" && exit
   if [ "${2}" == "set" ]
@@ -1021,8 +1030,18 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
       echo "metallb deployed!"
 
       #ingress-nginx
-      curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/ingress-deploy.yaml | sed "s/<ingress-name>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
-      echo "ingress-nginx deployed!"
+      #By helm
+      #Create namespace
+      kubectl create ns ingress-nginx
+      helm show values ingress-nginx/ingress-nginx --version ${INGRESS_NGINX_HELM_VER} > ~/yaml/controller/ingress-nginx.yaml
+      #Config ingressClass name
+      sed -i '0,/name: nginx/s/name: nginx/name: ingress-1/g' ~/yaml/controller/ingress-nginx.yaml
+      #Deploy
+      helm install ingress-nginx ingress-nginx/ingress-nginx -f ~/yaml/controller/ingress-nginx.yaml --namespace ingress-nginx
+
+      #Old version
+      #curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Kube-basic/ingress-deploy.yaml | sed "s/<ingress-name>/${INGRESS_CLASS_NAME}/g" | sed "s/<INGRESS_NGINX_VER>/${INGRESS_NGINX_VER}/g" | kubectl apply -f -
+      #echo "ingress-nginx deployed!"
 
       k9s -c pods -A
   fi
@@ -1866,6 +1885,7 @@ node-reset) #Reset hosts | specify nodes. [ node-reset node ]
 node-power) #Reboot/Poweroff hosts | specify node. [ node ]
   node-power ${@}
 ;;
+
 deploy) #Automatic deploy kubernetes cluster. [ kdm deploy calico/flannel hosts 160 169 local-path/rook-ceph ]
   #kdm deploy calico hosts 180 189 rook-ceph
   kdm cp-init ${2}
@@ -1944,6 +1964,14 @@ parm-check) #List all script parameter.
       [ ${?} != 0 ] && echo -e "${RED}Failed${NC}"
       echo
     done
+;;
+
+test-nginx)
+  [ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ deploy | remove ]${NC}\n" && exit
+  set-environment-variable
+  [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/nginx-test.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/nginx-test.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | kubectl delete -f -
+  echo
 ;;
 
 test-images-push)

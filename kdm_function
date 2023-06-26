@@ -118,6 +118,8 @@ function set-environment-variable()
   METALLB_VER=v0.13.10
   METALLB_POOL_NAME=metal-1
   INGRESS_CLASS_NAME=ingress-1
+  INGRESS_NGINX_VER=1.8.0
+  INGRESS_NGINX_HELM_VER=4.7.0
   #INGRESS_VER=
   ECK_OP_VER=2.7.0
   ECK_VER=8.7.0
@@ -286,7 +288,8 @@ function show-version-control()
   echo -e " > ROOK_GIT_RELEASE\t | ${YELLOW}${ROOK_GIT_RELEASE}${NC}"
   echo -e " > ROOK_TAG        \t | ${YELLOW}${ROOK_TAG}${NC}"
   echo -e " > ECK_OP_VER      \t | ${YELLOW}${ECK_OP_VER}${NC}"
-  echo -e " > ECK_VER         \t | ${YELLOW}${ECK_VER}${NC}"; echo
+  echo -e " > ECK_VER         \t | ${YELLOW}${ECK_VER}${NC}"
+  echo -e " > STORAGE_CLASS   \t | ${YELLOW}${STORAGE_CLASS}${NC}"; echo
 
   echo -e " > SELINUX_MODE    \t | ${YELLOW}${SELINUX_MODE}${NC}"
   echo -e " > IP              \t | ${YELLOW}${IP}${NC}"
