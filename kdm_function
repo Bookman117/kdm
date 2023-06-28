@@ -101,9 +101,12 @@ function set-environment-variable()
   PODMAN_VER=4:4.5 #4:4.5.1-*
   K8S_GPG_PATH=/etc/apt/trusted.gpg.d/ #/usr/share/keyrings/ | /etc/apt/keyrings/
   GPG_PATH=/etc/apt/trusted.gpg.d/ #/usr/share/keyrings/ | /etc/apt/keyrings/
+  #Context setup
+  CLUSTER_USER=bigred
+  CLUSTER_NAME=UB22-T1
   #Kubernetes CNI
   KUBE_VIP_VER=v0.6.0 #v0.4.1
-  CALICO_VER=v3.26.1 #v3.25.1 #（v3.26.0 會無法部署 rook-ceph）
+  CALICO_VER=v3.26.1 #（v3.26.0 會無法部署 rook-ceph）
   CORE_DNS_DOMAIN=vattensoft.lab.com #k8s.org
   #Kubernetes CSI
   ROOK_TAG=v1.11.8 #v1.10.12
@@ -113,14 +116,13 @@ function set-environment-variable()
   LOCAL_PATH_VER=v0.0.24
   #Kubernetes Monitoring
   METRICS_VER=3.10.0
-  PROMETHEUSE_VER=46.5.0 #45.10.1
+  PROMETHEUSE_VER=47.0.0
   #Kubernetes service
   METALLB_VER=v0.13.10
   METALLB_POOL_NAME=metal-1
   INGRESS_CLASS_NAME=ingress-1
   INGRESS_NGINX_VER=1.8.0
   INGRESS_NGINX_HELM_VER=4.7.0
-  #INGRESS_VER=
   ECK_OP_VER=2.7.0
   ECK_VER=8.7.0
   #Docker
@@ -264,7 +266,7 @@ function crio-available-version-check()
 function show-version-control()
 {
   source ~/bin/kdm &> /dev/null && set-environment-variable
-  CRIO_AVL_VER=`cat /tmp/CRIO_AVL_VER | sed /\n/d`
+  CRIO_AVL_VER=`cat /tmp/CRIO_AVL_VER 2> /dev/null | sed /\n/d`
   echo "${CRIO_AVL_VER}" | grep -v [0-9] &> /dev/null
   [ ${?} == 0 ] && CRIO_AVL_VER="Unconfirmed [Configure with set-var parameter]"
   echo -e "${YELLOW}Variable list${NC}"
@@ -338,23 +340,23 @@ function system-check()
 function system-info()
 {
   #system information
-  echo "" | sudo tee /tmp/sinfo &> /dev/null
-  echo -e "[System]" | sudo tee /tmp/sinfo
+  #echo "" | sudo tee /tmp/sinfo &> /dev/null
+  echo -e "[System]"
   #OS information
   os_name=`cat /etc/os-release | grep 'PRETTY_NAME' | cut -d '"' -f 2`
   echo -e " OS Version: ${YELLOW}$os_name${NC}"
   echo -e " Hostname: ${YELLOW}`hostname`${NC}"
+  #cpu information
+  cpu_name=$(sudo cat /proc/cpuinfo | grep 'model name' | head -n 1 | cut -d ':' -f2 | tr -s '-' ' ' | sed 's/(R)//g; s/(TM)//g; s/@ //g' | sed 's/^.//')
+  core_number=$(sudo cat /proc/cpuinfo | grep 'model name' | wc -l)
+  cpu_architecture=$(uname -m)
+  echo -e " CPU: ${YELLOW}$cpu_name (core: $core_number) | ${cpu_architecture}${NC}"
   #memory information
   sudo free -mh | grep Mem: | awk '{ print $2 }' | grep 'Gi' &> /dev/null
   [ ${?} == 0 ] && byte=GB || byte=MB
   m_size=$(sudo free -mh | grep Mem: | awk '{ print $2 }' | sed 's/Gi//g')
   Gi_to_GB=$(awk "BEGIN { print $m_size / .93 }")
   echo -e " Memory: ${YELLOW}${Gi_to_GB} ${byte}${NC}"
-  #cpu information
-  cpu_name=$(sudo cat /proc/cpuinfo | grep 'model name' | head -n 1 | cut -d ':' -f2 | tr -s '-' ' ' | sed 's/(R)//g; s/(TM)//g; s/@ //g' | sed 's/^.//')
-  core_number=$(sudo cat /proc/cpuinfo | grep 'model name' | wc -l)
-  cpu_architecture=$(uname -m)
-  echo -e " CPU: ${YELLOW}$cpu_name (core: $core_number) | ${cpu_architecture}${NC}"
   #disk information
   disk_list=$(sudo fdisk -l | grep '^Disk' | grep 'sd' | grep 'bytes' | awk '{ print $2 }' | sed 's/://g;s/\/dev\///g' | tr -s '\n' ' ' | sed 's/.$//')
   echo -e " Disk list: ${YELLOW}${disk_list}${NC}"
@@ -388,7 +390,6 @@ function system-info()
 
   ping -c 1 www.hinet.net >> /dev/null
   [ "${?}" == "0" ] && echo -e " Internet access: ${GREEN}Pass${NC}" || echo -e " Internet: ${RED}Not pass${NC}"
-  echo
 }
 
 function system-swapoff()
@@ -625,7 +626,7 @@ function node-power()
 
   cp_nodes=$(echo ${cp_nodes} | tr -s ' ' '\n' | tac | tr -s '\n' ' ')
   interrupt ${RED}Continue to ${power} nodes:${YELLOW} ${wk_nodes} ${cp_nodes}${NC}
-  echo -e "${YELLOW}nodes ${powclearer} procedure${NC}"
+  echo -e "${YELLOW}nodes ${power} procedure${NC}"
   for list in ${wk_nodes} ${cp_nodes}
     do
       echo -e " [${GREEN}●${NC}] ${list} ${power} execute${NC}"
@@ -1346,7 +1347,7 @@ function check-etcd-member()
 
 function node-check()
 {
-  [ -z ${2} ] && echo -e "${RED}Please input parameter [ hosts | hosts name | hosts port | NETID start end <Port> ]${NC}\n" && exit
+  [ -z ${2} ] && echo -e "Please input parameter ${YELLOW}[ hosts | hosts name | hosts port | NETID start end <Port> ]${NC}\n" && exit
   #hosts check
   if [ "${2}" == "hosts" ]
     then
@@ -1402,7 +1403,6 @@ function node-check()
           fi
         done
   fi
-  echo
 }
 
 function rook-wipe-data()
