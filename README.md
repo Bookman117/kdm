@@ -97,7 +97,7 @@ Press N/n to stop, other key to continue.
 
 Help information:
 ```bash
-kdm help
+$ kdm help
 system-setup | 27
  > sys-info: Show host basic information.
  > sys-var: Check script variables.
