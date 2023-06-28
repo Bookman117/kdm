@@ -21,4 +21,4 @@ wget 'https://github.com/Bookman-W/kdm/releases/download/v1/kdm' -O ~/bin/kdm &>
 wget 'https://github.com/Bookman-W/kdm/releases/download/v1/kdm_function' -O ~/bin/kdm_function &> /dev/null
 [ $? == 0 ] && echo -e " [${GREEN}●${NC}] download complete: kdm_function" || echo -e " [${RED}●${NC}] download not complete: kdm_function"
 
-[ "${bin_detection}" == "1" ] && chmod +x ~/bin/kdm*
+chmod +x ~/bin/kdm*
