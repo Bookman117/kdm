@@ -95,6 +95,21 @@ Please confirm this command will initialize kubernetes via 91-m1.
 Press N/n to stop, other key to continue.
 ```
 
+Show basic cluster information:
+```bash
+$ kdm
+● Kubernetes deployed | v1.27.0 | current-context | cp-1 node age: 79d
+  ├─ Active nodes
+  │  ├─ control-plane | cp-1 cp-2 cp-3
+  │  └─ worker        | wk-1 wk-2 wk-3
+  ├─ StorageClass     | deployed: local-path
+  ├─ StorageClass     | deployed: rook-ceph-block
+  ├─ Controller       | deployed: metallb
+  ├─ Controller       | deployed: nginx ingress
+  ├─ Monitoring       | deployed: metrics
+  └─ Monitoring       | deployed: prometheus
+```
+
 Help information:
 ```bash
 $ kdm help
