@@ -66,26 +66,26 @@ kdm pkg-install local
  [●] Daemon      | daemon has been reload
 Package Check list
 91-m1 | Package status
- [●] crio	    | 1.27.0 | active (running) | 4s ago
- [●] kubelet	| 1.27.0 | activating (auto-restart) | 3s ago
- [●] kubeadm	| 1.27.0
- [●] kubectl	| 1.27.0
- [●] helm	    | 3.11.3
+ [●] crio     | 1.27.0 | active (running) | 4s ago
+ [●] kubelet  | 1.27.0 | activating (auto-restart) | 3s ago
+ [●] kubeadm  | 1.27.0
+ [●] kubectl  | 1.27.0
+ [●] helm     | 3.11.3
  [●] podman   | 4.5.1
- [●] k9s	    | 0.27.4
+ [●] k9s      | 0.27.4
 ```
 
 Check packages:
 ```bash
 kdm pkg-check local
 91-m1 | Package status
- [●] crio	    | 1.27.0 | active (running) | 33min ago
- [●] kubelet	| 1.27.0 | activating (auto-restart) | 2s ago
- [●] kubeadm	| 1.27.0
- [●] kubectl	| 1.27.0
- [●] helm	    | 3.11.3
- [●] podman	  | 4.5.1
- [●] k9s	    | 0.27.4
+ [●] crio     | 1.27.0 | active (running) | 33min ago
+ [●] kubelet  | 1.27.0 | activating (auto-restart) | 2s ago
+ [●] kubeadm  | 1.27.0
+ [●] kubectl  | 1.27.0
+ [●] helm     | 3.11.3
+ [●] podman   | 4.5.1
+ [●] k9s      | 0.27.4
 ```
 
 Deploy highly available cluster:
