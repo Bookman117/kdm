@@ -22,24 +22,24 @@ Support OS:
 
 ## wget
 ```bash
-wget -qO - 'https://raw.githubusercontent.com/Bookman-W/kdm/master/install.sh' | bash
+$ wget -qO - 'https://raw.githubusercontent.com/Bookman-W/kdm/master/install.sh' | bash
 ```
 ## curl
 ```bash
-curl -s 'https://raw.githubusercontent.com/Bookman-W/kdm/master/install.sh' | bash
+$ curl -s 'https://raw.githubusercontent.com/Bookman-W/kdm/master/install.sh' | bash
 ```
 # Usage
 
 Set kube* & cri-o package target version:
 ```bash
-kdm set-ver sub 1.27.0
+$ kdm set-ver sub 1.27.0
  [●] Version setting completed
  [●] cri-o version: 1.27.0 available
 ```
 
 Install packages and dependencies:
 ```bash
-kdm pkg-install local
+$ kdm pkg-install local
 91-m1 | package install procedure
  [●] System      | swap disabled
  [●] System      | modules br_netfilter | overlay enabled
@@ -77,7 +77,7 @@ Package Check list
 
 Check packages:
 ```bash
-kdm pkg-check local
+$ kdm pkg-check local
 91-m1 | Package status
  [●] crio     | 1.27.0 | active (running) | 33min ago
  [●] kubelet  | 1.27.0 | activating (auto-restart) | 2s ago
@@ -90,7 +90,7 @@ kdm pkg-check local
 
 Deploy highly available cluster:
 ```bash
-kdm deploy high calico hosts 100 109 rook-ceph
+$ kdm deploy high calico hosts 100 109 rook-ceph
 Please confirm this command will initialize kubernetes via 91-m1.
 Press N/n to stop, other key to continue.
 ```
