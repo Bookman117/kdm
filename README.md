@@ -29,6 +29,73 @@ wget -qO - 'https://raw.githubusercontent.com/Bookman-W/kdm/master/install.sh' |
 curl -s 'https://raw.githubusercontent.com/Bookman-W/kdm/master/install.sh' | bash
 ```
 # Usage
+
+Set kube* & cri-o package target version:
+```bash
+kdm set-ver sub 1.27.0
+ [●] Version setting completed
+ [●] cri-o version: 1.27.0 available
+```
+
+Install packages and dependencies:
+```bash
+kdm pkg-install local
+91-m1 | package install procedure
+ [●] System	    | swap disabled
+ [●] System	    | modules br_netfilter | overlay enabled
+ [●] System	    | ipv4_forward enabled
+ [●] System	    | ipv6 disabled
+ [●] Repository	| podman repository added
+ [●] Repository	| cri-o 1.27.0 repository added
+ [●] Repository	| Helm package repository added
+ [●] Repository	| cache updated
+ [●] Package    | crio 1.27.0 installed
+ [●] Package    | crio.conf configured
+ [●] Package    | policy.json updated
+ [●] Package    | kubelet v1.27.0 installed
+ [●] Package    | 10-kubeadm.conf checked
+ [●] Package    | kubeadm v1.27.0 installed
+ [●] Package    | kubectl v1.27.0 installed
+ [●] Package    | helm installed
+ [●] Package    | k9s installed
+ [●] Package    | podman 4.5.1 installed
+ [●] Daemon     | crio enabled
+ [●] Daemon     | crio restarted
+ [●] Daemon     | kubelet enabled
+ [●] Daemon     | kubelet restarted
+ [●] Daemon     | daemon has been reload
+Package Check list
+91-m1 | Package status
+ [●] crio	    | 1.27.0 | active (running) | 4s ago
+ [●] kubelet	| 1.27.0 | activating (auto-restart) | 3s ago
+ [●] kubeadm	| 1.27.0
+ [●] kubectl	| 1.27.0
+ [●] helm	    | 3.11.3
+ [●] podman     | 4.5.1
+ [●] k9s	    | 0.27.4
+```
+
+Check packages:
+```bash
+kdm pkg-check local
+91-m1 | Package status
+ [●] crio	    | 1.27.0 | active (running) | 33min ago
+ [●] kubelet	| 1.27.0 | activating (auto-restart) | 2s ago
+ [●] kubeadm	| 1.27.0
+ [●] kubectl	| 1.27.0
+ [●] helm	    | 3.11.3
+ [●] podman	    | 4.5.1
+ [●] k9s	    | 0.27.4
+```
+
+Deploy highly available cluster:
+```bash
+kdm deploy high calico hosts 100 109 rook-ceph
+Please confirm this command will initialize kubernetes via 91-m1.
+Press N/n to stop, other key to continue.
+```
+
+Help information:
 ```bash
 kdm help
 system-setup | 27
