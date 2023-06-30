@@ -1,0 +1,134 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-nginx
+  labels:
+    app: test-nginx
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nginx-web-host
+  namespace: test-nginx
+  labels:
+    app: test-nginx
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+  storageClassName: <storageClassName>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-nginx
+  namespace: test-nginx
+  labels:
+    app: test-nginx
+spec:
+  selector:
+    matchLabels:
+      app: test-nginx
+  replicas: 1 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: test-nginx
+    spec:
+      securityContext:
+        runAsUser: 0
+        fsGroup: 0
+      volumes:
+        - name: nginx-web-host
+          persistentVolumeClaim:
+            claimName: nginx-web-host
+      containers:
+        - name: test-nginx
+          image: nginx:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 10m
+              memory: 80Mi
+            requests:
+              cpu: 10m
+              memory: 80Mi
+          ports:
+          - containerPort: 80
+            protocol: TCP
+          volumeMounts:
+            - name: nginx-web-host
+              mountPath: /usr/share/nginx/html/
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nginx-prepare
+  namespace: test-nginx
+spec:
+  template:
+    spec:
+      volumes:
+        - name: nginx-web-host
+          persistentVolumeClaim:
+            claimName: nginx-web-host
+      containers:
+      - name: curl
+        image: nginx:latest
+        args:
+          - /bin/bash
+          - -c
+          - >
+            curl https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/index.html > /usr/share/nginx/html/index.html;
+            curl https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/style.css > /usr/share/nginx/html/style.css
+        volumeMounts:
+            - name: nginx-web-host
+              mountPath: /usr/share/nginx/html/
+        resources:
+            limits:
+              cpu: 10m
+              memory: 80Mi
+            requests:
+              cpu: 10m
+              memory: 80Mi
+      restartPolicy: OnFailure
+  backoffLimit: 6
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: test-nginx-svc
+  namespace: test-nginx
+  labels:
+    app: test-nginx
+spec:
+  selector:
+    app: test-nginx
+  ports:
+  - name: http-nginx
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  clusterIP: None
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test-nginx-ingress
+  namespace: test-nginx
+spec:
+  ingressClassName: <ingressClass>
+  rules:
+  - host: vatten.nginx.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: test-nginx-svc
+            port:
+              name: http-nginx
+        path: /
+        pathType: Prefix

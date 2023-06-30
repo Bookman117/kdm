@@ -1,7 +1,7 @@
 # Overview  
 >kdm: Kubernetes Deployment Manager
 
-kdm is a bash script based command-line tool for Kubernetes deployment.
+kdm is a Shell script based command-line tool for Kubernetes deployment.
 
 Support OS:
 - Ubuntu server 20.04/22.04 LTS
