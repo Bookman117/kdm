@@ -109,7 +109,7 @@ function set-environment-variable()
   CALICO_VER=v3.26.1 #（v3.26.0 會無法部署 rook-ceph）
   CORE_DNS_DOMAIN=vattensoft.lab.com #k8s.org
   #Kubernetes CSI
-  ROOK_TAG=v1.11.8 #v1.10.12
+  ROOK_TAG=v1.11.9 #v1.10.12
   ROOK_GIT_RELEASE='release-1.10'
   STORAGE_CLASS="local-path" #rook-ceph-block | local-path
   CEPH_DASHBOARD_URL="ceph.${CORE_DNS_DOMAIN}"
@@ -198,37 +198,38 @@ function start-info()
       [ "${status}" == "0" ] && continue
     done
   nc -z -w 1 `hostname` 10250 > /dev/null 2>&1
-  [ ${?} != 0 ] && meassage="     | ${RED}This node not activate.${NC}"
+  #[ ${?} != 0 ] && meassage="       | ${RED}This node not activate.${NC}"
+  [ ${?} != 0 ] && meassage="\t| ${RED}This node not activate.${NC}" && cluster_ver="--" && KUBE_AGE="--"
   if [ "${status}" == "1" ]
     then
       echo -e "${GREEN}●${NC} Kubernetes deployed\t| ${cluster_ver} | `hostname` node age: ${GREEN}${KUBE_AGE}${NC}"
       #show nodes info
       echo -e "  ├─ Active nodes${meassage}"
       echo ${cluster_list} | grep '\-m' &> /dev/null
-      [ ${?} == 0 ] && echo -e "  │  ├─ control-plane\t| ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-m' | tr -s '\n' ' '`${NC}" || echo "  │  ├─ control-plane\t| --"
+      [ ${?} == 0 ] && echo -e "  │  ├─ control-plane\t| ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-m' | tr -s '\n' ' '`${NC}" || echo -e "  │  ├─ control-plane\t| --"
       echo ${cluster_list} | grep '\-w' &> /dev/null
       [ ${?} == 0 ] && echo -e "  │  └─ worker\t\t| ${GREEN}`echo ${cluster_list} | tr -s ' ' '\n' | grep '\-w' | tr -s '\n' ' '`${NC}" || echo -e "  │  └─ worker\t\t| --"
       #show storageclass info
       storageclass_quantity=$(kubectl get storageclass -A 2> /dev/null | tail -n +2 | wc -l)
       storageclass_list=$(kubectl get storageclass -A 2> /dev/null | tail -n +2 | awk '{ print $1 }' | tr -s '\n' ' ' | sed 's/.$//')
       echo "${storageclass_quantity}" | grep '^0' &> /dev/null
-      [ ${?} == 0 ] && echo -e "  ├─ StorageClass\t| ${YELLOW}Not deployed any storageclass"${NC} || \
+      [ ${?} == 0 ] && echo -e "  ├─ StorageClass\t| ${YELLOW}Not deploy"${NC} || \
       for list in ${storageclass_list}
         do
-          echo -e "  ├─ StorageClass\t| ${GREEN}${list} deployed${NC}"
+          echo -e "  ├─ StorageClass\t| ${GREEN}deployed: ${list}${NC}"
         done
       #show controller info
       kubectl get pods -n metallb-system 2> /dev/null  | tail -n +2 | awk '{ print $2,$3 }' | grep '1/1 Running' &> /dev/null
-      [ ${?} == 0 ] && echo -e "  ├─ Controller\t\t| ${GREEN}metallb deployed${NC}" || echo -e "  ├─ Controller\t\t| ${YELLOW}metallb not deploy${NC}"
+      [ ${?} == 0 ] && echo -e "  ├─ Controller\t\t| ${GREEN}deployed: metallb${NC}" || echo -e "  ├─ Controller\t\t| ${YELLOW}Not deploy: metallb${NC}"
       kubectl get pods -n ingress-nginx 2> /dev/null  | grep 'ingress-nginx-controller*' | awk '{ print $2,$3 }' | grep '1/1 Running' &> /dev/null
-      [ ${?} == 0 ] && echo -e "  ├─ Controller\t\t| ${GREEN}nginx ingress deployed${NC}" || echo -e "  ├─ Controller\t\t| ${YELLOW}nginx ingress not deploy${NC}"
+      [ ${?} == 0 ] && echo -e "  ├─ Controller\t\t| ${GREEN}deployed: nginx ingress${NC}" || echo -e "  ├─ Controller\t\t| ${YELLOW}Not deploy: ingress nginx${NC}"
       #show monitoring info
       #kubectl get pods -A | grep 'metrics' &> /dev/null
       kubectl get pods -n kube-system 2> /dev/null  | grep '^metrics' | awk '{ print $2,$3 }' | grep '1/1 Running' &> /dev/null
-      [ ${?} == 0 ] && echo -e "  ├─ Monitoring\t\t| ${GREEN}metrics deployed${NC}" || echo -e "  ├─ Monitoring\t\t| ${YELLOW}metrics not deploy${NC}"
+      [ ${?} == 0 ] && echo -e "  ├─ Monitoring\t\t| ${GREEN}deployed: metrics${NC}" || echo -e "  ├─ Monitoring\t\t| ${YELLOW}Not deploy: metrics${NC}"
       #kubectl get pods -A | grep 'prometheus' &> /dev/null
       kubectl get pods -n monitoring 2> /dev/null | grep 'kube-prometheus' | awk '{ print $2,$3 }' | grep -E '1/1 Running|2/2 Running|3/3 Running' &> /dev/null
-      [ ${?} == 0 ] && echo -e "  └─ Monitoring\t\t| ${GREEN}prometheus deployed${NC}" || echo -e "  └─ Monitoring\t\t| ${YELLOW}prometheus not deploy${NC}"
+      [ ${?} == 0 ] && echo -e "  └─ Monitoring\t\t| ${GREEN}deployed: prometheus${NC}" || echo -e "  └─ Monitoring\t\t| ${YELLOW}Not deploy: prometheus${NC}"
       #echo -e "${YELLOW}\nInput parameter \"help\" display more information.${NC}"
     else
       echo -e "${YELLOW}●${NC} Kubernetes not detected"
@@ -299,7 +300,7 @@ function show-version-control()
   echo -e " > GATEWAY         \t | ${YELLOW}${GATEWAY}${NC}"
   echo -e " > NETMASK         \t | ${YELLOW}${NETMASK}${NC}"
   echo -e " > CP_NODES        \t | ${YELLOW}${CP_NODES}${NC}"
-  echo -e " > WK_NODES        \t | ${YELLOW}${WK_NODES}${NC}"; echo
+  echo -e " > WK_NODES        \t | ${YELLOW}${WK_NODES}${NC}"
 }
 
 function system-check()
@@ -339,57 +340,96 @@ function system-check()
 
 function system-info()
 {
-  #system information
-  #echo "" | sudo tee /tmp/sinfo &> /dev/null
-  echo -e "[System]"
-  #OS information
-  os_name=`cat /etc/os-release | grep 'PRETTY_NAME' | cut -d '"' -f 2`
-  echo -e " OS Version: ${YELLOW}$os_name${NC}"
-  echo -e " Hostname: ${YELLOW}`hostname`${NC}"
-  #cpu information
-  cpu_name=$(sudo cat /proc/cpuinfo | grep 'model name' | head -n 1 | cut -d ':' -f2 | tr -s '-' ' ' | sed 's/(R)//g; s/(TM)//g; s/@ //g' | sed 's/^.//')
-  core_number=$(sudo cat /proc/cpuinfo | grep 'model name' | wc -l)
-  cpu_architecture=$(uname -m)
-  echo -e " CPU: ${YELLOW}$cpu_name (core: $core_number) | ${cpu_architecture}${NC}"
-  #memory information
-  sudo free -mh | grep Mem: | awk '{ print $2 }' | grep 'Gi' &> /dev/null
-  [ ${?} == 0 ] && byte=GB || byte=MB
-  m_size=$(sudo free -mh | grep Mem: | awk '{ print $2 }' | sed 's/Gi//g')
-  Gi_to_GB=$(awk "BEGIN { print $m_size / .93 }")
-  echo -e " Memory: ${YELLOW}${Gi_to_GB} ${byte}${NC}"
-  #disk information
-  disk_list=$(sudo fdisk -l | grep '^Disk' | grep 'sd' | grep 'bytes' | awk '{ print $2 }' | sed 's/://g;s/\/dev\///g' | tr -s '\n' ' ' | sed 's/.$//')
-  echo -e " Disk list: ${YELLOW}${disk_list}${NC}"
-  #for disk_list in ${disk_list}
-  #  do
-  #    sudo fdisk -l | grep '^Disk' | grep 'bytes' | grep "${disk_list}" | grep -E 'GB|GiB' &> /dev/null
-  #    [ ${?} == 0 ] && byte=GB || byte=MB
-  #    disk_capacity=$(sudo fdisk -l | grep '^Disk' | grep 'bytes' | grep "${disk_list}" | awk '{ print $3 }')
-  #    disk_usage=$(sudo du -ch / 2> /dev/null | grep 'total' | awk '{ print $1 }' | tr -s 'GM' ' ')
-  #    sudo du -ch / 2> /dev/null | grep 'total' | awk '{ print $1 }' | grep 'G' &> /dev/null
-  #    [ ${?} == 0 ] && disk_usage=$(sudo du -ch / 2> /dev/null | grep 'total' | awk '{ print $1 }' | tr -s 'GM' ' ') || disk_usage=$(awk "BEGIN { print $disk_usage / 1024 }")
-  #
-  #    disk_percent=$(awk "BEGIN { pc=100*${disk_usage}/${disk_capacity}; i=int(pc); print (pc-i<0.5)?i:i+1 }")
-  #    disk_type=$(sudo fdisk -l | grep -A 1 "^Disk /dev/${disk_list}:" | grep '^Disk model' | cut -d ':' -f 2 | sed 's/^.//')
-  #
-  #    echo -e "  > Disk name: ${YELLOW}${disk_list} | ${disk_type}${NC}"
-  #    echo -e "  > Disk capacity: ${YELLOW}${disk_capacity} ${byte}${NC}"
-  #    echo -e "  > Disk usage: ${YELLOW}${disk_usage} ${byte} | ${disk_percent} %${NC}"
-  #    echo "  ---"
-  #  done
-  #echo ""
-  #network information
-  echo "[Network]"
-  echo -e " IP Address: ${YELLOW}${IP}${NC}"
-  echo -e " Gateway: ${YELLOW}${GATEWAY}${NC}"
+  if [ "${OS_VERSION}" == "macOS" ]
+    then
+      #Variable
+      GATEWAY=$(netstat -nr | grep '^default' | grep "en1" | awk '{ print $2 }')
+      IP=$(Ipconfig getifaddr en1)
+      NETID=${IP%.*}
 
-  for list in $(cat /etc/resolv.conf | grep '^nameserver' | awk '{ print $2 }')
-    do
-      echo -e " nameserver: ${YELLOW}${list}${NC}"
-    done
+      #Program
+      #system information
+      echo "[System]" | sudo tee /tmp/sinfo
 
-  ping -c 1 www.hinet.net >> /dev/null
-  [ "${?}" == "0" ] && echo -e " Internet access: ${GREEN}Pass${NC}" || echo -e " Internet: ${RED}Not pass${NC}"
+      os_name=$(echo $(sw_vers | tr -s " " "-" | awk '{ print $2 }' | sed 's/Mac-OS-X/macOS X/g'))
+      echo " OS Version: $os_name" | sudo tee -a /tmp/sinfo
+      echo " Hostname: `hostname`" | sudo tee -a /tmp/sinfo
+
+      m_size=$(($(sysctl hw.memsize | awk '{ print $2 }')/1073741824))
+      echo " Memory: ${m_size}G" | sudo tee -a /tmp/sinfo
+
+      cpu_name=$(sysctl -a | grep brand_string | tr -s ' ' '-' | cut -d '-' -f 2-8 | tr -s '-' ' ' | sed 's/(R)//g; s/(TM)//g')
+      cpu_number=$(sysctl -a | grep core_count | awk '{ print $2 }')
+      echo " CPU: $cpu_name (core: $cpu_number)" | sudo tee -a /tmp/sinfo
+
+      d=$(sudo df -h | grep -w '/' | awk '{ print $2 }' | sed 's/i//g')
+      echo " Disk: $d" | sudo tee -a /tmp/sinfo
+      echo "" | sudo tee -a /tmp/sinfo
+
+      #network information
+      echo "[Network]" | sudo tee -a /tmp/sinfo
+      echo " IP: $IP" | sudo tee -a /tmp/sinfo
+      echo " Gateway: $GATEWAY" | sudo tee -a /tmp/sinfo
+      for list in $(cat /etc/resolv.conf | grep '^nameserver' | awk '{ print $2 }')
+        do
+          echo " nameserver: ${list}" | sudo tee -a /tmp/sinfo
+        done
+
+      ping -c 1 www.hinet.net >> /dev/null
+      [ "${?}" == "0" ] && echo -e " Internet access: ${GREEN}Granted${NC}" || echo -e " Internet: ${RED}Denied{NC}" | sudo tee -a /tmp/sinfo
+    else
+      #system information
+      #echo "" | sudo tee /tmp/sinfo &> /dev/null
+      echo -e "[System]"
+      #OS information
+      os_name=`cat /etc/os-release | grep 'PRETTY_NAME' | cut -d '"' -f 2`
+      echo -e " OS Version: ${YELLOW}$os_name${NC}"
+      echo -e " Hostname: ${YELLOW}`hostname`${NC}"
+      #cpu information
+      cpu_name=$(sudo cat /proc/cpuinfo | grep 'model name' | head -n 1 | cut -d ':' -f2 | tr -s '-' ' ' | sed 's/(R)//g; s/(TM)//g; s/@ //g' | sed 's/^.//')
+      core_number=$(sudo cat /proc/cpuinfo | grep 'model name' | wc -l)
+      cpu_architecture=$(uname -m)
+      echo -e " CPU: ${YELLOW}$cpu_name (core: $core_number) | ${cpu_architecture}${NC}"
+      #memory information
+      sudo free -mh | grep Mem: | awk '{ print $2 }' | grep 'Gi' &> /dev/null
+      [ ${?} == 0 ] && byte=GB || byte=MB
+      m_size=$(sudo free -mh | grep Mem: | awk '{ print $2 }' | sed 's/Gi//g')
+      Gi_to_GB=$(awk "BEGIN { print $m_size / .93 }")
+      echo -e " Memory: ${YELLOW}${Gi_to_GB} ${byte}${NC}"
+      #disk information
+      disk_list=$(sudo fdisk -l | grep '^Disk' | grep 'sd' | grep 'bytes' | awk '{ print $2 }' | sed 's/://g;s/\/dev\///g' | tr -s '\n' ' ' | sed 's/.$//')
+      echo -e " Disk list: ${YELLOW}${disk_list}${NC}"
+      #for disk_list in ${disk_list}
+      #  do
+      #    sudo fdisk -l | grep '^Disk' | grep 'bytes' | grep "${disk_list}" | grep -E 'GB|GiB' &> /dev/null
+      #    [ ${?} == 0 ] && byte=GB || byte=MB
+      #    disk_capacity=$(sudo fdisk -l | grep '^Disk' | grep 'bytes' | grep "${disk_list}" | awk '{ print $3 }')
+      #    disk_usage=$(sudo du -ch / 2> /dev/null | grep 'total' | awk '{ print $1 }' | tr -s 'GM' ' ')
+      #    sudo du -ch / 2> /dev/null | grep 'total' | awk '{ print $1 }' | grep 'G' &> /dev/null
+      #    [ ${?} == 0 ] && disk_usage=$(sudo du -ch / 2> /dev/null | grep 'total' | awk '{ print $1 }' | tr -s 'GM' ' ') || disk_usage=$(awk "BEGIN { print $disk_usage / 1024 }")
+      #
+      #    disk_percent=$(awk "BEGIN { pc=100*${disk_usage}/${disk_capacity}; i=int(pc); print (pc-i<0.5)?i:i+1 }")
+      #    disk_type=$(sudo fdisk -l | grep -A 1 "^Disk /dev/${disk_list}:" | grep '^Disk model' | cut -d ':' -f 2 | sed 's/^.//')
+      #
+      #    echo -e "  > Disk name: ${YELLOW}${disk_list} | ${disk_type}${NC}"
+      #    echo -e "  > Disk capacity: ${YELLOW}${disk_capacity} ${byte}${NC}"
+      #    echo -e "  > Disk usage: ${YELLOW}${disk_usage} ${byte} | ${disk_percent} %${NC}"
+      #    echo "  ---"
+      #  done
+      #echo ""
+      #network information
+      echo "[Network]"
+      echo -e " IP Address: ${YELLOW}${IP}${NC}"
+      echo -e " Gateway: ${YELLOW}${GATEWAY}${NC}"
+
+      for list in $(cat /etc/resolv.conf | grep '^nameserver' | awk '{ print $2 }')
+        do
+          echo -e " nameserver: ${YELLOW}${list}${NC}"
+        done
+
+      ping -c 1 www.hinet.net >> /dev/null
+      [ "${?}" == "0" ] && echo -e " Internet access: ${GREEN}Granted${NC}" || echo -e " Internet: ${RED}Denied${NC}"
+  fi
 }
 
 function system-swapoff()
@@ -778,7 +818,6 @@ function package-check()
       #k9s
       ssh ${clist} "which k9s" &> /dev/null 
       [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] k9s\t| not install" || echo -e " [${GREEN}●${NC}] k9s\t| `ssh ${clist} k9s version -s | grep Version | awk '{ print $2 }' | sed 's/v//g'`"
-      echo
     done
 
   for wlist in ${wk_nodes}
@@ -807,7 +846,6 @@ function package-check()
       #podman
       ssh ${wlist} "which podman" &> /dev/null
       [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] podman\t| not install" || echo -e " [${GREEN}●${NC}] podman\t| `ssh ${wlist} sudo podman version 2> /dev/null | grep '^Version' | awk '{ print $2 }'`"
-      echo
     done
 }
 

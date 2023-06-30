@@ -4,9 +4,9 @@
 
 #Source function & variable
 ls ~/bin/kdm_function &> /dev/null
-[ $? == 0 ] && source ~/bin/kdm_function &> /dev/null
+[ ${?} == 0 ] && source ~/bin/kdm_function &> /dev/null
 ls ~/kdm/kdm_function &> /dev/null
-[ $? == 0 ] && source ~/kdm/kdm_function &> /dev/null
+[ ${?} == 0 ] && source ~/kdm/kdm_function &> /dev/null
 
 #Environments pre-setting
 host-os-detection
@@ -35,7 +35,6 @@ sys-var) #Check script variables.
 ;;
 
 sys-conf) #Configure file & directory.
-
   #Set localhost hostname in hosts
   cat /etc/hosts | grep '127.0.0.1' | grep ${HOSTNAME} &> /dev/null
   [ ${?} != 0 ] &&  sudo sed -i "s|127.0.0.1   |127.0.0.1   ${HOSTNAME} |g" /etc/hosts
@@ -277,11 +276,11 @@ set-context) #Set the context's cluster and user name.
 
   sed -i "s/CLUSTER_NAME=${CLUSTER_NAME}/CLUSTER_NAME=${2}/g" ~/bin/kdm_function
   ls ~/.kube/config &> /dev/null
-  [ $? == 0 ] && sed -i "s/${CLUSTER_NAME}/${2}/g" ~/.kube/config
+  [ ${?} == 0 ] && sed -i "s/${CLUSTER_NAME}/${2}/g" ~/.kube/config
 
   sed -i "s/CLUSTER_USER=${CLUSTER_USER}/CLUSTER_USER=${3}/g" ~/bin/kdm_function
   ls ~/.kube/config &> /dev/null
-  [ $? == 0 ] && sed -i "s/${CLUSTER_USER}/${3}/g" ~/.kube/config
+  [ ${?} == 0 ] && sed -i "s/${CLUSTER_USER}/${3}/g" ~/.kube/config
 
   source ~/bin/kdm_function
   set-environment-variable
@@ -366,24 +365,25 @@ sync-kube-config) #scp yaml to every nodes.
 ;;
 
 pkg-ver) #Check package repositories.
+  set-environment-variable
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
   for install_list in ${cp_nodes} ${wk_nodes}
     do
       echo -e "${YELLOW}${install_list} | package repositories check${NC}"
-      [ "${OS_VER}" == "RHEL_8" ] && echo -e "${GREEN}Package enabled repositories:${NC}"
+      [ "${OS_VER}" == "RHEL_8" ] && echo -e "${YELLOW}Package enabled repositories:${NC}"
       [ "${OS_VER}" == "RHEL_8" ] && ssh ${install_list} "sudo dnf repolist --enabled -q"
-      [ "${OS_VER}" == "CentOS_8_Stream" ] && echo -e "${GREEN}Package enabled repositories:${NC}"
+      [ "${OS_VER}" == "CentOS_8_Stream" ] && echo -e "${YELLOW}Package enabled repositories:${NC}"
       [ "${OS_VER}" == "CentOS_8_Stream" ] && ssh ${install_list} "sudo dnf repolist --enabled -q"
       for plist in ${PACKAGE_LIST}
         do
-          echo -e "${GREEN}${plist} pkg-version:${NC}"
+          echo -e "${YELLOW} ${plist} pkg-version:${NC}"
           [ "${OS_VER}" == "RHEL_8" ] && ssh ${install_list} "echo ${plist} | grep -v 'kube' &> /dev/null && sudo dnf provides ${plist} 2> /dev/null | grep 'Provide' | head -n 5 | cut -d '=' -f 2 | sed 's/^.//'"
           [ "${OS_VER}" == "RHEL_8" ] && ssh ${install_list} "echo ${plist} | grep 'kube' &> /dev/null && sudo dnf provides ${plist} --disableexcludes=kubernetes 2> /dev/null | grep 'Provide' | grep ${CRIO_RELEASE} | cut -d '=' -f 2 | sed ':a;N;s/\n/ |/g;ta' | sed 's/^.//'"
           [ "${OS_VER}" == "CentOS_8_Stream" ] && ssh ${install_list} "echo ${plist} | grep -v 'kube' &> /dev/null && sudo dnf provides ${plist} 2> /dev/null | grep 'Provide' | head -n 5 | cut -d '=' -f 2 | sed 's/^.//'"
           [ "${OS_VER}" == "CentOS_8_Stream" ] && ssh ${install_list} "echo ${plist} | grep 'kube' &> /dev/null && sudo dnf provides ${plist} --disableexcludes=kubernetes 2> /dev/null | grep 'Provide' | grep ${CRIO_RELEASE} | cut -d '=' -f 2 | sed ':a;N;s/\n/ |/g;ta' | sed 's/^.//'"
           [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt-cache madison ${plist} | head -n 5"
-        done; echo
+        done
   done
 ;;
 
@@ -480,10 +480,9 @@ pkg-install) #Install basic package & setup environment.
           #enable crio、kubelet
           daemon-enable ${install_list}
       fi
-      echo
     done
-  echo && echo -e "${YELLOW}Package Check list${NS}"
-  package-check ${check_list} && echo
+  echo -e "${YELLOW}Package Check list${NS}"
+  package-check ${check_list}
 ;;
 
 pkg-rm) #Remove basic package & setup environment.
@@ -495,7 +494,7 @@ pkg-rm) #Remove basic package & setup environment.
 
   interrupt ${RED}Please confirm this command will destruction node:${YELLOW} ${cp_nodes} ${wk_nodes}!${NC}
 
-  echo -n "As you wish"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
+  echo -n "Processing"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
   for remove_list in ${cp_nodes}
     do
       echo -e "\n${YELLOW}${remove_list} | package removing${NC}"
@@ -827,7 +826,7 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
   set-environment-variable
   if [ -z ${2} ]
     then
-      echo -e "Please input csi project. [ local-path | rook-ceph ]\n"
+      echo -e "Input parameter. ${YELLOW}[ local-path | rook-ceph ]${NC}"
     elif [ ${2} == "local-path" ]
       then
           #local-path-storage
@@ -882,7 +881,7 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
 
         kubectl apply -f ~/yaml/rook/storageclass-block.yaml; sleep 3
         echo -e "${YELLOW}storageclass-block created${NC}"
-        curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Rook-Ceph/ceph-deshboard.yaml | sed "s/<INGRESSCLASS>/${INGRESS_CLASS_NAME}/g" | sed "s/<URL>/${CEPH_DASHBOARD_URL}/g" | kubectl apply -f - 
+        curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Rook-Ceph/ceph-deshboard.yaml | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | sed "s/<URL>/${CEPH_DASHBOARD_URL}/g" | kubectl apply -f - 
         echo -e "${YELLOW}deshboard ingress applied${NC}"
         
         echo -e "\n${YELLOW}rook-ceph deployed, please wait OSDs deploy.${NC}"
@@ -1003,7 +1002,7 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
 controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NETID just input xxx xxx ]
   #Set variable
   ls ~/yaml/controller &> /dev/null
-  [ $? != 0 ] && mkdir -p ~/yaml/controller
+  [ ${?} != 0 ] && mkdir -p ~/yaml/controller
 
   set-environment-variable
   if [ -z ${2} ]
@@ -1029,7 +1028,7 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
       
       #Wait for all speaker deployed
       kubectl get po -n metallb-system | tail -n +2 | awk '{ print $2,$3 }' | grep -v '1/1 Running' &> /dev/null
-      while [ $? == 0 ]
+      while [ ${?} == 0 ]
         do
           echo -e " [${YELLOW}●${NC}] Waiting for metallb deploy complete..."
           sleep 3
@@ -1153,7 +1152,7 @@ eck-deploy) #Deploy ECK
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Kibana created" || echo -e "[${YELLOW}○${NC}] Kibana not created"
   kubectl scale deployment/ek-test-kb -n elastic-system --replicas=2
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Kibana scale to 2" || echo -e "[${YELLOW}○${NC}] Kibana not scale"
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | sed "s/<INGRESSCLASS>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Kibana-ingress created" || echo -e "[${YELLOW}○${NC}] Kibana-ingress not created"
   k9s -c pods -n elastic-system
 ;;
@@ -1293,7 +1292,7 @@ harbor-deploy) #Deploy harbor
 
   #Get yaml file
   ls ~/yaml/harbor &> /dev/null
-  [ $? != 0 ] && mkdir ~/yaml/harbor
+  [ ${?} != 0 ] && mkdir ~/yaml/harbor
   helm show values harbor/harbor > ~/yaml/harbor/harbor-values.yaml
 
 ;;
@@ -1434,7 +1433,6 @@ images) #Check cluster images.
       echo -en "${YELLOW}${install_list} | images list${NC} | quantity: "
       ssh ${install_list} sudo podman images | grep -v 'REPOSITORY' | wc -l
       ssh ${install_list} sudo podman images
-      echo
     done
 ;;
 
@@ -1464,16 +1462,15 @@ image-rm) #Remove dangling images on cluster.
       echo -en "${YELLOW}${install_list} | in-use images list${NC} | quantity: "
       ssh ${install_list} sudo podman images | grep -v 'REPOSITORY' | wc -l
       ssh ${install_list} sudo podman images
-      echo
     done
 ;;
 
 helm-repo) #Check helm repository.
-  [ -z ${2} ] && echo -e "${RED}Please input parameter after ${YELLOW}\"helm-repo\" \n > [ update | check ]${NC}" && exit
+  [ -z ${2} ] && echo -e "${RED}Please input parameter after ${YELLOW}\"helm-repo\" \n > [ add | update | check ]${NC}" && exit
   node-selector hosts
+  [ "${2}" == "add" ] && helm-repo-add
   [ "${2}" == "update" ] && helm-repo-update
   [ "${2}" == "check" ] && helm-repo-check
-  [ "${2}" == "add" ] && helm-repo-add
 ;;
 
 cluster-info) #Check kubernetes cluster info.
@@ -1750,7 +1747,7 @@ cluster-rm) #Remove kubernetes cluster.
   start-info
   echo -e "${YELLOW}StorageClass: $(kubectl get storageclass -A 2> /dev/null | grep -E 'rook-ceph|local-path' | awk '{ print $1 }' | sed ":a;N;s/\n/\ | /g")${NC}"
   interrupt ${RED}Please confirm this command will destruction cluster!${NC}
-  echo -n "As you wish"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
+  echo -n "Processing"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
 
   #Check kubernetes status
   status=0
@@ -1762,6 +1759,15 @@ cluster-rm) #Remove kubernetes cluster.
   [ "${rook_detection}" == "1" ] && for list in ${rook_obj_list}
     do
       kubectl -n ${ROOK_CEPH_NS} patch ${list} -p '{"metadata":{"finalizers": []}}' --type=merge
+    done
+
+  #Patch all object
+  all_obj_list=$(kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -A | grep -v '^[0-9]' | grep -v '^[A-Z]' | awk '{ print $1,$2 }' | grep -v 'rook-ceph' | grep '/' | sed 's/ /|/g')
+  for list in ${all_obj_list}
+    do
+      obj_ns=$(echo ${list} | cut -d '|' -f 1)
+      obj_name=$(echo ${list} | cut -d '|' -f 2)
+      kubectl -n ${obj_ns} patch ${obj_name} -p '{"metadata":{"finalizers": []}}' --type=merge
     done
 
   #local-path
@@ -1792,15 +1798,6 @@ cluster-rm) #Remove kubernetes cluster.
   [ "${calico_detection}" == "1" ] && [ "${status}" == "1" ] && helm delete calico -n tigera-operator
   [ "${calico_detection}" == "1" ] && [ "${status}" == "1" ] && kubectl delete namespace tigera-operator
   [ "${calico_detection}" == "1" ] && [ "${status}" == "1" ] && helm repo remove projectcalico
-
-  #Patch all object
-  all_obj_list=$(kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -A | grep -v '^[0-9]' | grep -v '^[A-Z]' | awk '{ print $1,$2 }' | grep -v 'rook-ceph' | grep '/' | sed 's/ /|/g')
-  for list in ${all_obj_list}
-    do
-      obj_ns=$(echo ${list} | cut -d '|' -f 1)
-      obj_name=$(echo ${list} | cut -d '|' -f 2)
-      kubectl -n ${obj_ns} patch ${obj_name} -p '{"metadata":{"finalizers": []}}' --type=merge
-    done
 
   #delete all namespace
   [ "${status}" == "1" ] && kubectl delete all --all --all-namespaces 2> /dev/null
@@ -1867,7 +1864,7 @@ cri-check) #Check CRI running pods.
     done
 ;;
 
-cri-clean) #Remove CRI running pods.
+cri-rm) #Remove CRI running pods.
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
   interrupt ${RED}Please confirm this command will delete all container via crio on node:${YELLOW} ${cp_nodes} ${wk_nodes}${NC}
@@ -1917,7 +1914,7 @@ node-reset) #Reset hosts | specify nodes. [ node-reset node ]
   node-selector ${@}
   interrupt ${RED}Please confirm this command will destruction node:${YELLOW} ${cp_nodes} ${wk_nodes}${RED}!${NC}
 
-  echo -n "As you wish"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
+  echo -n "Processing"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
 
   for clist in ${cp_nodes}
     do
@@ -1960,7 +1957,7 @@ node-power) #Reboot/Poweroff hosts | specify node. [ node ]
 
 deploy) #Automatic deploy kubernetes cluster. [ kdm deploy high calico/flannel hosts 100 109 local-path/rook-ceph ]
   #kdm deploy high calico hosts 100 109 rook-ceph
-  [ "${2}" == "example" ] && echo -e "${YELLOW}deploy high calico hosts 100 109 rook-ceph" && exit
+  [ "${2}" == "example" ] && echo -e "${YELLOW}high calico hosts 100 109 rook-ceph" && exit
   [ ${#} != "7" ] && echo -e "Input parameter ${YELLOW}[ deploy | high | calico/flannel | hosts | 100 | 109 | local-path/rook-ceph ]${NC}" && exit
   kdm cp-init ${2} ${3}
   kdm cp-join ${4}
@@ -2040,8 +2037,8 @@ parm-check) #List all script parameter.
 test-nginx)
   [ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ deploy | remove ]${NC}" && exit
   set-environment-variable
-  [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/nginx-test.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | kubectl apply -f -
-  [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/nginx-test.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | kubectl delete -f -
+  [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
+  [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
 ;;
 
 test-images-push)
