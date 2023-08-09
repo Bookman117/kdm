@@ -97,25 +97,28 @@ function set-environment-variable()
   KUBE_SUBVER=${KUBE_RELEASE}.0
   KUBE_INIT_VER=v${KUBE_SUBVER}
   KUBE_REGISTRY=registry.k8s.io #registry.vattenlab.com
-  HELM_VER=3.11 #3.11.2-1
-  PODMAN_VER=4:4.5 #4:4.5.1-*
+  HELM_VER=$(sudo apt-cache madison helm | head -n 1 | awk '{ print $3 }') #3.12.2-1
+  PODMAN_VER=$(sudo apt-cache madison podman | head -n 1 | awk '{ print $3 }') #4:4.5.1-*
   K8S_GPG_PATH=/etc/apt/trusted.gpg.d/ #/usr/share/keyrings/ | /etc/apt/keyrings/
   GPG_PATH=/etc/apt/trusted.gpg.d/ #/usr/share/keyrings/ | /etc/apt/keyrings/
+  POD_CIDR=172.16.0.0/17
+  SVC_CIDR=172.16.128.0/17
   #Context setup
   CLUSTER_USER=bigred
   CLUSTER_NAME=UB22-T1
   #Kubernetes CNI
   KUBE_VIP_VER=v0.6.0 #v0.4.1
   CALICO_VER=v3.26.1 #（v3.26.0 會無法部署 rook-ceph）
-  CORE_DNS_DOMAIN=vattensoft.lab.com #k8s.org
+  CORE_DNS_DOMAIN=cluster.local #vattensoft.lab.com
+  CNI_SOCK="/var/run/crio/crio.sock"
   #Kubernetes CSI
-  ROOK_TAG=v1.11.9 #v1.10.12
-  ROOK_GIT_RELEASE='release-1.10'
+  ROOK_TAG=v1.12.0
+  ROOK_GIT_RELEASE='release-1.12'
   STORAGE_CLASS="local-path" #rook-ceph-block | local-path
   CEPH_DASHBOARD_URL="ceph.${CORE_DNS_DOMAIN}"
   LOCAL_PATH_VER=v0.0.24
   #Kubernetes Monitoring
-  METRICS_VER=3.10.0
+  METRICS_VER=3.11.0
   PROMETHEUSE_VER=47.0.0
   #Kubernetes service
   METALLB_VER=v0.13.10
@@ -222,7 +225,7 @@ function start-info()
       kubectl get pods -n metallb-system 2> /dev/null  | tail -n +2 | awk '{ print $2,$3 }' | grep '1/1 Running' &> /dev/null
       [ ${?} == 0 ] && echo -e "  ├─ Controller\t\t| ${GREEN}deployed: metallb${NC}" || echo -e "  ├─ Controller\t\t| ${YELLOW}Not deploy: metallb${NC}"
       kubectl get pods -n ingress-nginx 2> /dev/null  | grep 'ingress-nginx-controller*' | awk '{ print $2,$3 }' | grep '1/1 Running' &> /dev/null
-      [ ${?} == 0 ] && echo -e "  ├─ Controller\t\t| ${GREEN}deployed: nginx ingress${NC}" || echo -e "  ├─ Controller\t\t| ${YELLOW}Not deploy: ingress nginx${NC}"
+      [ ${?} == 0 ] && echo -e "  ├─ Controller\t\t| ${GREEN}deployed: ingress-nginx${NC}" || echo -e "  ├─ Controller\t\t| ${YELLOW}Not deploy: ingress-nginx${NC}"
       #show monitoring info
       #kubectl get pods -A | grep 'metrics' &> /dev/null
       kubectl get pods -n kube-system 2> /dev/null  | grep '^metrics' | awk '{ print $2,$3 }' | grep '1/1 Running' &> /dev/null
@@ -278,11 +281,17 @@ function show-version-control()
   echo -e " > CRIO_RELEASE    \t | ${YELLOW}${CRIO_RELEASE}${NC}"
   echo -e " > CRIO_SUBVER     \t | ${YELLOW}${CRIO_SUBVER}${NC}"
   echo -e " > HELM_VER        \t | ${YELLOW}${HELM_VER}${NC}"
+  echo -e " > PODMAN_VER      \t | ${YELLOW}${PODMAN_VER}${NC}"
   echo -e " > KUBE_RELEASE    \t | ${YELLOW}${KUBE_RELEASE}${NC}"
   echo -e " > KUBE_SUBVER     \t | ${YELLOW}${KUBE_SUBVER}${NC}"
   echo -e " > KUBE_VIP        \t | ${YELLOW}${KUBE_VIP}${NC}"
-  echo -e " > KUBE_INTERFACE  \t | ${YELLOW}${KUBE_INTERFACE}${NC}"; echo
-
+  echo -e " > KUBE_INTERFACE  \t | ${YELLOW}${KUBE_INTERFACE}${NC}"
+  echo -e " > POD_CIDR        \t | ${YELLOW}${POD_CIDR}${NC}"
+  echo -e " > SVC_CIDR        \t | ${YELLOW}${SVC_CIDR}${NC}"
+  echo "====="
+  echo -e " > CORE_DNS_DOMAIN \t | ${YELLOW}${CORE_DNS_DOMAIN}${NC}"
+  echo -e " > CLUSTER_USER    \t | ${YELLOW}${CLUSTER_USER}${NC}"
+  echo -e " > CLUSTER_NAME    \t | ${YELLOW}${CLUSTER_NAME}${NC}"
   echo -e " > KUBE_INIT_VER   \t | ${YELLOW}${KUBE_INIT_VER}${NC}"
   echo -e " > LOCAL_PATH_VER  \t | ${YELLOW}${LOCAL_PATH_VER}${NC}"
   echo -e " > METRICS_VER     \t | ${YELLOW}${METRICS_VER}${NC}"
@@ -292,8 +301,8 @@ function show-version-control()
   echo -e " > ROOK_TAG        \t | ${YELLOW}${ROOK_TAG}${NC}"
   echo -e " > ECK_OP_VER      \t | ${YELLOW}${ECK_OP_VER}${NC}"
   echo -e " > ECK_VER         \t | ${YELLOW}${ECK_VER}${NC}"
-  echo -e " > STORAGE_CLASS   \t | ${YELLOW}${STORAGE_CLASS}${NC}"; echo
-
+  echo -e " > STORAGE_CLASS   \t | ${YELLOW}${STORAGE_CLASS}${NC}"
+  echo "====="
   echo -e " > SELINUX_MODE    \t | ${YELLOW}${SELINUX_MODE}${NC}"
   echo -e " > IP              \t | ${YELLOW}${IP}${NC}"
   echo -e " > NETID           \t | ${YELLOW}${NETID}${NC}"
@@ -601,10 +610,10 @@ function node-selector()
       parameter=$(echo ${parameter} | sed 's/ /\n/g' | grep -v ${test} | sed ":a;N;s/\\n/ /g;ta")
       echo -e "${YELLOW} \"${parameter}\" ${NC}is not effective parameter!"
       echo -e "${RED} Please check out hostname list: ${YELLOW}${ALL_NODES}${NC},${RED}or input parameter:${NC}"
-      echo -e "${YELLOW}  > [ <local>\t| for this host ]${NC}"
+      echo -e "${YELLOW}  > [ local\t| for this host ]${NC}"
       echo -e "${YELLOW}  > [ hosts\t| for all nodes in /etc/hosts ]${NC}"
-      echo -e "${YELLOW}  > [ <cp>\t| for all control-plane nodes ]${NC}"
-      echo -e "${YELLOW}  > [ <wk>\t| for all worker nodes ]${NC}\n" && exit
+      echo -e "${YELLOW}  > [ cp\t| for all control-plane nodes ]${NC}"
+      echo -e "${YELLOW}  > [ wk\t| for all worker nodes ]${NC}" && exit
   elif [ "${status}" == "4" ]
     then
       list=$(echo "${CP_NODES} ${WK_NODES}")
@@ -619,27 +628,27 @@ function node-selector()
 function node-message()
 {
   echo -e "${RED} Please input parameter after ${YELLOW}\"${@}\" ${NC}"
-  echo -e "${YELLOW}  > [ <local>\t| for this host ]${NC}"
+  echo -e "${YELLOW}  > [ local\t| for this host ]${NC}"
   echo -e "${YELLOW}  > [ hosts\t| for all nodes in /etc/hosts ]${NC}"
   echo -e "${YELLOW}  > [ node\t| for specify nodes ]${NC}"
-  echo -e "${YELLOW}  > [ <cp>\t| for all control-plane nodes ]${NC}"
-  echo -e "${YELLOW}  > [ <wk>\t| for all worker nodes ]${NC}\n"
+  echo -e "${YELLOW}  > [ cp\t| for all control-plane nodes ]${NC}"
+  echo -e "${YELLOW}  > [ wk\t| for all worker nodes ]${NC}"
 }
 
 function cp-node-message()
 {
   echo -e "${RED} Please input parameter after ${YELLOW}\"${@}\" ${NC}"
-  echo -e "${YELLOW}  > [ <local>\t| for this host ]${NC}"
+  echo -e "${YELLOW}  > [ local\t| for this host ]${NC}"
   echo -e "${YELLOW}  > [ hosts\t| for all control-plane nodes in /etc/hosts ]${NC}"
-  echo -e "${YELLOW}  > [ node\t| for specify nodes ]${NC}\n"
+  echo -e "${YELLOW}  > [ node\t| for specify nodes ]${NC}"
 }
 
 function wk-node-message()
 {
   echo -e "${RED} Please input parameter after ${YELLOW}\"${@}\" ${NC}"
-  echo -e "${YELLOW}  > [ <local>\t| for this host ]${NC}"
+  echo -e "${YELLOW}  > [ local\t| for this host ]${NC}"
   echo -e "${YELLOW}  > [ hosts\t| for all worker nodes in /etc/hosts ]${NC}"
-  echo -e "${YELLOW}  > [ node\t| for specify nodes ]${NC}\n"
+  echo -e "${YELLOW}  > [ node\t| for specify nodes ]${NC}"
 }
 
 function exclude-non-join()
@@ -947,7 +956,7 @@ function package-install-kube-package()
 
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt-mark unhold kubeadm kubelet kubectl" &> /dev/null
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy kubernetes-cni" &> /dev/null
-  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy apt-transport-https" &> /dev/null
+  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy apt-transport-https --yes" &> /dev/null
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy kubeadm=${KUBE_SUBVER}-* kubelet=${KUBE_SUBVER}-* kubectl=${KUBE_SUBVER}-*" &> /dev/null
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo systemctl daemon-reload" &> /dev/null
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt-mark hold kubeadm kubelet kubectl" &> /dev/null
@@ -966,8 +975,8 @@ function package-install-k9s()
   ssh ${install_list} "mv ~/.local/bin/k9s ~/bin/" &> /dev/null
   ssh ${install_list} "cat /etc/environment | grep "/home/${USER}/bin" &> /dev/null" &> /dev/null
   [ ${?} != 0 ] && ssh ${install_list} "cat /etc/environment | tr -s ':' '\n' | sed 's/\/snap\/bin\"/\/snap\/bin\n\/home\/${USER}\/bin\"/g' | tr -s '\n' ':' | sed '$ s/.$//' | sudo tee /etc/environment &> /dev/null" &> /dev/null
-  ssh ${install_list} "cat /etc/profile | grep 'EDITOR=nano' &> /dev/null" &> /dev/null
-  [ ${?} != 0 ] && ssh ${install_list} "echo "EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
+  ssh ${install_list} "cat /etc/profile | grep 'KUEB_EDITOR=nano' &> /dev/null" &> /dev/null
+  [ ${?} != 0 ] && ssh ${install_list} "echo "KUEB_EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
   ssh ${install_list} "cat /etc/profile | grep 'K9S_EDITOR=nano' &> /dev/null" &> /dev/null
   [ ${?} != 0 ] && ssh ${install_list} "echo "K9S_EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
   ssh ${install_list} "rm -r ~/Downloads/" &> /dev/null
@@ -1365,12 +1374,12 @@ function check-tains()
   [ ${?} != 0 ] && echo -e " [${RED}●${NC}] This node not join cluster" && exit
   for kube_node in $(kubectl get nodes | awk '{ print $1 }' | tail -n +2);
     do
-      role=$(kubectl describe node $kube_node | grep 'Roles' | awk '{ print $2 }')
+      role=$(kubectl describe node $kube_node | grep 'Roles:' | awk '{ print $2 }')
       echo -en "${YELLOW}${kube_node}: ${RED}${role}"
       echo ${role} | grep "control-plane" &> /dev/null
-      [ ${?} == 0 ] && echo -e "${NC}\t|" $(kubectl describe node ${kube_node} | grep Taint)
+      [ ${?} == 0 ] && echo -e "${NC}\t|" $(kubectl describe node ${kube_node} | grep 'Taints:')
       echo ${role} | grep "worker" &> /dev/null
-      [ ${?} == 0 ] && echo -e "${NC}\t\t|" $(kubectl describe node ${kube_node} | grep Taint)
+      [ ${?} == 0 ] && echo -e "${NC}\t\t|" $(kubectl describe node ${kube_node} | grep 'Taints:')
     done
 }
 

@@ -288,6 +288,15 @@ set-context) #Set the context's cluster and user name.
   echo -e "User: ${YELLOW}${CLUSTER_USER}${NC}"
 ;;
 
+set-coredns) #Change core-dns domain setting.
+  [ "${#}" != "2" ] && echo -e "Input parameter ${YELLOW}[ dns-domain-name ]${NC}" && exit
+  set-environment-variable
+  sed -i "s/CORE_DNS_DOMAIN=${CORE_DNS_DOMAIN}/CORE_DNS_DOMAIN=${2}/g" ~/bin/kdm_function
+  source ~/bin/kdm_function
+  set-environment-variable
+  echo -e "CORE_DNS_DOMAIN: ${YELLOW}${CORE_DNS_DOMAIN}${NC}"
+;;
+
 set-selinux) #Setting SELinux mod [ set | apply ]
 [ -z ${2} ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-selinux\" [ set | apply ]${NC}" && exit
   if [ "${2}" == "set" ]
@@ -453,7 +462,7 @@ pkg-install) #Install basic package & setup environment.
       image-repository-setting
 
       #Kubernetes package setup
-      [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy apt-transport-https --yes" &> /dev/null
+      #[ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy apt-transport-https --yes" &> /dev/null
 
       cri_current_ver=$(crio version 2>&1 | grep "^Version" | awk '{ print $2 }')
       [ "${OS_VER}" == "CentOS_8_Stream" ] && sudo dnf provides kubectl --disableexcludes=kubernetes | grep 'Provide' | grep ${CRIO_RELEASE} | cut -d '=' -f 2 | grep ${cri_current_ver} &> /dev/null
@@ -550,6 +559,7 @@ docker-compose-install) #Install docker-compose.
 ;;
 
 k9s-install) #Install k9s on every control-plane.
+  kubernetes-node-variable
   for clist in ${CP_NODES}
     do
       #install k9s
@@ -559,10 +569,10 @@ k9s-install) #Install k9s on every control-plane.
       ssh ${clist} "mv ~/.local/bin/k9s ~/bin/" &> /dev/null
       ssh ${clist} "cat /etc/environment | grep "/home/${USER}/bin" &> /dev/null" &> /dev/null
       [ ${?} != 0 ] && ssh ${clist} "cat /etc/environment | tr -s ':' '\n' | sed 's/\/snap\/bin\"/\/snap\/bin\n\/home\/${USER}\/bin\"/g' | tr -s '\n' ':' | sed '$ s/.$//' | sudo tee /etc/environment &> /dev/null" &> /dev/null
-      ssh ${clist} "cat /etc/profile | grep 'EDITOR=nano' &> /dev/null" &> /dev/null
-      [ ${?} != 0 ] && ssh ${clist} "echo "EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
-      ssh ${clist} "cat /etc/profile | grep 'K9S_EDITOR=nano' &> /dev/null" &> /dev/null
-      [ ${?} != 0 ] && ssh ${clist} "echo "K9S_EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
+      ssh ${clist} "cat /etc/profile | grep 'export KUBE_EDITOR=nano' &> /dev/null" &> /dev/null
+      [ ${?} != 0 ] && ssh ${clist} "echo "export KUBE_EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
+      ssh ${clist} "cat /etc/profile | grep 'export K9S_EDITOR=nano' &> /dev/null" &> /dev/null
+      [ ${?} != 0 ] && ssh ${clist} "echo "export K9S_EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
       ssh ${clist} "rm -r ~/Downloads/" &> /dev/null
       ssh ${clist} "ls -al ~/bin/k9s" &> /dev/null
       [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] ${clist} k9s installed"
@@ -570,6 +580,7 @@ k9s-install) #Install k9s on every control-plane.
 ;;
 
 k9s-rm) #Remove k9s on every control-plane.
+  kubernetes-node-variable
   for clist in ${CP_NODES}
     do
       #delete k9s
@@ -638,8 +649,8 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
   [ "${3}" == "calico" ] && SVC_CIDR=172.16.128.0/17
   #[ "${3}" == "calico" ] && POD_CIDR=10.85.0.0/16
   #[ "${3}" == "calico" ] && SVC_CIDR=10.96.0.0/12
-  [ ${2} == "high" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
-  [ ${2} == "single" ] && [ "${3}" == "calico" ] && sudo kubeadm init --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
+  [ ${2} == "high" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
+  [ ${2} == "single" ] && [ "${3}" == "calico" ] && sudo kubeadm init --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
   [ ${?} != 0 ] && [ "${2}" == "calico" ] && interrupt ${RED}\nkubeadm init failure!${NC}
   [ "${3}" == "calico" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
   [ "${3}" == "calico" ] && ls ${HOME}/.kube/config &> /dev/null
@@ -654,8 +665,8 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
   [ "${3}" == "flannel" ] && SVC_CIDR=172.16.128.0/17
   #[ "${3}" == "flannel" ] && POD_CIDR=10.244.0.0/16
   #[ "${3}" == "flannel" ] && SVC_CIDR=10.98.0.0/24
-  [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
-  [ ${2} == "single" ] && [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=/var/run/crio/crio.sock --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
+  [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
+  [ ${2} == "single" ] && [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
   [ ${?} != 0 ] && [ "${2}" == "flannel" ] && interrupt ${RED}\nkubeadm init failure!${NC}
   [ "${3}" == "flannel" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
   [ "${3}" == "flannel" ] && ls ${HOME}/.kube/config &> /dev/null
@@ -1044,6 +1055,8 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
       #ingress-nginx
       #By helm
       #Create namespace
+      helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+      helm repo update
       kubectl create ns ingress-nginx
       helm show values ingress-nginx/ingress-nginx --version ${INGRESS_NGINX_HELM_VER} > ~/yaml/controller/ingress-nginx.yaml
       #Config ingressClass name
@@ -1960,7 +1973,7 @@ deploy) #Automatic deploy kubernetes cluster. [ kdm deploy high calico/flannel h
   [ "${2}" == "example" ] && echo -e "${YELLOW}high calico hosts 100 109 rook-ceph" && exit
   [ ${#} != "7" ] && echo -e "Input parameter ${YELLOW}[ deploy | high | calico/flannel | hosts | 100 | 109 | local-path/rook-ceph ]${NC}" && exit
   kdm cp-init ${2} ${3}
-  kdm cp-join ${4}
+  [ "${2}" == "high" ] && kdm cp-join ${4}
   kdm wk-join ${4}
   kdm dns-rollout
   kdm controller-deploy ${5} ${6}
@@ -2039,6 +2052,13 @@ test-nginx)
   set-environment-variable
   [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
   [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
+;;
+
+test-apache)
+  [ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ deploy | remove ]${NC}" && exit
+  set-environment-variable
+  [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/test-apache.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
+  [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/test-apache.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
 ;;
 
 test-images-push)
