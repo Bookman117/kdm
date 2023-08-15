@@ -1982,6 +1982,22 @@ deploy) #Automatic deploy kubernetes cluster. [ kdm deploy high calico/flannel h
   kdm csi-deploy ${7}
 ;;
 
+etcdctl-install)
+  #Variable
+  ETCD_VER=v3.5.7
+  ETCD_DIR=etcd-download
+  DOWNLOAD_URL=https://github.com/coreos/etcd/releases/download
+  #Download etcdctl
+  mkdir ${ETCD_DIR}
+  cd ${ETCD_DIR}
+  wget ${DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz
+  tar -xzvf etcd-${ETCD_VER}-linux-amd64.tar.gz
+  #install etcdctl
+  cd etcd-${ETCD_VER}-linux-amd64
+  sudo cp etcdctl /usr/local/bin/
+  source /etc/profile
+;;
+
 help) #Show script parameters information.
   ls ~/kdm/kdm &> /dev/null
   [ ${?} == 0 ] && stage=0
