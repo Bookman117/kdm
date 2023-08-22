@@ -474,8 +474,9 @@ pkg-install) #Install basic package & setup environment.
         then
           package-install-kube-package
           package-install-helm
-          package-install-k9s
           package-install-podman
+          package-install-skopeo
+          package-install-k9s
           #enable crio、kubelet
           daemon-enable ${install_list}
       fi
@@ -507,6 +508,7 @@ pkg-rm) #Remove basic package & setup environment.
   for remove_list in ${cp_nodes}
     do
       echo -e "\n${YELLOW}${remove_list} | package removing${NC}"
+      package-remove-skopeo
       package-remove-podman
       package-remove-helm
       package-remove-k9s
