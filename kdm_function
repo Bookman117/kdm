@@ -108,12 +108,12 @@ function set-environment-variable()
   CLUSTER_USER=bigred
   CLUSTER_NAME=UB22-T1
   #Kubernetes CNI
-  KUBE_VIP_VER=v0.6.1
+  KUBE_VIP_VER=v0.6.2
   CALICO_VER=v3.26.1 #（v3.26.0 會無法部署 rook-ceph）
   CORE_DNS_DOMAIN=cluster.local #vattensoft.lab.com
   CNI_SOCK="/var/run/crio/crio.sock"
   #Kubernetes CSI
-  ROOK_TAG=v1.12.0
+  ROOK_TAG=v1.12.2
   ROOK_GIT_RELEASE='release-1.12'
   STORAGE_CLASS="local-path" #rook-ceph-block | local-path
   CEPH_DASHBOARD_URL="ceph.${CORE_DNS_DOMAIN}"
