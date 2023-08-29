@@ -110,6 +110,7 @@ function set-environment-variable()
   #Kubernetes CNI
   KUBE_VIP_VER=v0.6.2
   CALICO_VER=v3.26.1 #（v3.26.0 會無法部署 rook-ceph）
+  FLANNEL_VER=v0.22.2
   CORE_DNS_DOMAIN=cluster.local #vattensoft.lab.com
   CNI_SOCK="/var/run/crio/crio.sock"
   #Kubernetes CSI
