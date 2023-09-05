@@ -672,7 +672,7 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
   [ ${?} != 0 ] && [ "${2}" == "flannel" ] && interrupt ${RED}\nkubeadm init failure!${NC}
   [ "${3}" == "flannel" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
   [ "${3}" == "flannel" ] && ls ${HOME}/.kube/config &> /dev/null
-  [ "${3}" == "flannel" ] && kubectl apply -f https://raw.githubusercontent.com/Bookman-W/kdm/master/yaml/kube-flannel.yaml
+  [ "${3}" == "flannel" ] && kubectl apply -f https://raw.githubusercontent.com/Bookman117/kdm/master/yaml/kube-flannel.yaml
   #[ ${?} != 0 ] && echo -e "kubeadm init failure.\n" && exit
 
   #Change context name & username
@@ -783,7 +783,7 @@ cni-deploy) #Deploy kubernetes CNI. [ calico or flannel ]
     elif [ ${2} == "flannel" ]
       then
         #flannel network
-        kubectl apply -f https://raw.githubusercontent.com/Bookman-W/kdm/master/yaml/kube-flannel.yaml
+        kubectl apply -f https://raw.githubusercontent.com/Bookman117/kdm/master/yaml/kube-flannel.yaml
         k9s -n kube-system
   fi
 ;;
@@ -805,7 +805,7 @@ cni-rm) #Delete kubernetes CNI. [ calico or flannel ]
     elif [ ${2} == "flannel" ]
       then
         #flannel network
-        kubectl delete -f https://raw.githubusercontent.com/Bookman-W/kdm/master/yaml/kube-flannel.yaml
+        kubectl delete -f https://raw.githubusercontent.com/Bookman117/kdm/master/yaml/kube-flannel.yaml
         for install_list in ${CP_NODES} ${WK_NODES}
           do
             ssh ${install_list} "sudo rm /etc/cni/net.d/*flannel*"
@@ -843,7 +843,7 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
     elif [ ${2} == "local-path" ]
       then
           #local-path-storage
-          curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Local-path/local-path-storage.yaml | sed "s/<image-version>/${LOCAL_PATH_VER}/g" | kubectl apply -f -
+          curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Local-path/local-path-storage.yaml | sed "s/<image-version>/${LOCAL_PATH_VER}/g" | kubectl apply -f -
           k9s -n local-path-storage
     elif [ ${2} == "rook-ceph" ]
       then
@@ -894,7 +894,7 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
 
         kubectl apply -f ~/yaml/rook/storageclass-block.yaml; sleep 3
         echo -e "${YELLOW}storageclass-block created${NC}"
-        curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Rook-Ceph/ceph-deshboard.yaml | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | sed "s/<URL>/${CEPH_DASHBOARD_URL}/g" | kubectl apply -f - 
+        curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Rook-Ceph/ceph-deshboard.yaml | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | sed "s/<URL>/${CEPH_DASHBOARD_URL}/g" | kubectl apply -f - 
         echo -e "${YELLOW}deshboard ingress applied${NC}"
         
         echo -e "\n${YELLOW}rook-ceph deployed, please wait OSDs deploy.${NC}"
@@ -913,7 +913,7 @@ csi-rm) #Delete kubernetes CSI. [ local-path | rook-ceph ]
       then
         interrupt ${RED}Please confirm this command will destruction CSI ${YELLOW}${2} ${RED}!${NC}
         #local-path-storage
-        curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Local-path/local-path-storage.yaml | sed "s/<image-version>/${LOCAL_PATH_VER}/g" | kubectl delete -f -
+        curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Local-path/local-path-storage.yaml | sed "s/<image-version>/${LOCAL_PATH_VER}/g" | kubectl delete -f -
         [ ${?} == 0 ] && echo "local-path-storage deleted."
     elif [ ${2} == "rook-ceph" ]
       then
@@ -927,7 +927,7 @@ csi-rm) #Delete kubernetes CSI. [ local-path | rook-ceph ]
         kubectl delete CephBlockPool/replicapool -n ${ROOK_CEPH_NS}
         kubectl -n ${ROOK_CEPH_NS} delete cephcluster ${ROOK_CEPH_NS}
 
-        curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Rook-Ceph/ceph-deshboard.yaml | sed "s/<URL>/${CEPH_DASHBOARD_URL}/g" | kubectl delete -f - 
+        curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Rook-Ceph/ceph-deshboard.yaml | sed "s/<URL>/${CEPH_DASHBOARD_URL}/g" | kubectl delete -f - 
         kubectl delete -f ~/yaml/rook/toolbox.yaml; sleep 2
         kubectl delete -f ~/yaml/rook/operator.yaml; sleep 2
         kubectl delete -f ~/yaml/rook/common.yaml; sleep 2
@@ -1051,7 +1051,7 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
 
       #Deploy ip-pool
       echo "Starting deploy metallb ip-pool"
-      curl -s https://raw.githubusercontent.com/Bookman-W/kdm/master/yaml/metallb-pool.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | sed "s/<pool-name>/${METALLB_POOL_NAME}/g" | kubectl apply -f - 
+      curl -s https://raw.githubusercontent.com/Bookman117/kdm/master/yaml/metallb-pool.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | sed "s/<pool-name>/${METALLB_POOL_NAME}/g" | kubectl apply -f - 
       echo "metallb deployed!"
 
       #ingress-nginx
@@ -1067,7 +1067,7 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
       helm install ingress-nginx ingress-nginx/ingress-nginx -f ~/yaml/controller/ingress-nginx.yaml --namespace ingress-nginx
 
       #Old version
-      #curl -s https://raw.githubusercontent.com/Bookman-W/kdm/master/yaml/ingress-nginx.yaml | sed "s/<ingress-name>/${INGRESS_CLASS_NAME}/g" | sed "s/<INGRESS_NGINX_VER>/${INGRESS_NGINX_VER}/g" | kubectl apply -f -
+      #curl -s https://raw.githubusercontent.com/Bookman117/kdm/master/yaml/ingress-nginx.yaml | sed "s/<ingress-name>/${INGRESS_CLASS_NAME}/g" | sed "s/<INGRESS_NGINX_VER>/${INGRESS_NGINX_VER}/g" | kubectl apply -f -
       #echo "ingress-nginx deployed!"
 
       k9s -c pods -A
@@ -1078,10 +1078,10 @@ controller-rm) #Delete basic service. [ metallb & nginx-ingress ]
   #Set variable
   set-environment-variable
   #ingress-nginx
-  curl -s https://raw.githubusercontent.com/Bookman-W/kdm/master/yaml/ingress-nginx.yaml | sed "s/<ingress-name>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/kdm/master/yaml/ingress-nginx.yaml | sed "s/<ingress-name>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
   #metallb-system
   curl -s https://raw.githubusercontent.com/metallb/metallb/${METALLB_VER}/config/manifests/metallb-native.yaml | kubectl delete -f - 
-  curl -s https://raw.githubusercontent.com/Bookman-W/kdm/master/yaml/metallb-pool.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | sed "s/<pool-name>/${METALLB_POOL_NAME}/g" | kubectl delete -f - 
+  curl -s https://raw.githubusercontent.com/Bookman117/kdm/master/yaml/metallb-pool.yaml | sed "s/<NETID>/${NETID}/g" | sed "s/<START>/${2}/g" | sed "s/<END>/${3}/g" | sed "s/<pool-name>/${METALLB_POOL_NAME}/g" | kubectl delete -f - 
 ;;
 
 metrics-deploy) #Deploy metrics-server.
@@ -1157,17 +1157,17 @@ eck-deploy) #Deploy ECK
   kubectl apply -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/operator.yaml
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] operator created" || echo -e "[${YELLOW}○${NC}] operator not created"
   #Create Superuser
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl apply -f -
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] superuser secret created" || echo -e "[${YELLOW}○${NC}] superuser secret not created"
   #Create elasticsearch
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl apply -f -
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Elasticsearch created" || echo -e "[${YELLOW}○${NC}] Elasticsearch not created"
   #Create Kibana & Ingress rule
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VER}/g" | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VER}/g" | kubectl apply -f -
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Kibana created" || echo -e "[${YELLOW}○${NC}] Kibana not created"
   kubectl scale deployment/ek-test-kb -n elastic-system --replicas=2
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Kibana scale to 2" || echo -e "[${YELLOW}○${NC}] Kibana not scale"
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Kibana-ingress created" || echo -e "[${YELLOW}○${NC}] Kibana-ingress not created"
   k9s -c pods -n elastic-system
 ;;
@@ -1179,12 +1179,12 @@ eck-rm) #Remove ECK
   #Setup password
   setup-password-control
   #Delete Kibana & Ingress rule
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | kubectl delete -f -
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VER}/g" | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VER}/g" | kubectl delete -f -
   #Delete elasticsearch
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl delete -f -
   #Delete Superuser
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl delete -f -
   #Delete crd & operator
   kubectl delete -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/operator.yaml
   kubectl delete -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/crds.yaml
@@ -1219,7 +1219,7 @@ mariadb-galera-deploy) #Deploy mariadb-galera
   #Setup password
   setup-password-control
   kubectl create namespace ${MARIADB_GALERA_NS}
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/MariaDB-Galera/mariadb-galera-secret.yaml -w '\n' | sed "s/<password>/${MARIADB_GALERA_PASSWORD}/g" | sed "s/<namespace>/${MARIADB_GALERA_NS}/g" | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/MariaDB-Galera/mariadb-galera-secret.yaml -w '\n' | sed "s/<password>/${MARIADB_GALERA_PASSWORD}/g" | sed "s/<namespace>/${MARIADB_GALERA_NS}/g" | kubectl apply -f -
   #Add helm package
   helm repo list | grep 'bitnami' &> /dev/null
   [ ${?} != 0 ] && helm repo add bitnami https://charts.bitnami.com/bitnami
@@ -1318,7 +1318,7 @@ jenkins-deploy) #Deploy jenkins on kubernetes.
   kubectl create ns ${JENKINS_NS}
   kubectl create secret generic kubeconfig --from-file=/home/${USER}/.kube/config -n ${JENKINS_NS}
   #kubectl apply -f https://web.flymks.com/cicd/v1/jenkins.yaml
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Web-service/jenkins.yaml | sed 's/<image-name>/docker.io\/jenkins\/jenkins/g' | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Web-service/jenkins.yaml | sed 's/<image-name>/docker.io\/jenkins\/jenkins/g' | kubectl apply -f -
   k9s -c pods -n ${JENKINS_NS}
   kubectl get pods -n ${JENKINS_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}Jenkins deployed!${NC}" || echo -e "${RED}Jenkins not deploy!${NC}"
@@ -1337,8 +1337,8 @@ quay-deploy) #Deploy project-quay on kubernetes.
   set-environment-variable
   #quay
   kubectl create ns ${QUAY_NS}
-  #kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Web-service/quay.yaml
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Web-service/quay.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  #kubectl apply -f https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Web-service/quay.yaml
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Web-service/quay.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
   k9s -c pods -n ${QUAY_NS}
   kubectl get pods -n ${QUAY_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}Project Quay deployed!${NC}" || echo -e "${RED}Project Quay not deploy!${NC}"
@@ -1347,7 +1347,7 @@ quay-deploy) #Deploy project-quay on kubernetes.
 quay-rm) #Delete project-quay on kubernetes.
   #Set variable
   set-environment-variable
-  kubectl delete -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/quay.yaml
+  kubectl delete -f https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/quay.yaml
   kubectl delete ns ${QUAY_NS}
 ;;
 
@@ -1356,8 +1356,8 @@ grafana-deploy) #Deploy grafana on kubernetes.
   set-environment-variable
   #gf
   kubectl create ns ${GRAFANA_NS}
-  #kubectl apply -f https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Web-service/grafana.yaml
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Web-service/grafana.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  #kubectl apply -f https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Web-service/grafana.yaml
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Web-service/grafana.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
   k9s -c pods -n ${GRAFANA_NS}
   kubectl get pods -n ${GRAFANA_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}Grafana deployed!${NC}" || echo -e "${RED}Grafana not deploy!${NC}"
@@ -1379,40 +1379,40 @@ landlord-deploy) #Deploy landlord on kubernetes.
   kubectl create -n landlord configmap kuser-conf --from-file /home/${USER}/.kube/config
 
   #PVC
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/2-landlord-PVC.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/2-landlord-PVC.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
   echo "landlord PVC deployed!"
 
   #service
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/1-landlord-service.yaml | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/1-landlord-service.yaml | kubectl apply -f -
   k9s -c svc -n ${LANDLORD_NS}
   kubectl get svc -n ${LANDLORD_NS} | tail -n +2 | tr -s ' ' | cut -d ' ' -f 2 | grep -vE 'LoadBalancer|ClusterIP' &> /dev/null
 
   #gateway
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/3-landlord-gateway.yaml | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/3-landlord-gateway.yaml | kubectl apply -f -
   k9s -c pods -n ${LANDLORD_NS}
   kubectl get pods -n ${LANDLORD_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}gateway deployed!${NC}" || echo -e "${RED}gateway not deploy!${NC}"
 
   #kuser
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/4-landlord-kuser.yaml | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/4-landlord-kuser.yaml | kubectl apply -f -
   k9s -c pods -n ${LANDLORD_NS}
   kubectl get pods -n ${LANDLORD_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}kuser deployed!${NC}" || echo -e "${RED}kuser not deploy!${NC}"
 
   #logger
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/5-landlord-logger.yaml | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/5-landlord-logger.yaml | kubectl apply -f -
   k9s -c pods -n ${LANDLORD_NS}
   kubectl get pods -n ${LANDLORD_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}logger deployed!${NC}" || echo -e "${RED}logger not deploy!${NC}"
 
   #mariadb
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/6-landlord-mariadb.yaml | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/6-landlord-mariadb.yaml | kubectl apply -f -
   k9s -c pods -n ${LANDLORD_NS}
   kubectl get pods -n ${LANDLORD_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}mariadb deployed!${NC}" || echo -e "${RED}mariadb not deploy!${NC}"
 
   #tenant
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl apply -f -
   k9s -c pods -n ${LANDLORD_NS}
   kubectl get pods -n ${LANDLORD_NS} | tail -n +2 | awk '{ print $3 }' | grep -v 'Running' &> /dev/null
   [ ${?} != 0 ] && echo -e "${YELLOW}tenant deployed!${NC}" || echo -e "${RED}tenant not deploy!${NC}"
@@ -1422,19 +1422,19 @@ landlord-rm) #Delete landlorsd on kubernetes.
   #Set variable
   set-environment-variable
   #tenant
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl delete -f -
   #mariadb
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/6-landlord-mariadb.yaml | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/6-landlord-mariadb.yaml | kubectl delete -f -
   #logger
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/5-landlord-logger.yaml | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/5-landlord-logger.yaml | kubectl delete -f -
   #kuser
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/4-landlord-kuser.yaml | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/4-landlord-kuser.yaml | kubectl delete -f -
   #gateway
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/3-landlord-gateway.yaml | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/3-landlord-gateway.yaml | kubectl delete -f -
   #PVC
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/2-landlord-PVC.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/2-landlord-PVC.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl delete -f -
   #service
-  curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Landlord/1-landlord-service.yaml | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/1-landlord-service.yaml | kubectl delete -f -
   #configmap & namespace
   kubectl delete -n ${LANDLORD_NS} configmap kuser-conf
   kubectl delete ns ${LANDLORD_NS}
@@ -1786,7 +1786,7 @@ cluster-rm) #Remove kubernetes cluster.
     done
 
   #local-path
-  [ "${local_path_detection}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Local-path/local-path-storage.yaml | sed "s/<image-version>/${LOCAL_PATH_VER}/g" | kubectl delete -f -
+  [ "${local_path_detection}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Local-path/local-path-storage.yaml | sed "s/<image-version>/${LOCAL_PATH_VER}/g" | kubectl delete -f -
   [ ${?} == 0 ] && [ "${local_path_detection}" == "1" ] && echo "local-path-storage deleted."
 
   #Metrics
@@ -1798,13 +1798,13 @@ cluster-rm) #Remove kubernetes cluster.
   [ "${prometheus_detection}" == "1" ] && [ "${status}" == "1" ] && helm repo remove prometheus-community
 
   #Delete Kibana & Ingress rule
-  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | kubectl delete -f -
-  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VER}/g" | kubectl delete -f -
+  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | kubectl delete -f -
+  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VER}/g" | kubectl delete -f -
   
   #Delete elasticsearch
-  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl delete -f -
+  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl delete -f -
   #Delete Superuser
-  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl delete -f -
+  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl delete -f -
   #Delete crd & operator
   [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && kubectl delete -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/operator.yaml
   [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && kubectl delete -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/crds.yaml
@@ -2068,15 +2068,15 @@ parm-check) #List all script parameter.
 test-nginx)
   [ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ deploy | remove ]${NC}" && exit
   set-environment-variable
-  [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
-  [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
+  [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
+  [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
 ;;
 
 test-apache)
   [ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ deploy | remove ]${NC}" && exit
   set-environment-variable
-  [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/test-apache.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
-  [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman-W/Kubernetes-yaml/main/Test/test-apache.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
+  [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-apache.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
+  [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-apache.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
 ;;
 
 test-images-push)
