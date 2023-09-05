@@ -24,11 +24,11 @@ Support OS:
 
 ## wget
 ```bash
-$ wget -qO - 'https://raw.githubusercontent.com/Bookman-W/kdm/master/install.sh' | bash
+$ wget -qO - 'https://raw.githubusercontent.com/Bookman117/kdm/master/install.sh' | bash
 ```
 ## curl
 ```bash
-$ curl -s 'https://raw.githubusercontent.com/Bookman-W/kdm/master/install.sh' | bash
+$ curl -s 'https://raw.githubusercontent.com/Bookman117/kdm/master/install.sh' | bash
 ```
 # Usage
 
