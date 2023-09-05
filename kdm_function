@@ -1250,7 +1250,7 @@ function package-remove-skopeo()
   status=0
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which skopeo" &> /dev/null || status=2
   [ "${OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "2" ] && echo -e " [${RED}●${NC}] skopeo\t| not install"
-  [ "${OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo apt remove -qy --purge --allow-change-held-packages podman buildah" &> /dev/null
+  [ "${OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "0" ] && ssh ${remove_list} "sudo apt remove -qy --purge --allow-change-held-packages skopeo" &> /dev/null
   [ ${?} == 0 ] && [ "${OS_VER}" == "xUbuntu_22.04" ] && echo -e " [${GREEN}●${NC}] skopeo\t| removed"
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${remove_list} "which skopeo" &> /dev/null && status=1
   [ "${OS_VER}" == "xUbuntu_22.04" ] && [ "${status}" == "1" ] && echo -e " [${RED}●${NC}] skopeo\t| not remove"
@@ -1355,7 +1355,11 @@ function helm-repo-add()
       echo -e "${YELLOW}${clist} helm repositories${NC}"
       ssh ${clist} "helm repo add projectcalico https://projectcalico.docs.tigera.io/charts &> /dev/null" && echo -e "${YELLOW} > helm repository \"projectcalico\" added${NC}" || echo -e "${RED} > helm repository \"projectcalico\" not add${NC}"
       ssh ${clist} "helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server &> /dev/null" && echo -e "${YELLOW} > helm repository \"metrics-server\" added${NC}" || echo -e "${RED} > helm repository \"metrics-server\" not add${NC}"
-      ssh ${clist} "helm repo add prometheus-community https://prometheus-community.github.io/helm-charts &> /dev/null" && echo -e "${YELLOW} > helm repository \"prometheus\" added${NC}\n" || echo -e "${RED} > helm repository \"prometheus\" not add${NC}"
+      ssh ${clist} "helm repo add prometheus-community https://prometheus-community.github.io/helm-charts &> /dev/null" && echo -e "${YELLOW} > helm repository \"prometheus\" added${NC}" || echo -e "${RED} > helm repository \"prometheus\" not add${NC}"
+      ssh ${clist} "helm repo add kedacore https://kedacore.github.io/charts &> /dev/null" && echo -e "${YELLOW} > helm repository \"kedacore\" added${NC}" || echo -e "${RED} > helm repository \"kedacore\" not add${NC}"
+      ssh ${clist} "helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx &> /dev/null" && echo -e "${YELLOW} > helm repository \"ingress-nginx\" added${NC}" || echo -e "${RED} > helm repository \"ingress-nginx\" not add${NC}"
+      ssh ${clist} "helm repo add bitnami https://charts.bitnami.com/bitnami &> /dev/null" && echo -e "${YELLOW} > helm repository \"bitnami\" added${NC}" || echo -e "${RED} > helm repository \"bitnami\" not add${NC}"
+      ssh ${clist} "helm repo add harbor https://helm.goharbor.io &> /dev/null" && echo -e "${YELLOW} > helm repository \"harbor\" added${NC}" || echo -e "${RED} > helm repository \"harbor\" not add${NC}"
     done
 }
 
