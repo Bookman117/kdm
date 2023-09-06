@@ -123,11 +123,12 @@ function set-environment-variable()
   METRICS_VER=3.11.0
   PROMETHEUSE_VER=47.0.0
   #Kubernetes service
-  METALLB_VER=v0.13.10
+  METALLB_RELEASE=v0.13
+  METALLB_VER=$(curl -s https://github.com/metallb/metallb/releases.atom | grep "/releases/tag/${METALLB_RELEASE}" | cut -d '"' -f 6 | head -n 1 | cut -d '/' -f 8)
   METALLB_POOL_NAME=metal-1
-  INGRESS_CLASS_NAME=ingress-1
   INGRESS_NGINX_VER=1.8.0
   INGRESS_NGINX_HELM_VER=4.7.0
+  INGRESS_CLASS_NAME=ingress-1
   ECK_OP_VER=2.7.0
   ECK_VER=8.7.0
   #Docker
