@@ -1,4 +1,6 @@
-#kdm environment pre-setting
+#Purpose: kdm environment pre-setting & function setup.
+#Create-Date: 2022-10-1
+
 function host-os-detection()
 {
   cat /etc/os-release &> /dev/null
