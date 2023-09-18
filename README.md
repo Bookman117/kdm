@@ -34,9 +34,24 @@ $ curl -s 'https://raw.githubusercontent.com/Bookman117/kdm/master/install.sh' |
 
 Set kube* & cri-o package target version:
 ```bash
-$ kdm set-ver sub 1.27.0
- [●] Version setting completed
- [●] cri-o version: 1.27.0 available
+$ kdm set-ver check
+Target release: 1.28
+ [●] 1.28.1
+ [●] 1.28.0
+Target release: 1.27
+ [●] 1.27.1
+ [●] 1.27.0
+Target release: 1.26
+ [●] 1.26.4
+ [●] 1.26.3
+ [●] 1.26.2
+ [●] 1.26.1
+ [●] 1.26.0
+
+$ kdm set-ver sub 1.28.0
+ [●] Version setting is completed
+ [●] cri-o version: 1.28.0 is available
+ [●] cri-o version: 1.28.1 is available
 ```
 
 Install packages and dependencies:
