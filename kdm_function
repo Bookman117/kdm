@@ -165,19 +165,19 @@ function kubernetes-namespace-variable()
 function setup-pkg-version()
 {
   set-environment-variable
-  [ -z ${2} ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver\" [ latest | sub ]${NC}\n" && exit
+  [ -z ${2} ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver\" [ check | latest | sub ]${NC}" && exit
   echo "${2}" | grep -vE 'latest|sub' &> /dev/null
-  [ ${?} == 0 ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver\" [ latest | sub ]${NC}\n" && exit
+  [ ${?} == 0 ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver\" [ check | latest | sub ]${NC}" && exit
 
-  [ -z ${3} ] && [ "${2}" == "latest" ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver ${2}\" [0-9.0-99]${NC}\n" && exit
-  [ -z ${3} ] && [ "${2}" == "sub" ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver ${2}\" [0-9.0-99.0-9]${NC}\n" && exit
+  [ -z ${3} ] && [ "${2}" == "latest" ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver ${2}\" [0-9.0-99]${NC}" && exit
+  [ -z ${3} ] && [ "${2}" == "sub" ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver ${2}\" [0-9.0-99.0-9]${NC}" && exit
 
   status=0
   [ "${2}" == "sub" ] && echo "${3}" | sed 's|^[0-9].[0-9][0-9].[0-9]||g' | grep '^$' &> /dev/null && status=1
-  [ "${2}" == "sub" ] && [ "${status}" == "0" ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver ${2}\" [0-9.0-99.0-9]${NC}\n" && exit
+  [ "${2}" == "sub" ] && [ "${status}" == "0" ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver ${2}\" [0-9.0-99.0-9]${NC}" && exit
 
   [ "${2}" == "latest" ] && echo "${3}" | sed 's|^[0-9].[0-9][0-9]||g' | grep '^$' &> /dev/null && status=1
-  [ "${2}" == "latest" ] && [ "${status}" == "0" ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver ${2}\" [0-9.0-99]${NC}\n" && exit
+  [ "${2}" == "latest" ] && [ "${status}" == "0" ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver ${2}\" [0-9.0-99]${NC}" && exit
 
   v1=$(echo ${3} | cut -d '.' -f 1-2)
   v2=$(echo ${3} | cut -d '.' -f 3)
@@ -191,6 +191,20 @@ function setup-pkg-version()
   sed -i "s|^VER_CONTROL=[a-z]*|VER_CONTROL=${2}|g" ~/bin/kdm_function
   cat ~/bin/kdm_function | grep -E "${v1}|${2}" &> /dev/null
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Version setting is completed"
+}
+
+function check-crio-available-version()
+{
+  crio_release_check=$(curl -s "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/" | grep 'class="name"' | sort -r | cut -d '"' -f 4 | grep ':/' | head -n 3 | cut -d '/' -f 2 | tr -d ':')
+  for release_list in ${crio_release_check}
+    do
+      echo -e "Target release: ${YELLOW}${release_list}${NC}"
+      crio_sub_ver=$(curl -s "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/${release_list}:/" | grep 'class="name"' | sort -r | cut -d '"' -f 4 | cut -d '/' -f 2)
+      for sub_list in ${crio_sub_ver}
+        do
+          echo -e " [${GREEN}●${NC}] ${sub_list}"
+        done
+    done
 }
 
 function start-info()
@@ -250,7 +264,6 @@ function start-info()
 
 function crio-available-version-check()
 {
-  #source ~/bin/kdm &> /dev/null
   set-environment-variable
   count=0
   cat /dev/null > /tmp/CRIO_ALL_VERSION
@@ -564,7 +577,7 @@ function interrupt()
   read -s -n1 -p "$(echo -e ${RED}Press 'N/n' to stop, other key to continue.${NC})" ans; echo -e "\n"
   case ${ans} in
   n|N)
-    echo -e "${RED}Interrupted!${NC}\n"; exit
+    echo -e "${RED}Interrupted!${NC}"; exit
     ;;
   *)
     ;;
@@ -671,7 +684,7 @@ function exclude-non-join()
 function node-power()
 {
   echo "${@}" | grep -wE "reboot|off" &> /dev/null
-  [ ${?} != 0 ] && echo -e "${RED}Please input parameter [ reboot | off ]${NC}\n" && exit
+  [ ${?} != 0 ] && echo -e "${RED}Please input parameter [ reboot | off ]${NC}" && exit
   echo "${@}" | grep -w "reboot" &> /dev/null && power=reboot
   echo "${@}" | grep -w "off" &> /dev/null && power=poweroff
   [ -z ${3} ] && node-message ${2} && exit
@@ -1388,7 +1401,7 @@ function helm-repo-update()
   for clist in ${cp_nodes}
     do
       echo -e "${YELLOW}${clist} helm repositories update${NC}"
-      ssh ${clist} "helm repo update &> /dev/null" && echo -e "${YELLOW}${install_list} > helm repositories updated${NC}\n"
+      ssh ${clist} "helm repo update &> /dev/null" && echo -e "${YELLOW}${install_list} > helm repositories updated${NC}"
     done
 }
 
@@ -1454,13 +1467,13 @@ function check-etcd-member()
 
 function node-check()
 {
-  [ -z ${2} ] && echo -e "Please input parameter ${YELLOW}[ hosts | hosts name | hosts port | NETID start end <Port> ]${NC}\n" && exit
+  [ -z ${2} ] && echo -e "Please input parameter ${YELLOW}[ hosts | hosts name | hosts port | NETID start end <Port> ]${NC}" && exit
   #hosts check
   if [ "${2}" == "hosts" ]
     then
       [ -z ${3} ] && port=22
       [ "${3}" == "name" ] && port=22 || port=${3}
-      #[ -z ${3} ] && echo -e "${RED}Please input port number. [ node-check hosts <Port> ]${NC}\n" && exit
+      #[ -z ${3} ] && echo -e "${RED}Please input port number. [ node-check hosts <Port> ]${NC}" && exit
 
       node_install_list=$(cat /etc/hosts | grep -v '#' | grep -E '\-m|\-w|kube-vip' | grep "${NETID}" | awk '{ print $1 }')
       echo -e "${YELLOW}Node-checker running...${NC}"
@@ -1486,11 +1499,11 @@ function node-check()
     elif [ "${2}" == "non-join" ]
       then
         nc -z -w 1 `hostname` 10250 > /dev/null 2>&1
-        [ ${?} == 0 ] && cluster_list=$(kubectl get nodes | tail -n +2 | awk '{ print $1 }' | tr -s '\n' '|' | sed '$ s/.$//') || echo -e "${RED}This node is not active!${NC}\n" && exit
+        [ ${?} == 0 ] && cluster_list=$(kubectl get nodes | tail -n +2 | awk '{ print $1 }' | tr -s '\n' '|' | sed '$ s/.$//') || echo -e "${RED}This node is not active!${NC}" && exit
         echo -e "${YELLOW}non join node list${NC}"
         [ "${cluster_list}" != "" ] && echo -e " > All nodes are joined" || echo -e "`cat /etc/hosts | grep -vE "#|ip6|${CORE_DNS_DOMAIN}" | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list} | tr -s '\n' ' '`\n"
     else
-      #[ "${2}" != "${NETID}" ] && echo -e "${RED}Please input port number. [ hosts <Port> or NETID start end <Port> ]${NC}\n" && exit
+      #[ "${2}" != "${NETID}" ] && echo -e "${RED}Please input port number. [ hosts <Port> or NETID start end <Port> ]${NC}" && exit
       declare -i start=${3} end=${4} port=${5}; net=${2}; install_list=0
       echo -e "${YELLOW}Node-checker running...${NC}"
       for ((start;start<=end; start=start+1))

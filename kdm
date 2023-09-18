@@ -31,6 +31,7 @@ sys-info) #Show host basic information.
 ;;
 
 sys-var) #Check script variables.
+  set-environment-variable
   show-version-control
 ;;
 
@@ -255,7 +256,9 @@ set-hostname) #Setup hostname. [ hostname [ name ] ]
 ;;
 
 set-ver) #Set kube*、cri-o package version.
+  [ -z ${2} ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver\" [ check | latest | sub ]${NC}" && exit
   set-environment-variable
+  [ "${2}" == "check" ] && check-crio-available-version && exit
   setup-pkg-version ${@}
   set-environment-variable
   crio-available-version-check
