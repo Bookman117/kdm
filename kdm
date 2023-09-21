@@ -406,6 +406,7 @@ pkg-repo) #Setup package repositories. [ add | rm ]
   node-selector ${@}
 
   interrupt ${RED}Modify packages repository on nodes: ${YELLOW}${cp_nodes} ${wk_nodes}${NC}
+  set-environment-variable
 
   if [ "${2}" == "add" ]
     then
@@ -413,7 +414,7 @@ pkg-repo) #Setup package repositories. [ add | rm ]
       for install_list in ${cp_nodes} ${wk_nodes}
         do
           echo -e "${YELLOW}${install_list} | repositories procedure${NC}"
-          package-repository-add && echo
+          package-repository-add-deb && echo
         done
     elif [ "${2}" == "rm" ]
       then
@@ -458,7 +459,7 @@ pkg-install) #Install basic package & setup environment.
       system-disable-ipv6
 
       #Add crio、kubernetes package repositories
-      package-repository-add
+      [ "${OS_VER}" == "xUbuntu_22.04" ] && package-repository-add-deb
       host-os-detection
       package-install-crio
       package-configure-crio
@@ -1845,7 +1846,7 @@ cri-upgrade) #Update crio package.
       #install & setup cri-o
       echo -e "\n${YELLOW}${install_list} | package upgrade procedure${NC}"
       #Add crio、kubernetes package repositories
-      package-repository-add
+      package-repository-add-deb
 
       status=0
       CRI_PROVIDES=$(sudo dnf provides cri-o 2> /dev/null | grep 'Provide' | head -n 5 | cut -d '=' -f 2 | grep ${CRIO_RELEASE} | head -n 1)
@@ -2127,7 +2128,7 @@ test-images-rm)
 ;;
 
 test)
-  rook-wipe-data hosts
+  echo -e "${YELLOW}test${NC}"
 ;;
 
 "")

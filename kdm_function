@@ -99,11 +99,12 @@ function set-environment-variable()
   KUBE_SUBVER=${KUBE_RELEASE}.0
   KUBE_INIT_VER=v${KUBE_SUBVER}
   KUBE_REGISTRY=registry.k8s.io #registry.vattenlab.com
-  HELM_VER=$(sudo apt-cache madison helm | head -n 1 | awk '{ print $3 }')
-  PODMAN_VER=$(sudo apt-cache madison podman | head -n 1 | awk '{ print $3 }')
-  SKOPEO_VER=$(sudo apt-cache madison skopeo | head -n 1 | awk '{ print $3 }')
-  K8S_GPG_PATH=/etc/apt/trusted.gpg.d/ #/usr/share/keyrings/ | /etc/apt/keyrings/
-  GPG_PATH=/etc/apt/trusted.gpg.d/ #/usr/share/keyrings/ | /etc/apt/keyrings/
+  [ "${OS_VER}" == "xUbuntu_22.04" ] && HELM_VER=$(sudo apt-cache madison helm | head -n 1 | awk '{ print $3 }')
+  [ "${OS_VER}" == "xUbuntu_22.04" ] && PODMAN_VER=$(sudo apt-cache madison podman | head -n 1 | awk '{ print $3 }')
+  [ "${OS_VER}" == "xUbuntu_22.04" ] && SKOPEO_VER=$(sudo apt-cache madison skopeo | head -n 1 | awk '{ print $3 }')
+  K8S_GPG_PATH="/etc/apt/keyrings" #/usr/share/keyrings | /etc/apt/trusted.gpg.d
+  GPG_PATH="/etc/apt/keyrings" #/usr/share/keyrings | /etc/apt/trusted.gpg.d
+  KUBE_DAEMON_PATH="/usr/lib/systemd/system/kubelet.service.d" #/etc/systemd/system/kubelet.service.d/
   POD_CIDR=172.16.0.0/17
   SVC_CIDR=172.16.128.0/17
   #Context setup
@@ -702,7 +703,51 @@ function node-power()
     done; echo
 }
 
-function package-repository-add()
+function package-repository-add-deb()
+{
+  #cri-o package repository
+  crio-available-version-check &> /dev/null
+  #Podman latest version
+  ssh ${install_list} "echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/${OS_VER}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list" &> /dev/null
+  ssh ${install_list} "curl -fsSL "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/${OS_VER}/Release.key" | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg" &> /dev/null
+  ssh ${install_list} "ls -l /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg" &> /dev/null
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Repository\t| podman repository added" || echo -e " [${RED}●${NC}] Repository\t| podman repository not added"
+
+  [ "${VER_CONTROL}" == "latest" ] && for list in 1
+    do
+      status=0
+      curl -s https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/${OS_VER}/Release.key | grep 'BEGIN PGP PUBLIC KEY BLOCK' &> /dev/null && status=1
+      [ "${status}" == "1" ] && ssh ${install_list} "echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/${OS_VER}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list" &> /dev/null && ssh ${install_list} "curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/${OS_VER}/Release.key | sudo apt-key add - " &> /dev/null && status=0
+      ssh ${install_list} "ls -al /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list" &> /dev/null
+      [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Repository\t| cri-o repository added" || echo -e " [${RED}●${NC}] Repository\t| cri-o repository not added"
+    done
+
+  [ "${VER_CONTROL}" == "sub" ] && for list in ${CRIO_AVL_VER}
+    do
+      status=0
+      curl -s https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/${CRIO_RELEASE}:/${list}/${OS_VER}/Release.key | grep 'BEGIN PGP PUBLIC KEY BLOCK' &> /dev/null && status=1
+      [ "${status}" == "1" ] && ssh ${install_list} "echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/${CRIO_RELEASE}:/${list}/${OS_VER}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable:cri-o:${CRIO_RELEASE}:${list}.list" &> /dev/null && ssh ${install_list} "curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/${CRIO_RELEASE}:/${CRIO_SUBVER}/${OS_VER}/Release.key | sudo apt-key add - " &> /dev/null && status=0
+      ssh ${install_list} "ls -al /etc/apt/sources.list.d/*${list}*" &> /dev/null
+      [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Repository\t| cri-o ${list} repository added" || echo -e " [${RED}●${NC}] Repository\t| cri-o ${list} repository not added"
+    done
+  ssh ${install_list} "ls ${K8S_GPG_PATH}kubernetes-apt-keyring.gpg &> /dev/null && sudo rm -r ${K8S_GPG_PATH}/kubernetes-apt-keyring.gpg" &> /dev/null
+  ssh ${install_list} "curl -fsSL https://pkgs.k8s.io/core:/stable:/v${KUBE_RELEASE}/deb/Release.key | sudo gpg --dearmor -o ${K8S_GPG_PATH}kubernetes-apt-keyring.gpg" &> /dev/null
+  ssh ${install_list} "echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${KUBE_RELEASE}/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list" &> /dev/null
+  ssh ${install_list} "ls -al /etc/apt/sources.list.d/*kube* &> /dev/null" && echo -e " [${GREEN}●${NC}] Repository\t| Kubernetes package repository added" || echo -e " [${RED}●${NC}] Repository\t| Kubernetes package repository not added"
+  #[ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring ${K8S_GPG_PATH}cloud.google.gpg add -" &> /dev/null
+  #[ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list" &> /dev/null
+
+  #helm package repository
+  ssh ${install_list} "curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null" &> /dev/null
+  ssh ${install_list} "echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list" &> /dev/null
+  ssh ${install_list} "ls -al /etc/apt/sources.list.d/*helm* &> /dev/null" && echo -e " [${GREEN}●${NC}] Repository\t| Helm package repository added" || echo -e " [${RED}●${NC}] Repository\t| Helm package repository not added"
+  
+  #update list
+  ssh ${install_list} "sudo apt -qy update" &> /dev/null
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Repository\t| cache updated"
+}
+
+function package-repository-add-npm()
 {
   #cri-o package repository
   crio-available-version-check &> /dev/null
@@ -731,33 +776,6 @@ function package-repository-add()
         done
   fi
 
-  if [ "${OS_VER}" == "xUbuntu_22.04" ]
-    then
-      #Podman latest version
-      ssh ${install_list} "echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/${OS_VER}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list" &> /dev/null
-      ssh ${install_list} "curl -fsSL "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/${OS_VER}/Release.key" | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg" &> /dev/null
-      ssh ${install_list} "ls -l /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg" &> /dev/null
-      [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Repository\t| podman repository added" || echo -e " [${RED}●${NC}] Repository\t| podman repository not added"
-
-      [ "${VER_CONTROL}" == "latest" ] && for list in 1
-        do
-          status=0
-          curl -s https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/${OS_VER}/Release.key | grep 'BEGIN PGP PUBLIC KEY BLOCK' &> /dev/null && status=1
-          [ "${status}" == "1" ] && ssh ${install_list} "echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/${OS_VER}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list" &> /dev/null && ssh ${install_list} "curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/${OS_VER}/Release.key | sudo apt-key add - " &> /dev/null && status=0
-          ssh ${install_list} "ls -al /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list" &> /dev/null
-          [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Repository\t| cri-o repository added" || echo -e " [${RED}●${NC}] Repository\t| cri-o repository not added"
-        done
-
-      [ "${VER_CONTROL}" == "sub" ] && for list in ${CRIO_AVL_VER}
-        do
-          status=0
-          curl -s https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/${CRIO_RELEASE}:/${list}/${OS_VER}/Release.key | grep 'BEGIN PGP PUBLIC KEY BLOCK' &> /dev/null && status=1
-          [ "${status}" == "1" ] && ssh ${install_list} "echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/${CRIO_RELEASE}:/${list}/${OS_VER}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable:cri-o:${CRIO_RELEASE}:${list}.list" &> /dev/null && ssh ${install_list} "curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/${CRIO_RELEASE}:/${CRIO_SUBVER}/${OS_VER}/Release.key | sudo apt-key add - " &> /dev/null && status=0
-          ssh ${install_list} "ls -al /etc/apt/sources.list.d/*${list}*" &> /dev/null
-          [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Repository\t| cri-o ${list} repository added" || echo -e " [${RED}●${NC}] Repository\t| cri-o ${list} repository not added"
-        done
-  fi
-
   #Kubernetes package repository
   [ "${OS_VER}" == "CentOS_8_Stream" ] && ssh ${install_list} 'sudo bash -c "cat << \EOF > /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
@@ -768,26 +786,24 @@ gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 exclude=kubelet kubeadm kubectl
 EOF"' && echo -e " [${GREEN}●${NC}] Repository\t| kubernetes.repo has been added"
-  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring ${K8S_GPG_PATH}cloud.google.gpg add -" &> /dev/null
-  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list" &> /dev/null
-  #[ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo curl -fsSLo ${K8S_GPG_PATH}kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg" &> /dev/null
-  #[ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "echo "deb [signed-by=${K8S_GPG_PATH}kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list" &> /dev/null
-  #[ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "ls -al /etc/apt/sources.list.d/*kube* &> /dev/null" && echo -e " [${GREEN}●${NC}] Repository\t| Kubernetes package repository added" || echo -e " [${RED}●${NC}] Repository\t| Kubernetes package repository not added"
 
-  #helm package repository
-  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null" &> /dev/null
-  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list" &> /dev/null
-  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "ls -al /etc/apt/sources.list.d/*helm* &> /dev/null" && echo -e " [${GREEN}●${NC}] Repository\t| Helm package repository added" || echo -e " [${RED}●${NC}] Repository\t| Helm package repository not added"
-  
+  #Kubernetes package repository
+#  [ "${OS_VER}" == "CentOS_8_Stream" ] && ssh ${install_list} 'sudo bash -c "cat << \EOF > /etc/yum.repos.d/kubernetes.repo
+#[kubernetes]
+#name=Kubernetes
+#baseurl=https://pkgs.k8s.io/core:/stable:/v${KUBE_RELEASE}/rpm/
+#enabled=1
+#gpgcheck=1
+#gpgkey=https://pkgs.k8s.io/core:/stable:/v${KUBE_RELEASE}/rpm/repodata/repomd.xml.key
+#exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
+#EOF"' && echo -e " [${GREEN}●${NC}] Repository\t| kubernetes.repo has been added"
+
   #update list
   [ "${OS_VER}" == "CentOS_8_Stream" ] && ssh ${install_list} "sudo dnf clean all" &> /dev/null
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Repository\t| cache cleanup"
   [ "${OS_VER}" == "CentOS_8_Stream" ] && ssh ${install_list} "sudo dnf versionlock delete cri-o kubectl kubeadm kubelet podman" &> /dev/null
   [ "${OS_VER}" == "CentOS_8_Stream" ] && ssh ${install_list} "sudo dnf makecache" &> /dev/null
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Repository\t| cache updated"
-  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt -qy update" &> /dev/null
-  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Repository\t| cache updated"
-  #sudo rm /etc/yum.repos.d/devel:*
 }
 
 function package-check()
@@ -964,7 +980,6 @@ function package-install-skopeo()
 {
   #install podman
   #[ "${OS_VER}" == "RHEL_8" ] && ssh ${install_list} "sudo dnf install -y skopeo=${SKOPEO_VER}*" &> /dev/null
-
   #[ "${OS_VER}" == "CentOS_8_Stream" ] && ssh ${install_list} "sudo dnf install -y skopeo=${SKOPEO_VER}*" &> /dev/null
 
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy skopeo=${SKOPEO_VER}*" &> /dev/null
@@ -987,10 +1002,9 @@ function package-install-kube-package()
   [ "${OS_VER}" == "CentOS_8_Stream" ] && ssh ${install_list} "sudo dnf versionlock add kubelet kubeadm kubectl" &> /dev/null
 
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt-mark unhold kubeadm kubelet kubectl" &> /dev/null
-  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy kubernetes-cni" &> /dev/null
+  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy kubernetes-cni cri-tools" &> /dev/null
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy apt-transport-https --yes" &> /dev/null
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy kubeadm=${KUBE_SUBVER}-* kubelet=${KUBE_SUBVER}-* kubectl=${KUBE_SUBVER}-*" &> /dev/null
-  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo systemctl daemon-reload" &> /dev/null
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt-mark hold kubeadm kubelet kubectl" &> /dev/null
 
   kubelet-install-check ${install_list}
@@ -1313,9 +1327,9 @@ function kubelet-install-check()
   ssh ${1} "which kubelet" &> /dev/null
   [ ${?} == 0 ] && kubelet_check=$(ssh ${1} kubelet --version 2> /dev/null | grep "^Kubernetes" | awk '{ print $2 }') && status=1
   [ "${status}" == "1" ] && echo -e " [${GREEN}●${NC}] Package\t| kubelet ${kubelet_check} installed" || echo -e " [${YELLOW}●${NC}] Package\t| kubelet\t| not install"
-  ssh ${1} ls -l /etc/systemd/system/kubelet.service.d/ 2> /dev/null | grep -w "10-kubeadm.conf$" &> /dev/null
+  ssh ${1} ls -l ${KUBE_DAEMON_PATH}/ 2> /dev/null | grep -w "10-kubeadm.conf$" &> /dev/null
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| 10-kubeadm.conf checked" && status=0 || echo -e " [${RED}●${NC}] Package\t| 10-kubeadm.conf not configured correctly" && status=0
-  [ ${status} == "1" ] && target=$(ls /etc/systemd/system/kubelet.service.d/ 2> /dev/null) && ssh ${1} sudo mv /etc/systemd/system/kubelet.service.d/${target} /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 2> /dev/null
+  [ ${status} == "1" ] && target=$(ls ${KUBE_DAEMON_PATH}/ 2> /dev/null) && ssh ${1} sudo mv ${KUBE_DAEMON_PATH}/${target} ${KUBE_DAEMON_PATH}/10-kubeadm.conf 2> /dev/null
 }
 
 function crio-install-check()
