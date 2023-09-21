@@ -5,6 +5,8 @@ kdm is a Shell script based command-line tool for Kubernetes deployment.
 
 Support OS:
 - Ubuntu server 20.04/22.04 LTS
+
+Adjusting:
 - Rocky Linux 8/9
 - RHEL 8/9
 # What can it do ?
