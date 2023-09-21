@@ -1988,7 +1988,7 @@ deploy) #Automatic deploy kubernetes cluster. [ kdm deploy high calico/flannel h
   kdm csi-deploy ${7}
 ;;
 
-etcdctl-install)
+etcdctl-install) #Install etcdctl.
   #Variable
   ETCD_VER=v3.5.7
   ETCD_DIR=etcd-download
@@ -2002,6 +2002,116 @@ etcdctl-install)
   cd etcd-${ETCD_VER}-linux-amd64
   sudo cp etcdctl /usr/local/bin/
   source /etc/profile
+;;
+
+parm-check) #List all script parameter.
+  ls ~/kdm/kdm &> /dev/null
+  [ ${?} == 0 ] && stage=0
+  ls ~/bin/kdm &> /dev/null
+  [ ${?} == 0 ] && stage=1
+  [ ${stage} == 0 ] && path="kdm/kdm"
+  [ ${stage} == 1 ] && path="bin/kdm"
+  echo -e "${YELLOW}Parameters check list${NC}"
+  cat ${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)/:/g' | sed 's/^/ > /' | sed 's/#//g'
+;;
+
+\-) #Check kubernetes objects.
+  shift
+  nc -z -w 1 ${IP} 10250 > /dev/null 2>&1
+  [ ${?} == 0 ] && k9s -c ${@} 2> /dev/null || echo -e " [${YELLOW}●${NC}] This node not install k9s." || echo -e " [${YELLOW}●${NC}] This node not activate."
+;;
+
+\-\-) #Send command to specify node.
+  shift
+  node-selector ${@}
+  shift
+  for install_list in ${cp_nodes} ${wk_nodes}
+    do
+      echo -e "${YELLOW}${install_list} | Result${NC}"
+      ssh -o ConnectTimeout=1 -o BatchMode=yes ${install_list} 'hostname' &> /dev/null
+      [ ${?} != 0 ] && echo -e "${RED}This node not activate${NC}"
+      ssh -o ConnectTimeout=1 ${install_list} "${@}" 2> /dev/null
+      [ ${?} != 0 ] && echo -e "${RED}Failed${NC}"
+      echo
+    done
+;;
+
+test-nginx) #Deploy test nginx.
+  [ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ deploy | remove ]${NC}" && exit
+  set-environment-variable
+  [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
+  [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
+;;
+
+test-apache) #Deploy test apache.
+  [ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ deploy | remove ]${NC}" && exit
+  set-environment-variable
+  [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-apache.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
+  [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-apache.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
+;;
+
+test-images-push) #Push images to registry.
+  #[ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ push | pull ]${NC}" && exit
+  #[ "${2}" == "push" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-images-push.yaml | sed "s/<registry>/${HARBOR_DOMAIN}/g" | kubectl apply -f -
+  #[ "${2}" == "pull" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-images-push.yaml | sed "s/<registry>/${HARBOR_DOMAIN}/g" | kubectl delete -f -
+  #Pull all system images
+  #sudo kubeadm config images pull --image-repository=registry.k8s.io --kubernetes-version=1.26.3
+  #上述指令要解決 pull x509 憑證問題
+  harbor_domain=registry.vattenlab.com
+  harbor_project_1=kube-system
+  target_image_list_1=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'registry.k8s.io' | tr -s ' ' ':')
+  result_image_list_1=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'registry.k8s.io' | tr -s ' ' ':' | sed 's/registry.k8s.io\///g')
+  count=0
+  for target_list in ${target_image_list_1}
+    do
+      echo Target: ${target_list}
+      result_list=$(echo ${target_list} | sed 's/registry.k8s.io\///g')
+      sudo podman tag ${target_list} ${harbor_domain}/${harbor_project_1}/${result_list}
+      echo Result: ${result_list}
+      sudo podman push ${harbor_domain}/${harbor_project_1}/${result_list} --tls-verify=false
+    done
+
+  harbor_project_2=calico
+  target_image_list_2=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'docker.io/calico/' | tr -s ' ' ':')
+  result_image_list_2=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'docker.io/calico/' | tr -s ' ' ':' | sed 's/docker.io\/calico\///g')
+  for target_list in ${target_image_list_2}
+    do
+      echo Target: ${target_list}
+      result_list=$(echo ${target_list} | sed 's/docker.io\/calico\///g')
+      sudo podman tag ${target_list} ${harbor_domain}/${harbor_project_2}/${result_list}
+      echo Result: ${result_list}
+      sudo podman push ${harbor_domain}/${harbor_project_2}/${result_list} --tls-verify=false
+    done
+;;
+
+test-images-rm) #Remove all system images.
+  #Pull all system images
+  #sudo kubeadm config images pull --image-repository=registry.k8s.io --kubernetes-version=1.26.3
+  #上述指令要解決 pull x509 憑證問題
+  harbor_domain=registry.vattenlab.com
+  target_image_list_1=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'registry.vattenlab.com' | tr -s ' ' ':')
+  count=0
+  for target_list in ${target_image_list_1}
+    do
+      sudo podman rmi ${target_list}
+    done
+;;
+
+test)
+  echo -e "${YELLOW}test${NC}"
+;;
+
+watch) #Watch kubernetes cluster status for every 3 sec.
+  while [ 1 ]
+    do
+      clear
+      start-info
+      sleep 3
+    done
+;;
+
+"") #Watch kubernetes cluster status.
+  start-info
 ;;
 
 help) #Show script parameters information.
@@ -2037,114 +2147,7 @@ help) #Show script parameters information.
   cat ~/${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)/:/g' | sed 's/^/ > /' | sed 's/#//g' | grep -E "${list}"
 ;;
 
-parm-check) #List all script parameter.
-  ls ~/kdm/kdm &> /dev/null
-  [ ${?} == 0 ] && stage=0
-  ls ~/bin/kdm &> /dev/null
-  [ ${?} == 0 ] && stage=1
-  [ ${stage} == 0 ] && path="kdm/kdm"
-  [ ${stage} == 1 ] && path="bin/kdm"
-  echo -e "${YELLOW}Parameters check list${NC}"
-  cat ${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)/:/g' | sed 's/^/ > /' | sed 's/#//g'
-;;
-
-\-) #Check kubernetes objects.
-  shift
-  nc -z -w 1 ${IP} 10250 > /dev/null 2>&1
-  [ ${?} == 0 ] && k9s -c ${@} 2> /dev/null || echo -e " [${YELLOW}●${NC}] This node not install k9s." || echo -e " [${YELLOW}●${NC}] This node not activate."
-;;
-
-\-\-)
-  shift
-  node-selector ${@}
-  shift
-  for install_list in ${cp_nodes} ${wk_nodes}
-    do
-      echo -e "${YELLOW}${install_list} | Result${NC}"
-      ssh -o ConnectTimeout=1 -o BatchMode=yes ${install_list} 'hostname' &> /dev/null
-      [ ${?} != 0 ] && echo -e "${RED}This node not activate${NC}"
-      ssh -o ConnectTimeout=1 ${install_list} "${@}" 2> /dev/null
-      [ ${?} != 0 ] && echo -e "${RED}Failed${NC}"
-      echo
-    done
-;;
-
-test-nginx)
-  [ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ deploy | remove ]${NC}" && exit
-  set-environment-variable
-  [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
-  [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
-;;
-
-test-apache)
-  [ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ deploy | remove ]${NC}" && exit
-  set-environment-variable
-  [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-apache.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
-  [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-apache.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
-;;
-
-test-images-push)
-  #Pull all system images
-  #sudo kubeadm config images pull --image-repository=registry.k8s.io --kubernetes-version=1.26.3
-  #上述指令要解決 pull x509 憑證問題
-  harbor_domain=registry.vattenlab.com
-  harbor_project_1=kube-system
-  target_image_list_1=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'registry.k8s.io' | tr -s ' ' ':')
-  result_image_list_1=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'registry.k8s.io' | tr -s ' ' ':' | sed 's/registry.k8s.io\///g')
-  count=0
-  for target_list in ${target_image_list_1}
-    do
-      echo Target: ${target_list}
-      result_list=$(echo ${target_list} | sed 's/registry.k8s.io\///g')
-      sudo podman tag ${target_list} ${harbor_domain}/${harbor_project_1}/${result_list}
-      echo Result: ${result_list}
-      sudo podman push ${harbor_domain}/${harbor_project_1}/${result_list} --tls-verify=false
-    done
-
-  harbor_project_2=calico
-  target_image_list_2=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'docker.io/calico/' | tr -s ' ' ':')
-  result_image_list_2=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'docker.io/calico/' | tr -s ' ' ':' | sed 's/docker.io\/calico\///g')
-  for target_list in ${target_image_list_2}
-    do
-      echo Target: ${target_list}
-      result_list=$(echo ${target_list} | sed 's/docker.io\/calico\///g')
-      sudo podman tag ${target_list} ${harbor_domain}/${harbor_project_2}/${result_list}
-      echo Result: ${result_list}
-      sudo podman push ${harbor_domain}/${harbor_project_2}/${result_list} --tls-verify=false
-    done
-;;
-
-test-images-rm)
-  #Pull all system images
-  #sudo kubeadm config images pull --image-repository=registry.k8s.io --kubernetes-version=1.26.3
-  #上述指令要解決 pull x509 憑證問題
-  harbor_domain=registry.vattenlab.com
-  target_image_list_1=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'registry.vattenlab.com' | tr -s ' ' ':')
-  count=0
-  for target_list in ${target_image_list_1}
-    do
-      sudo podman rmi ${target_list}
-    done
-;;
-
-test)
-  echo -e "${YELLOW}test${NC}"
-;;
-
-watch)
-  while [ 1 ]
-    do
-      clear
-      start-info
-      sleep 3
-    done
-;;
-
-"")
-  start-info
-;;
-
-*)
+*) #Parameter error.
   echo -e "${YELLOW} \"${@}\" ${NC}is not effective parameter!"
 ;;
 
