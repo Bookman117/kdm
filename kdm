@@ -273,6 +273,19 @@ set-sc) #Set the preferred storageClass for deploy.
   echo -e "storageClass: ${YELLOW}${STORAGE_CLASS}${NC}"
 ;;
 
+set-eck-node) #Set ECK node number.
+  [ "${#}" != "3" ] && echo -e "Input parameter ${YELLOW}[ master-node | data-node ]${NC}" && exit
+  set-environment-variable
+
+  sed -i "s/ECK_MASTER_NODE_COUNT=${ECK_MASTER_NODE_COUNT}/ECK_MASTER_NODE_COUNT=${2}/g" ~/bin/kdm_function
+  sed -i "s/ECK_DATA_NODES_COUNT=${ECK_DATA_NODES_COUNT}/ECK_DATA_NODES_COUNT=${3}/g" ~/bin/kdm_function
+  
+  source ~/bin/kdm_function
+  set-environment-variable
+  echo -e "ECK_MASTER_NODE_COUNT: ${YELLOW}${ECK_MASTER_NODE_COUNT}${NC}"
+  echo -e "ECK_DATA_NODES_COUNT: ${YELLOW}${ECK_DATA_NODES_COUNT}${NC}"
+;;
+
 set-context) #Set the context's cluster and user name.
   [ "${#}" != "3" ] && echo -e "Input parameter ${YELLOW}[ Cluster-name | User-name ]${NC}" && exit
   set-environment-variable
@@ -450,7 +463,7 @@ pkg-install) #Install basic package & setup environment.
       ssh ${install_list} 'hostname' &> /dev/null 2>&1
       [ ${?} != 0 ] && echo -e " [${RED}●${NC}] This node not available\n" && continue
       echo -e "${YELLOW}${install_list} | package install procedure${NC}"
-
+      host-os-detection
       system-swapoff
       system-firewalld
       system-selinux
@@ -459,8 +472,8 @@ pkg-install) #Install basic package & setup environment.
       system-disable-ipv6
 
       #Add crio、kubernetes package repositories
+      echo ${OS_VER}
       [ "${OS_VER}" == "xUbuntu_22.04" ] && package-repository-add-deb
-      host-os-detection
       package-install-crio
       package-configure-crio
       image-repository-setting
@@ -847,7 +860,8 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
     elif [ ${2} == "local-path" ]
       then
           #local-path-storage
-          curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Local-path/local-path-storage.yaml | sed "s/<image-version>/${LOCAL_PATH_VER}/g" | kubectl apply -f -
+          #curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Local-path/local-path-storage.yaml | sed "s/<image-version>/${LOCAL_PATH_VER}/g" | kubectl apply -f -
+          curl -s "https://raw.githubusercontent.com/rancher/local-path-provisioner/${LOCAL_PATH_VER}/deploy/local-path-storage.yaml" | kubectl apply -f -
           k9s -n local-path-storage
     elif [ ${2} == "rook-ceph" ]
       then
@@ -1161,10 +1175,12 @@ eck-deploy) #Deploy ECK
   kubectl apply -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/operator.yaml
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] operator created" || echo -e "[${YELLOW}○${NC}] operator not created"
   #Create Superuser
-  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed "s/<user>/${ECK_USER}/g" | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl apply -f -
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] superuser secret created" || echo -e "[${YELLOW}○${NC}] superuser secret not created"
   #Create elasticsearch
-  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl apply -f -
+  #curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | kubectl apply -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ECK_MASTER_NODE_COUNT>/${ECK_MASTER_NODE_COUNT}/g" | sed "s/<ECK_DATA_NODES_COUNT>/${ECK_DATA_NODES_COUNT}/g" | kubectl apply -f -
+  exit
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Elasticsearch created" || echo -e "[${YELLOW}○${NC}] Elasticsearch not created"
   #Create Kibana & Ingress rule
   curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VER}/g" | kubectl apply -f -
@@ -1186,7 +1202,7 @@ eck-rm) #Remove ECK
   curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | kubectl delete -f -
   curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VER}/g" | kubectl delete -f -
   #Delete elasticsearch
-  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl delete -f -
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | kubectl delete -f -
   #Delete Superuser
   curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl delete -f -
   #Delete crd & operator
@@ -1217,6 +1233,34 @@ eck-check) #Check ECK status
     done
 ;;
 
+mariadb-deploy) #Deploy mariadb-galera
+  #Set variable
+  set-environment-variable
+  #Setup password
+  setup-password-control
+  kubectl create namespace ${MARIADB_GALERA_NS}
+  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/MariaDB-Galera/mariadb-galera-secret.yaml -w '\n' | sed "s/<password>/${MARIADB_GALERA_PASSWORD}/g" | sed "s/<namespace>/${MARIADB_GALERA_NS}/g" | kubectl apply -f -
+  #Add helm package
+  helm repo list | grep 'bitnami' &> /dev/null
+  [ ${?} != 0 ] && helm repo add bitnami https://charts.bitnami.com/bitnami
+;;
+
+mariadb-rm) #Remove mariadb-galera
+  #Set variable
+  set-environment-variable
+  #Setup password
+  setup-password-control
+  kubectl scale sts mariadb-galera -n ${MARIADB_GALERA_NS} --replicas=0
+  list=$(kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n ${MARIADB_GALERA_NS} | grep -v '^[0-9]' | grep -v '^[A-Z]' | awk '{ print $1 }')
+    for i in ${list}
+      do
+        kubectl -n ${MARIADB_GALERA_NS} patch ${i} -p '{"metadata":{"finalizers": []}}' --type=merge
+      done
+  helm delete mariadb-galera -n mariadb-galera
+  [ ${?} == 0 ] && kubectl delete ns ${MARIADB_GALERA_NS}
+  helm repo remove bitnami
+;;
+
 mariadb-galera-deploy) #Deploy mariadb-galera
   #Set variable
   set-environment-variable
@@ -1238,6 +1282,14 @@ mariadb-galera-deploy) #Deploy mariadb-galera
   cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "storageClass: \"${STORAGE_CLASS}\"" &> /dev/null
   [ ${?} != 0 ] && sed -i "s/storageClass: \"\"/storageClass: \"${STORAGE_CLASS}\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
 
+  #passwd: "" >> passwd: "${MARIADB_GALERA_PASSWORD}"
+  #cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "password: \"${MARIADB_GALERA_PASSWORD}\"" &> /dev/null
+  #[ ${?} != 0 ] && sed -i "s/password: \"\"/password: \"${MARIADB_GALERA_PASSWORD}\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
+
+  #passwd: "" >> passwd: "${MARIADB_GALERA_PASSWORD}"
+  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "password: \"${MARIADB_GALERA_PASSWORD_ROOT}\"" &> /dev/null
+  [ ${?} != 0 ] && sed -i "s/password: \"\"/password: \"${MARIADB_GALERA_PASSWORD_ROOT}\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
+
   #Change clusterDomain
   cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "namespaceOverride: \"${MARIADB_GALERA_NS}\"" &> /dev/null
   [ ${?} != 0 ] && sed -i "s/clusterDomain: cluster.local/clusterDomain: ${CORE_DNS_DOMAIN}/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
@@ -1249,10 +1301,6 @@ mariadb-galera-deploy) #Deploy mariadb-galera
   #type: ClusterIP >> type: LoadBalancer
   cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "type: LoadBalancer" &> /dev/null
   [ ${?} != 0 ] && sed -i "s/^  type: ClusterIP/  type: LoadBalancer/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
-
-  #existingSecret: "" >> existingSecret: "mariadb-secret"
-  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "existingSecret: \"mariadb-secret\"" &> /dev/null
-  [ ${?} != 0 ] && sed -i "s/existingSecret: \"\"/existingSecret: \"mariadb-secret\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
 
   #Remove Character set setting
   cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "collation_server=utf8_unicode_ci" &> /dev/null
@@ -1270,9 +1318,13 @@ mariadb-galera-deploy) #Deploy mariadb-galera
   cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "user: \"${MARIADB_GALERA_USER}\"" &> /dev/null
   [ ${?} != 0 ] && sed -i "s/user: \"\"/user: \"${MARIADB_GALERA_USER}\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
 
+  #existingSecret: "" >> existingSecret: "mariadb-secret"
+  #cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "existingSecret: \"mariadb-secret\"" &> /dev/null
+  #[ ${?} != 0 ] && sed -i "s/existingSecret: \"\"/existingSecret: \"mariadb-secret\"/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
+
   #wsrep_mode=REPLICATE_MYISAM >> wsrep_replicate_myisam=ON
-  cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "wsrep_mode=REPLICATE_MYISAM" &> /dev/null
-  [ ${?} == 0 ] && sed -i "s/wsrep_mode=REPLICATE_MYISAM/wsrep_replicate_myisam=ON/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
+  #cat ~/yaml/mariadb-galera/mariadb-galera-values.yaml | grep "wsrep_mode=REPLICATE_MYISAM" &> /dev/null
+  #[ ${?} == 0 ] && sed -i "s/wsrep_mode=REPLICATE_MYISAM/wsrep_replicate_myisam=ON/g" ~/yaml/mariadb-galera/mariadb-galera-values.yaml
 
   #annotations: {} >> annotations: metallb.universe.tf/loadBalancerIPs
 
@@ -1304,7 +1356,6 @@ mariadb-galera-rm) #Remove mariadb-galera
 ;;
 
 harbor-deploy) #Deploy harbor
-
   #Add helm package
   helm repo add harbor https://helm.goharbor.io
   helm fetch harbor/harbor --untar
@@ -1313,7 +1364,6 @@ harbor-deploy) #Deploy harbor
   ls ~/yaml/harbor &> /dev/null
   [ ${?} != 0 ] && mkdir ~/yaml/harbor
   helm show values harbor/harbor > ~/yaml/harbor/harbor-values.yaml
-
 ;;
 
 jenkins-deploy) #Deploy jenkins on kubernetes.
@@ -1806,7 +1856,7 @@ cluster-rm) #Remove kubernetes cluster.
   [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VER}/g" | kubectl delete -f -
   
   #Delete elasticsearch
-  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed 's/<storageClassName>/rook-ceph-block/g' | kubectl delete -f -
+  [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | kubectl delete -f -
   #Delete Superuser
   [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed 's/<user>/bigred/g' | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl delete -f -
   #Delete crd & operator
@@ -2098,7 +2148,19 @@ test-images-rm) #Remove all system images.
 ;;
 
 test)
-  echo -e "${YELLOW}test${NC}"
+  #echo -e "${YELLOW}test${NC}"
+  [ -z ${2} ] && node-message ${@} && exit
+  check_list=${@}
+  node-selector ${@}
+  interrupt ${RED}Install packages on nodes: ${YELLOW}${cp_nodes} ${wk_nodes}${NC} #&& clear
+  set-environment-variable
+  for install_list in ${cp_nodes} ${wk_nodes}
+    do
+      ssh ${install_list} 'hostname' &> /dev/null 2>&1
+      [ ${?} != 0 ] && echo -e " [${RED}●${NC}] This node not available\n" && continue
+      image-repository-setting
+      ssh ${install_list} "cat /etc/containers/registries.conf | grep unqualified-search-registries"
+    done
 ;;
 
 watch) #Watch kubernetes cluster status for every 3 sec.
