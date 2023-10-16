@@ -22,8 +22,8 @@ function check-kdm-path()
   [ ${?} == 0 ] && mv ~/kdm/kdm ~/bin/
   ls ~/kdm/kdm_function &> /dev/null
   [ ${?} == 0 ] && mv ~/kdm/kdm_function ~/bin/
-  ls yaml &> /dev/null
-  [ ${?} != 0 ] && mkdir yaml
+  ls ~/yaml &> /dev/null
+  [ ${?} != 0 ] && mkdir ~/yaml
 }
 
 function setup-network-package()
@@ -113,9 +113,9 @@ function set-environment-variable()
   CLUSTER_USER=bigred
   CLUSTER_NAME=UB22-T1
   #Kubernetes CNI
-  KUBE_VIP_VER=v0.6.2
-  CALICO_VER=v3.26.1 #（v3.26.0 會無法部署 rook-ceph）
-  FLANNEL_VER=v0.22.2
+  KUBE_VIP_VER=v0.6.3 #Previous: v0.6.2
+  CALICO_VER=v3.26.2 #Previous: v3.26.1 #（v3.26.0 會無法部署 rook-ceph）
+  FLANNEL_VER=v0.22.3 #Previous: v0.22.2
   CORE_DNS_DOMAIN=cluster.local #vattensoft.lab.com
   CNI_SOCK="/var/run/crio/crio.sock"
   #Kubernetes CSI
@@ -131,8 +131,8 @@ function set-environment-variable()
   METALLB_RELEASE=v0.13
   METALLB_VER=$(curl -s https://github.com/metallb/metallb/releases.atom | grep "/releases/tag/${METALLB_RELEASE}" | cut -d '"' -f 6 | head -n 1 | cut -d '/' -f 8)
   METALLB_POOL_NAME=metal-1
-  INGRESS_NGINX_VER=1.8.0
-  INGRESS_NGINX_HELM_VER=4.7.0
+  INGRESS_NGINX_VER=1.9.1 #Previous: 1.8.0
+  INGRESS_NGINX_HELM_VER=4.8.1 #Previous: 4.7.0
   INGRESS_CLASS_NAME=ingress-1
   ECK_OP_VER=2.7.0
   ECK_VER=8.7.0
@@ -945,7 +945,7 @@ function image-repository-setting()
 {
   #Setup image repository registries
   target='unqualified-search-registries'
-  replace="unqualified-search-registries = \[\"registry.fedoraproject.org\", \"registry.access.redhat.com\", \"docker.io\", \"quay.io\", \"registry.vattenlab.com\", \"gitlab.vattenlab.com:5050\"\]"
+  replace='unqualified-search-registries = \[\"registry.fedoraproject.org\", \"registry.access.redhat.com\", \"docker.io\", \"quay.io\", \"registry.vattenlab.com\", \"gitlab.vattenlab.com:5050\"\]'
   
   ssh ${install_list} "sudo sed -i \"s/${target}/# ${target}/g\" /etc/containers/registries.conf"
   ssh ${install_list} "sudo sed -i \"/# ${target}/a ${replace}\" /etc/containers/registries.conf"
