@@ -2147,6 +2147,32 @@ test-images-rm) #Remove all system images.
     done
 ;;
 
+pkg-hold-check)
+  [ -z ${2} ] && node-message ${@} && exit
+  check_list=${@}
+  node-selector ${@}
+  interrupt ${RED}Check packages on nodes: ${YELLOW}${cp_nodes} ${wk_nodes}${NC} #&& clear
+  set-environment-variable
+  for install_list in ${cp_nodes} ${wk_nodes}
+    do
+      echo -e "${YELLOW}${install_list}${NC}"
+      package-hold-check ${install_list}
+    done
+;;
+
+pkg-hold)
+  [ -z ${2} ] && node-message ${@} && exit
+  check_list=${@}
+  node-selector ${@}
+  interrupt ${RED}Check packages on nodes: ${YELLOW}${cp_nodes} ${wk_nodes}${NC} #&& clear
+  set-environment-variable
+  for install_list in ${cp_nodes} ${wk_nodes}
+    do
+      echo -e "${YELLOW}${install_list}${NC}"
+      package-hold ${install_list}
+    done
+;;
+
 test)
   #echo -e "${YELLOW}test${NC}"
   [ -z ${2} ] && node-message ${@} && exit
@@ -2160,6 +2186,28 @@ test)
       [ ${?} != 0 ] && echo -e " [${RED}●${NC}] This node not available\n" && continue
       image-repository-setting
       ssh ${install_list} "cat /etc/containers/registries.conf | grep unqualified-search-registries"
+    done
+;;
+
+podman-login)
+GITLAB_DOMAIN='gitlab.vattenlab.com:5050'
+CERT='/usr/local/share/ca-certificates/gitlab.crt'
+
+for list in 91-m1 94-w1 95-w2 96-w3
+    do
+        echo "${list}"
+        ssh ${list} "cat /etc/hosts | grep gitlab.vattenlab.com || echo '192.168.105.220 gitlab.vattenlab.com' | sudo tee -a /etc/hosts"
+        ssh ${list} "openssl s_client -connect ${GITLAB_DOMAIN} -showcerts </dev/null 2>/dev/null | openssl x509 -text | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee ${CERT} && sudo update-ca-certificates"
+        ssh ${list} "ls /etc/ssl/certs/ | grep 'gitlab'"
+    done
+;;
+
+podman-cni)
+for list in 91-m1
+    do
+        echo "${list}"
+        ssh ${list} "wget https://github.com/containernetworking/plugins/releases/download/v1.3.0/cni-plugins-linux-amd64-v1.3.0.tgz"
+        ssh ${list} "sudo tar -xvf cni-plugins-linux-amd64-v1.3.0.tgz -C /opt/cni/bin/"
     done
 ;;
 

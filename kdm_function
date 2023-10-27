@@ -94,6 +94,7 @@ function set-environment-variable()
   SELINUX_MODE=enforcing #disable | permissive | enforcing
   FIREWALLD_ENABLE=disable #disable | enable
   #Linux package version control
+  HOLD_LIST="cri-o kubectl kubeadm kubelet helm podman skopeo crun runc"
   VER_CONTROL=sub
   CRIO_RELEASE=1.28
   CRIO_SUBVER=${CRIO_RELEASE}.0
@@ -920,6 +921,7 @@ function package-install-crio()
   [ "${OS_VER}" == "CentOS_8_Stream" ] && [ "${VER_CONTROL}" == "latest" ] && ssh ${install_list} "sudo dnf install -y cri-o-${CRIO_RELEASE}.* crun" > /dev/null 2>&1
   [ "${OS_VER}" == "xUbuntu_22.04" ] && [ "${VER_CONTROL}" == "sub" ] && ssh ${install_list} "sudo apt install -qy -o Dpkg::Options::="--force-confold" cri-o=${CRIO_SUBVER}~* crun" &> /dev/null && status=1
   [ "${OS_VER}" == "xUbuntu_22.04" ] && [ "${VER_CONTROL}" == "latest" ] && ssh ${install_list} "sudo apt install -qy -o Dpkg::Options::="--force-confold" cri-o=${CRIO_RELEASE}~* crun" > /dev/null 2>&1
+  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt-mark hold cri-o" &> /dev/null
 
   ssh ${install_list} "sudo sed -i '/'1100:200'/d' /etc/cni/net.d/100-crio-bridge.conflist" &> /dev/null
   ssh ${install_list} "sudo sed -i '/\"dst\": \"::\/0\"/d' /etc/cni/net.d/100-crio-bridge.conflist" &> /dev/null
@@ -980,6 +982,7 @@ function package-install-podman()
   [ "${OS_VER}" == "CentOS_8_Stream" ] && ssh ${install_list} "sudo dnf install -y podman=${PODMAN_VER}*" &> /dev/null
 
   [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy podman=${PODMAN_VER}*" &> /dev/null
+  [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt-mark hold podman" &> /dev/null
   podman-install-check ${install_list}
 }
 
@@ -1064,6 +1067,24 @@ function package-install-docker-compose()
   #insatll docker-compose
   ssh ${1} sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VER}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/bin/docker-compose
   ssh ${1} sudo chmod +x /usr/bin/docker-compose
+}
+
+function package-hold-check()
+{
+  for list in ${HOLD_LIST}
+    do
+      ssh ${1} "sudo apt-mark showhold | grep ${list}" &> /dev/null
+      [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] ${list}\t| is hold" || echo -e " [${RED}●${NC}] ${list}\t| not hold"
+    done
+}
+
+function package-hold()
+{
+  for list in ${HOLD_LIST}
+    do
+      ssh ${1} "sudo apt-mark showhold | grep ${list}" &> /dev/null
+      [ ${?} == 0 ] || ssh ${1} "sudo apt-mark hold ${list}" &> /dev/null 
+    done
 }
 
 function package-remove-k9s()
