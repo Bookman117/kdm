@@ -14,6 +14,8 @@ setup-network-package
 check-kdm-path
 
 #Variables>>>
+#Environment variable
+set-environment-variable
 #Network variable
 set-network-variable
 #Kubernetes node variable
@@ -31,7 +33,6 @@ sys-info) #Show host basic information.
 ;;
 
 sys-var) #Check script variables.
-  set-environment-variable
   show-version-control
 ;;
 
@@ -45,7 +46,7 @@ sys-conf) #Configure file & directory.
   [ "${#}" == "2" ] && [ "${2}" == "hosts" ] && status=1 || status=0
   [ "${status}" == "1" ] && node-selector hosts && status=1
   
-  for install_list in ${cp_nodes} ${wk_nodes}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo -e "${YELLOW}${install_list} system configure${NC}"
       [ "${status}" == "1" ] && ssh ${install_list} 'kdm sys-conf'
@@ -103,7 +104,7 @@ sys-check) #Check node basic status.
 
 sys-date) #Check system time-zone.
   node-selector ${@}
-  for install_list in ${cp_nodes} ${wk_nodes}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo -en "${YELLOW}${install_list} system time: ${NC}"
       ssh ${install_list} 'date +"%Y-%m-%d %Z %H:%M:%S"'
@@ -162,10 +163,40 @@ EOF"
 
   echo -e "=hosts=\n"; cat /etc/hosts
   fi
+;;
 
-  echo -e "\n= Prepare power off to duplicate VM node."
-  interrupt; echo "poweroff node..."; sleep 1.5
-  sudo poweroff
+jce-set-hosts)
+  #setup /etc/hosts
+  declare -i mstart=${3} mend=${4} wstart=${6} wend=${7} number=1
+  m=${2} w=${5}
+  if [ ${#} != 7 ]
+    then
+      echo -e "Please input parameter.\n"
+      echo -e "hosts: setup hosts [ m start end w start end ]\n"; exit
+    else
+
+  sudo sed -i "/${NETID}/d" /etc/hosts
+
+  for ((mstart;mstart<=mend;mstart=mstart+1))
+    do
+sudo bash -c "cat << EOF >> /etc/hosts
+${NETID}.${mstart} JCE-EMS-00-master-0${number}
+EOF"
+  number=$((number+1))
+    done;
+
+number=1
+
+  for ((wstart;wstart<=wend;wstart=wstart+1))
+    do
+sudo bash -c "cat << EOF >> /etc/hosts
+${NETID}.${wstart} JCE-EMS-00-worker-0${number}
+EOF"
+  number=$((number+1))
+    done;
+
+  echo -e "=hosts=\n"; cat /etc/hosts
+  fi
 ;;
 
 set-ip) #Setup IP Address. [ set-ip IP/NETMASK [ Detect NETID just input xxx/XX ] ]
@@ -255,6 +286,14 @@ set-hostname) #Setup hostname. [ hostname [ name ] ]
   echo "reboot node..." && sleep 1.5 && sudo reboot
 ;;
 
+set-suffix) #Set kube*、cri-o package version.
+  [ -z ${2} ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-suffix\" [ cp | wk | check ]${NC}" && exit
+  set-environment-variable
+  [ "${2}" == "cp" ] && sed -i "s/CP_SUFFIX=\"\\\\-m\"/CP_SUFFIX=\"\\\\-${3}\"/g" ~/bin/kdm_function
+  [ "${2}" == "wk" ] && sed -i "s/WK_SUFFIX=\"\\\\-w\"/WK_SUFFIX=\"\\\\-${3}\"/g" ~/bin/kdm_function
+  [ "${2}" == "check" ] && echo -e " > CP_SUFFIX       \t | ${YELLOW}${CP_SUFFIX}${NC}" && echo -e " > WK_SUFFIX       \t | ${YELLOW}${WK_SUFFIX}${NC}"
+;;
+
 set-ver) #Set kube*、cri-o package version.
   [ -z ${2} ] && echo -e "${RED}Please input parameter after ${YELLOW}\"set-ver\" [ check | latest | sub ]${NC}" && exit
   set-environment-variable
@@ -262,6 +301,11 @@ set-ver) #Set kube*、cri-o package version.
   setup-pkg-version ${@}
   set-environment-variable
   crio-available-version-check
+  echo -e " > KUBE_RELEASE    \t | ${YELLOW}${KUBE_RELEASE}${NC}"
+  echo -e " > KUBE_SUBVER     \t | ${YELLOW}${KUBE_SUBVER}${NC}"
+  echo -e " > CRIO_AVL_VER    \t | ${YELLOW}${CRIO_AVL_VER}${NC}"
+  echo -e " > CRIO_RELEASE    \t | ${YELLOW}${CRIO_RELEASE}${NC}"
+  echo -e " > CRIO_SUBVER     \t | ${YELLOW}${CRIO_SUBVER}${NC}"
 ;;
 
 set-sc) #Set the preferred storageClass for deploy.
@@ -329,7 +373,7 @@ set-selinux) #Setting SELinux mod [ set | apply ]
   elif [ "${2}" == "apply" ]
     then
       node-selector hosts
-      for install_list in ${wk_nodes} ${cp_nodes}
+      for install_list in ${wk_nodes_selector} ${cp_nodes_selector}
         do
           echo "${OS_VER}" | grep -E "RHEL_8|CentOS_8_Stream" &> /dev/null
           [ ${?} == 0 ] && status=1 || status=0
@@ -347,18 +391,19 @@ set-selinux) #Setting SELinux mod [ set | apply ]
 sync-ssh) #scp .ssh to every nodes.
   rm ~/.ssh/known_hosts
   node-selector hosts
-  for install_list in ${cp_nodes} ${wk_nodes}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo -e "${YELLOW}Send to ${install_list}${NC}"
       scp -r .ssh ${install_list}: &> /dev/null
       [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Sync successed" || echo -e "[${RED}○${NC}] Sync unsuccess"
-    done && echo
+    done
 ;;
 
 sync-kdm) #scp kdm to every nodes.
   node-selector hosts
-  for install_list in ${cp_nodes} ${wk_nodes}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
+      echo "${install_list}" | grep "`hostname`" &> /dev/null && continue
       ssh ${install_list} "ls ~/bin &> /dev/null"
       [ ${?} != 0 ] && ssh ${install_list} "mkdir ~/bin &> /dev/null"
       echo -e "${YELLOW}Send to ${install_list}${NC}"
@@ -366,34 +411,33 @@ sync-kdm) #scp kdm to every nodes.
       [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] kdm sync successed" || echo -e "[${RED}○${NC}] kdm sync unsuccess"
       scp bin/kdm_function ${install_list}:bin/ &> /dev/null
       [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] kdm_function sync successed" || echo -e "[${RED}○${NC}] kdm_function sync unsuccess"
-    done && echo
+    done
 ;;
 
 sync-yaml) #scp yaml to every nodes.
   node-selector hosts
-  for install_list in ${cp_nodes}
+  for install_list in ${cp_nodes_selector}
     do
       echo -e "${YELLOW}Send to ${install_list}${NC}"
       scp -r yaml ${install_list}: &> /dev/null
       [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Sync successed" || echo -e "[${RED}○${NC}] Sync unsuccess"
-    done && echo
+    done
 ;;
 
 sync-kube-config) #scp yaml to every nodes.
   node-selector hosts
-  for install_list in ${cp_nodes} ${wk_nodes}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo -e "${YELLOW}Send to ${install_list}${NC}"
       scp -r .kube ${install_list}: &> /dev/null
       [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Sync successed" || echo -e "[${RED}○${NC}] Sync unsuccess"
-    done && echo
+    done
 ;;
 
 pkg-ver) #Check package repositories.
-  set-environment-variable
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
-  for install_list in ${cp_nodes} ${wk_nodes}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo -e "${YELLOW}${install_list} | package repositories check${NC}"
       [ "${OS_VER}" == "RHEL_8" ] && echo -e "${YELLOW}Package enabled repositories:${NC}"
@@ -418,13 +462,12 @@ pkg-repo) #Setup package repositories. [ add | rm ]
 
   node-selector ${@}
 
-  interrupt ${RED}Modify packages repository on nodes: ${YELLOW}${cp_nodes} ${wk_nodes}${NC}
-  set-environment-variable
+  interrupt ${RED}Modify packages repository on nodes: ${YELLOW}${cp_nodes_selector} ${wk_nodes_selector}${NC}
 
   if [ "${2}" == "add" ]
     then
       echo -e "${YELLOW}Prepare to add package repositories.${NC}"
-      for install_list in ${cp_nodes} ${wk_nodes}
+      for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
         do
           echo -e "${YELLOW}${install_list} | repositories procedure${NC}"
           package-repository-add-deb && echo
@@ -432,7 +475,7 @@ pkg-repo) #Setup package repositories. [ add | rm ]
     elif [ "${2}" == "rm" ]
       then
         echo -e "${YELLOW}Prepare to remove package repositories.${NC}"
-        for install_list in ${cp_nodes} ${wk_nodes}
+        for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
           do
             [ "${OS_VER}" == "RHEL_8" ] && ssh ${install_list} "ls /etc/yum.repos.d/devel:kubic* > /dev/null 2>&1" && ssh ${install_list} "sudo rm /etc/yum.repos.d/devel:kubic*"
             [ "${OS_VER}" == "RHEL_8" ] && ssh ${install_list} "sudo rm /etc/yum.repos.d/kubernetes* > /dev/null 2>&1"
@@ -456,11 +499,11 @@ pkg-install) #Install basic package & setup environment.
 
   check_list=${@}
   node-selector ${@}
-  interrupt ${RED}Install packages on nodes: ${YELLOW}${cp_nodes} ${wk_nodes}${NC} && clear
-  set-environment-variable
-  for install_list in ${cp_nodes} ${wk_nodes}
+  interrupt ${RED}Install packages on nodes: ${YELLOW}${cp_nodes_selector} ${wk_nodes_selector}${NC} && clear
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       ssh ${install_list} 'hostname' &> /dev/null 2>&1
+      #ssh ${install_list} "sudo apt-mark unhold ${HOLD_LIST}" &> /dev/null 2>&1
       [ ${?} != 0 ] && echo -e " [${RED}●${NC}] This node not available\n" && continue
       echo -e "${YELLOW}${install_list} | package install procedure${NC}"
       host-os-detection
@@ -472,11 +515,11 @@ pkg-install) #Install basic package & setup environment.
       system-disable-ipv6
 
       #Add crio、kubernetes package repositories
-      echo ${OS_VER}
       [ "${OS_VER}" == "xUbuntu_22.04" ] && package-repository-add-deb
       package-install-crio
       package-configure-crio
-      image-repository-setting
+      ssh ${install_list} 'which crio' &> /dev/null 2>&1
+      [ ${?} == 0 ] && image-repository-setting
 
       #Kubernetes package setup
       #[ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} "sudo apt install -qy apt-transport-https --yes" &> /dev/null
@@ -507,22 +550,21 @@ pkg-install) #Install basic package & setup environment.
           #enable crio、kubelet
           daemon-enable ${install_list}
       fi
+      #ssh ${install_list} "sudo apt-mark hold ${HOLD_LIST}" &> /dev/null 2>&1
     done
   echo -e "${YELLOW}Package Check list${NS}"
   package-check ${check_list}
 ;;
 
 pkg-rm) #Remove basic package & setup environment.
-  #Set variable
-  set-environment-variable
   [ -z ${2} ] && node-message && exit
 
   node-selector ${@}
 
-  interrupt ${RED}Please confirm this command will destruction node:${YELLOW} ${cp_nodes} ${wk_nodes}!${NC}
+  interrupt ${RED}Please confirm this command will destruction node:${YELLOW} ${cp_nodes_selector} ${wk_nodes_selector}!${NC}
 
   echo -n "Processing"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
-  for remove_list in ${cp_nodes}
+  for remove_list in ${cp_nodes_selector}
     do
       echo -e "\n${YELLOW}${remove_list} | package removing${NC}"
       package-remove-skopeo
@@ -534,7 +576,7 @@ pkg-rm) #Remove basic package & setup environment.
       package-remove-daemon-reload
     done
 
-  for remove_list in ${wk_nodes}
+  for remove_list in ${wk_nodes_selector}
     do
       echo -e "\n${YELLOW}${remove_list} | package removing${NC}"
       package-remove-podman
@@ -550,10 +592,8 @@ pkg-check) #Check node package status.
 ;;
 
 pkg-fix) #Fix Ubuntu pkg.
-  #Set variable
-  set-environment-variable
   node-selector ${@}
-  for install_list in ${cp_nodes} ${wk_nodes}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} sudo mv /var/lib/dpkg/info/ /var/lib/dpkg/info_old/
       [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} sudo mkdir /var/lib/dpkg/info/
@@ -578,7 +618,6 @@ docker-compose-install) #Install docker-compose.
 ;;
 
 k9s-install) #Install k9s on every control-plane.
-  kubernetes-node-variable
   for clist in ${CP_NODES}
     do
       #install k9s
@@ -599,7 +638,6 @@ k9s-install) #Install k9s on every control-plane.
 ;;
 
 k9s-rm) #Remove k9s on every control-plane.
-  kubernetes-node-variable
   for clist in ${CP_NODES}
     do
       #delete k9s
@@ -613,9 +651,9 @@ daemon-enable) #
 
   check_list=${@}
   node-selector ${@}
-  interrupt ${RED}Install packages on nodes: ${YELLOW}${cp_nodes} ${wk_nodes}${NC} && clear
+  interrupt ${RED}Install packages on nodes: ${YELLOW}${cp_nodes_selector} ${wk_nodes_selector}${NC} && clear
 
-  for install_list in ${wk_nodes} ${cp_nodes}
+  for install_list in ${wk_nodes_selector} ${cp_nodes_selector}
     do
       echo -e "${YELLOW}${install_list} | daemon status${NC}"
       daemon-enable ${install_list}
@@ -625,16 +663,13 @@ daemon-enable) #
 
 daemon-reload) #Reload system daemon.
   node-selector ${@}
-  for restart_list in ${cp_nodes} ${wk_nodes}
+  for restart_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       daemon-reload ${restart_list}
     done
 ;;
 
 cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
-  #Set variable
-  set-environment-variable
-  
   #Check papameter [ high | single ]
   #POD_CIDR 172.16.0.0/17 [ 172.16.0.1 - 172.16.127.254 ]
   #SVC_CIDR 172.16.128.0/17 [ 172.16.128.1 - 172.16.255.254 ]
@@ -705,8 +740,6 @@ cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
 ;;
 
 cp-join) #Let control-plane nodes join cluster. [ hosts | node ]
-  #Set variable
-  set-environment-variable
   [ -z ${2} ] && cp-node-message ${@} && exit
 
   node-selector ${@}
@@ -714,22 +747,22 @@ cp-join) #Let control-plane nodes join cluster. [ hosts | node ]
   if [ "${2}" == "hosts" ]
     then
       cluster_list=$(kubectl get nodes | tail -n +2 | awk '{ print $1 }' | tr -s '\n' '|' | sed '$ s/.$//')
-      cp_nodes=$(echo -e "`cat /etc/hosts | grep -vE '#|ip6|${CORE_DNS_DOMAIN}' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list}| tr -s ' ' '\n' | grep "\-m" | tr -s '\n' ' '`\n")
-      echo ${cp_nodes} | grep -n '^$' &> /dev/null && cp_nodes="none "
+      cp_nodes_selector=$(echo -e "`cat /etc/hosts | grep -vE '#|ip6|${CORE_DNS_DOMAIN}' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list}| tr -s ' ' '\n' | grep "${CP_SUFFIX}" | tr -s '\n' ' '`\n")
+      echo ${cp_nodes_selector} | grep -n '^$' &> /dev/null && cp_nodes_selector="none "
     else
       shift
       list="${@}"
-      cp_nodes=$(echo "${list}" | tr -s ' ' '\n' | grep "\-m" | tr -s '\n' ' ')
+      cp_nodes_selector=$(echo "${list}" | tr -s ' ' '\n' | grep "${CP_SUFFIX}" | tr -s '\n' ' ')
   fi
-  interrupt ${RED}Please confirm this command will let ${YELLOW}${cp_nodes}${RED}join cluster!${NC}
-  [ "${cp_nodes}" == "none " ] && echo -e "${RED}Command canceled${NC}" && exit
+  interrupt ${RED}Please confirm this command will let ${YELLOW}${cp_nodes_selector}${RED}join cluster!${NC}
+  [ "${cp_nodes_selector}" == "none " ] && echo -e "${RED}Command canceled${NC}" && exit
 
   ls ~/yaml &> /dev/null
   [ ${?} != 0 ] && mkdir -p ~/yaml/system && cp /etc/kubernetes/manifests/kube-vip-arp.yaml ~/yaml/system
 
   certs=$(sudo kubeadm init phase upload-certs --upload-certs | tail -n 1)
   JOIN=$(echo "sudo `kubeadm token create --print-join-command 2>/dev/null`")
-  for clist in ${cp_nodes}
+  for clist in ${cp_nodes_selector}
     do
       echo -e "${YELLOW}${clist} | join procedure${NC}"
       ssh ${clist} "ls ~/yaml/system &> /dev/null"
@@ -755,25 +788,23 @@ cp-join) #Let control-plane nodes join cluster. [ hosts | node ]
 ;;
 
 wk-join) #Let worker nodes join cluster. [ hosts | node ]
-  #Set variable
-  set-environment-variable
   [ -z ${2} ] && wk-node-message ${@} && exit
   if [ "${2}" == "hosts" ]
     then
       cluster_list=$(kubectl get nodes | tail -n +2 | awk '{ print $1 }' | tr -s '\n' '|' | sed '$ s/.$//')
-      wk_nodes=$(echo -e "`cat /etc/hosts | grep -vE '#|ip6|${CORE_DNS_DOMAIN}' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list}| tr -s ' ' '\n' | grep "\-w" | tr -s '\n' ' '`\n")
-      echo ${wk_nodes} | grep -n '^$' &> /dev/null && wk_nodes="none "
+      wk_nodes_selector=$(echo -e "`cat /etc/hosts | grep -vE '#|ip6|${CORE_DNS_DOMAIN}' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list}| tr -s ' ' '\n' | grep "${WK_SUFFIX}" | tr -s '\n' ' '`\n")
+      echo ${wk_nodes_selector} | grep -n '^$' &> /dev/null && wk_nodes_selector="none "
     else
       shift
       list="${@}"
-      wk_nodes=$(echo "${list}" | tr -s ' ' '\n' | grep "\-w" | tr -s '\n' ' ')
+      wk_nodes_selector=$(echo "${list}" | tr -s ' ' '\n' | grep "${WK_SUFFIX}" | tr -s '\n' ' ')
   fi
 
-  interrupt ${RED}Please confirm this command will let ${YELLOW}${wk_nodes}${RED}join cluster!${NC}
-  [ "${wk_nodes}" == "none " ] && echo -e "${RED}Command canceled${NC}" && exit
+  interrupt ${RED}Please confirm this command will let ${YELLOW}${wk_nodes_selector}${RED}join cluster!${NC}
+  [ "${wk_nodes_selector}" == "none " ] && echo -e "${RED}Command canceled${NC}" && exit
 
   JOIN=$(echo "sudo `kubeadm token create --print-join-command 2>/dev/null`")
-  for wlist in ${wk_nodes}
+  for wlist in ${wk_nodes_selector}
     do
       echo -e "${YELLOW}${wlist} | join procedure${NC}"
       ssh ${wlist} "${JOIN} ${LOG_OUTPUT_LEVEL}"
@@ -784,8 +815,6 @@ wk-join) #Let worker nodes join cluster. [ hosts | node ]
 ;;
 
 cni-deploy) #Deploy kubernetes CNI. [ calico or flannel ]
-  #Set variable
-  set-environment-variable
   interrupt ${RED}Please confirm there is no CNI running on kubernetes.${NC}
   if [ -z ${2} ]
     then
@@ -806,10 +835,6 @@ cni-deploy) #Deploy kubernetes CNI. [ calico or flannel ]
 ;;
 
 cni-rm) #Delete kubernetes CNI. [ calico or flannel ]
-  #Set variable
-  set-environment-variable
-  #Set variable
-  set-environment-variable
   if [ -z ${2} ]
     then
       echo -e "Please input cni project. [calico、flannel]\n"
@@ -852,22 +877,18 @@ dns-rollout) #Rollout coredns & calico-api-server. [ if pod present ]
 ;;
 
 csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
-  #Set variable
-  set-environment-variable
   if [ -z ${2} ]
     then
       echo -e "Input parameter. ${YELLOW}[ local-path | rook-ceph ]${NC}"
     elif [ ${2} == "local-path" ]
       then
           #local-path-storage
-          #curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Local-path/local-path-storage.yaml | sed "s/<image-version>/${LOCAL_PATH_VER}/g" | kubectl apply -f -
           curl -s "https://raw.githubusercontent.com/rancher/local-path-provisioner/${LOCAL_PATH_VER}/deploy/local-path-storage.yaml" | kubectl apply -f -
           k9s -n local-path-storage
     elif [ ${2} == "rook-ceph" ]
       then
         which git &> /dev/null
         [ ${?} != 0 ] && echo "install git" && sudo dnf install -y git && clear
-        #helm repo add rook-release https://charts.rook.io/release
         ls ~/yaml/rook/ &> /dev/null
         [ ${?} != 0 ] && mkdir ~/yaml/rook/
         ls rook/ &> /dev/null
@@ -918,12 +939,14 @@ csi-deploy) #Deploy kubernetes CSI. [ local-path | rook-ceph ]
         echo -e "\n${YELLOW}rook-ceph deployed, please wait OSDs deploy.${NC}"
         sleep 3
         k9s -c pods -n ${ROOK_CEPH_NS}
+    elif [ ${2} == "dashboard" ]
+      then
+          curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Rook-Ceph/ceph-deshboard.yaml | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | sed "s/<URL>/${CEPH_DASHBOARD_URL}/g" | kubectl apply -f - 
+          echo -e "${YELLOW}deshboard ingress applied${NC}"
   fi
 ;;
 
 csi-rm) #Delete kubernetes CSI. [ local-path | rook-ceph ]
-  #Set variable
-  set-environment-variable
   if [ -z ${2} ]
     then
       echo -e "Please input csi project. [ local-path | rook-ceph ]\n"
@@ -1011,7 +1034,7 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
       node-selector ${@}
       echo -e "${YELLOW}Check worker disk resource for rook-ceph${NC}"
 
-      for wlist in ${wk_nodes}
+      for wlist in ${wk_nodes_selector}
         do
           disk_list=$(ssh ${wlist} sudo fdisk -l | grep '^Disk' | grep 'sd' | awk '{ print $2 }' | sed 's/://g;s/\/dev\///g' | tr -s '\n' ' ' | sed 's/.$//' | sed 's/sd/\/dev\/sd/g')
           for ceph_list in ${disk_list}
@@ -1035,7 +1058,6 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
   ls ~/yaml/controller &> /dev/null
   [ ${?} != 0 ] && mkdir -p ~/yaml/controller
 
-  set-environment-variable
   if [ -z ${2} ]
     then
       echo -e "Please input parameter.\n"
@@ -1080,7 +1102,7 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
       kubectl create ns ingress-nginx
       helm show values ingress-nginx/ingress-nginx --version ${INGRESS_NGINX_HELM_VER} > ~/yaml/controller/ingress-nginx.yaml
       #Config ingressClass name
-      sed -i '0,/name: nginx/s/name: nginx/name: ingress-1/g' ~/yaml/controller/ingress-nginx.yaml
+      sed -i "0,/name: nginx/s/name: nginx/name: ${INGRESSCLASS_NAME}/g" ~/yaml/controller/ingress-nginx.yaml
       #Deploy
       helm install ingress-nginx ingress-nginx/ingress-nginx -f ~/yaml/controller/ingress-nginx.yaml --namespace ingress-nginx
 
@@ -1093,8 +1115,6 @@ controller-deploy) #Deploy basic service. [ metallb & nginx-ingress | Detect NET
 ;;
 
 controller-rm) #Delete basic service. [ metallb & nginx-ingress ]
-  #Set variable
-  set-environment-variable
   #ingress-nginx
   curl -s https://raw.githubusercontent.com/Bookman117/kdm/master/yaml/ingress-nginx.yaml | sed "s/<ingress-name>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
   #metallb-system
@@ -1103,8 +1123,6 @@ controller-rm) #Delete basic service. [ metallb & nginx-ingress ]
 ;;
 
 metrics-deploy) #Deploy metrics-server.
-  #Set variable
-  set-environment-variable
   #HA Version via helm
   helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
   helm install metrics-server metrics-server/metrics-server --set 'args={--kubelet-insecure-tls}' --version ${METRICS_VER} --namespace kube-system
@@ -1120,15 +1138,11 @@ metrics-deploy) #Deploy metrics-server.
 ;;
 
 metrics-rm) #Delete metrics-server.
-  #Set variable
-  set-environment-variable
   helm delete metrics-server -n kube-system
   helm repo remove metrics-server
 ;;
 
 prometheus-deploy) #Deploy prometheus.
-  #Set variable
-  set-environment-variable
   #追加並更新 helm repository
   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
   helm repo update
@@ -1146,19 +1160,15 @@ prometheus-deploy) #Deploy prometheus.
 ;;
 
 prometheus-rm) #Delete prometheus.
-  #Set variable
-  set-environment-variable
   helm delete kube-prometheus-stack -n monitoring
   helm repo remove prometheus-community
   helm repo update:
 ;;
 
 eck-deploy) #Deploy ECK
-  #Set variable
-  set-environment-variable
   node-selector hosts
   #Setup vm memory limit
-  for setup_list in ${cp_nodes} ${wk_nodes}
+  for setup_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo -e "${YELLOW}${setup_list} | ECK setup procedure${NC}"
       ssh ${setup_list} "cat /etc/sysctl.conf | grep 'vm.max_map_count=262144'" &> /dev/null
@@ -1172,16 +1182,18 @@ eck-deploy) #Deploy ECK
   #Create crd & operator
   kubectl create -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/crds.yaml
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] crd created" || echo -e "[${YELLOW}○${NC}] crd not created"
-  kubectl apply -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/operator.yaml
+  kubectl create -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/operator.yaml
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] operator created" || echo -e "[${YELLOW}○${NC}] operator not created"
   #Create Superuser
   curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/filerealm-secret.yaml | sed "s/<user>/${ECK_USER}/g" | sed "s/<password>/${ECK_PASSWORD}/g" | kubectl apply -f -
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] superuser secret created" || echo -e "[${YELLOW}○${NC}] superuser secret not created"
   #Create elasticsearch
-  #curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | kubectl apply -f -
   curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/elasticsearch.yaml | sed "s/<eck-version>/${ECK_VER}/g" | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ECK_MASTER_NODE_COUNT>/${ECK_MASTER_NODE_COUNT}/g" | sed "s/<ECK_DATA_NODES_COUNT>/${ECK_DATA_NODES_COUNT}/g" | kubectl apply -f -
-  exit
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Elasticsearch created" || echo -e "[${YELLOW}○${NC}] Elasticsearch not created"
+  k9s -c pods -n elastic-system
+;;
+
+kibana-deploy) #Deploy kibana
   #Create Kibana & Ingress rule
   curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana.yaml | sed "s/<eck-version>/${ECK_VER}/g" | kubectl apply -f -
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Kibana created" || echo -e "[${YELLOW}○${NC}] Kibana not created"
@@ -1189,12 +1201,10 @@ eck-deploy) #Deploy ECK
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Kibana scale to 2" || echo -e "[${YELLOW}○${NC}] Kibana not scale"
   curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
   [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Kibana-ingress created" || echo -e "[${YELLOW}○${NC}] Kibana-ingress not created"
-  k9s -c pods -n elastic-system
+  k9s -c ingress -n elastic-system
 ;;
 
 eck-rm) #Remove ECK
-  #Set variable
-  set-environment-variable
   node-selector hosts
   #Setup password
   setup-password-control
@@ -1210,7 +1220,7 @@ eck-rm) #Remove ECK
   kubectl delete -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/crds.yaml
     
   #Remove vm memory limit
-  for setup_list in ${cp_nodes} ${wk_nodes}
+  for setup_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo -e "${YELLOW}${setup_list} | ECK remove procedure${NC}"
       ssh ${setup_list} "sudo sed -i '/vm.max_map_count=262144/d' /etc/sysctl.conf" &> /dev/null && echo "Setting remove compelet."
@@ -1233,37 +1243,7 @@ eck-check) #Check ECK status
     done
 ;;
 
-mariadb-deploy) #Deploy mariadb-galera
-  #Set variable
-  set-environment-variable
-  #Setup password
-  setup-password-control
-  kubectl create namespace ${MARIADB_GALERA_NS}
-  curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/MariaDB-Galera/mariadb-galera-secret.yaml -w '\n' | sed "s/<password>/${MARIADB_GALERA_PASSWORD}/g" | sed "s/<namespace>/${MARIADB_GALERA_NS}/g" | kubectl apply -f -
-  #Add helm package
-  helm repo list | grep 'bitnami' &> /dev/null
-  [ ${?} != 0 ] && helm repo add bitnami https://charts.bitnami.com/bitnami
-;;
-
-mariadb-rm) #Remove mariadb-galera
-  #Set variable
-  set-environment-variable
-  #Setup password
-  setup-password-control
-  kubectl scale sts mariadb-galera -n ${MARIADB_GALERA_NS} --replicas=0
-  list=$(kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n ${MARIADB_GALERA_NS} | grep -v '^[0-9]' | grep -v '^[A-Z]' | awk '{ print $1 }')
-    for i in ${list}
-      do
-        kubectl -n ${MARIADB_GALERA_NS} patch ${i} -p '{"metadata":{"finalizers": []}}' --type=merge
-      done
-  helm delete mariadb-galera -n mariadb-galera
-  [ ${?} == 0 ] && kubectl delete ns ${MARIADB_GALERA_NS}
-  helm repo remove bitnami
-;;
-
 mariadb-galera-deploy) #Deploy mariadb-galera
-  #Set variable
-  set-environment-variable
   #Setup password
   setup-password-control
   kubectl create namespace ${MARIADB_GALERA_NS}
@@ -1340,8 +1320,6 @@ mariadb-galera-deploy) #Deploy mariadb-galera
 ;;
 
 mariadb-galera-rm) #Remove mariadb-galera
-  #Set variable
-  set-environment-variable
   #Setup password
   setup-password-control
   kubectl scale sts mariadb-galera -n ${MARIADB_GALERA_NS} --replicas=0
@@ -1367,8 +1345,6 @@ harbor-deploy) #Deploy harbor
 ;;
 
 jenkins-deploy) #Deploy jenkins on kubernetes.
-  #Set variable
-  set-environment-variable
   kubectl create ns ${JENKINS_NS}
   kubectl create secret generic kubeconfig --from-file=/home/${USER}/.kube/config -n ${JENKINS_NS}
   #kubectl apply -f https://web.flymks.com/cicd/v1/jenkins.yaml
@@ -1379,16 +1355,12 @@ jenkins-deploy) #Deploy jenkins on kubernetes.
 ;;
 
 jenkins-rm) #Delete jenkins on kubernetes.
-  #Set variable
-  set-environment-variable
   kubectl delete -f https://web.flymks.com/cicd/v1/jenkins.yaml
   kubectl delete ns ${JENKINS_NS}
   kubectl delete secret generic kubeconfig --from-file=/home/${USER}/.kube/config -n jenkins
 ;;
 
 quay-deploy) #Deploy project-quay on kubernetes.
-  #Set variable
-  set-environment-variable
   #quay
   kubectl create ns ${QUAY_NS}
   #kubectl apply -f https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Web-service/quay.yaml
@@ -1399,15 +1371,11 @@ quay-deploy) #Deploy project-quay on kubernetes.
 ;;
 
 quay-rm) #Delete project-quay on kubernetes.
-  #Set variable
-  set-environment-variable
   kubectl delete -f https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/quay.yaml
   kubectl delete ns ${QUAY_NS}
 ;;
 
 grafana-deploy) #Deploy grafana on kubernetes.
-  #Set variable
-  set-environment-variable
   #gf
   kubectl create ns ${GRAFANA_NS}
   #kubectl apply -f https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Web-service/grafana.yaml
@@ -1418,16 +1386,12 @@ grafana-deploy) #Deploy grafana on kubernetes.
 ;;
 
 grafana-rm) #Delete grafana on kubernetes.
-  #Set variable
-  set-environment-variable
   #grafana
   kubectl delete -f https://web.flymks.com/grafana/v1/grafana.yaml
   kubectl delete ns ${GRAFANA_NS}
 ;;
 
 landlord-deploy) #Deploy landlord on kubernetes.
-  #Set variable
-  set-environment-variable
   #ns & configmap
   kubectl create ns landlord
   kubectl create -n landlord configmap kuser-conf --from-file /home/${USER}/.kube/config
@@ -1473,8 +1437,6 @@ landlord-deploy) #Deploy landlord on kubernetes.
 ;;
 
 landlord-rm) #Delete landlorsd on kubernetes.
-  #Set variable
-  set-environment-variable
   #tenant
   curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Landlord/7-landlord-tenant.yaml | sed "s/<storageclass>/${STORAGE_CLASS}/g" | kubectl delete -f -
   #mariadb
@@ -1497,7 +1459,7 @@ landlord-rm) #Delete landlorsd on kubernetes.
 images) #Check cluster images.
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
-  for install_list in ${cp_nodes} ${wk_nodes}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo -en "${YELLOW}${install_list} | images list${NC} | quantity: "
       ssh ${install_list} sudo podman images | grep -v 'REPOSITORY' | wc -l
@@ -1523,8 +1485,8 @@ image-send) #save >> scp >> load target image to every worker node [ <image-name
 image-rm) #Remove dangling images on cluster.
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
-  interrupt ${RED}Please confirm this command will delete unuse images on node:${YELLOW} ${cp_nodes} ${wk_nodes}${RED}!${NC}
-  for install_list in ${cp_nodes} ${wk_nodes}
+  interrupt ${RED}Please confirm this command will delete unuse images on node:${YELLOW} ${cp_nodes_selector} ${wk_nodes_selector}${RED}!${NC}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       ssh ${install_list} 'sudo podman image prune -f'
       ssh ${install_list} 'sudo podman rmi -a &> /dev/null'
@@ -1570,13 +1532,13 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
   #Exclude non-join nodes
   exclude-non-join
 
-  interrupt ${RED}Please confirm this command will upgrade nodes to ${KUBE_INIT_VER}: ${YELLOW}${cp_nodes} ${wk_nodes}!${NC}
+  interrupt ${RED}Please confirm this command will upgrade nodes to ${KUBE_INIT_VER}: ${YELLOW}${cp_nodes_selector} ${wk_nodes_selector}!${NC}
 
   first_control_plane=`hostname`
-  other_control_plane=$(echo "${cp_nodes} ${wk_nodes}" | tr -s ' ' '\n' | sed "/`hostname`/d" | grep '\-m' | tr -s '\n' ' ')
+  other_control_plane=$(echo "${cp_nodes_selector} ${wk_nodes_selector}" | tr -s ' ' '\n' | sed "/`hostname`/d" | grep '${CP_SUFFIX}' | tr -s '\n' ' ')
   CURRENT_VER=$(kubectl get nodes | grep `hostname` | awk '{ print $ 5}')
 
-  for checklist in ${first_control_plane} ${other_control_plane} ${wk_nodes}
+  for checklist in ${first_control_plane} ${other_control_plane} ${wk_nodes_selector}
     do
       CHECK_VER=$(kubectl get nodes | grep ${checklist} | awk '{ print $ 5}')
       echo "${CHECK_VER}" | grep ${KUBE_INIT_VER} &> /dev/null
@@ -1586,8 +1548,8 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
     done
   [ "${status}" == "0" ] && echo && exit
 
-  #[ -z ${2} ] && kdm pkg-repo add hosts || kdm pkg-repo add ${cp_nodes} ${wk_nodes}
-  kdm pkg-repo add ${cp_nodes} ${wk_nodes}
+  #[ -z ${2} ] && kdm pkg-repo add hosts || kdm pkg-repo add ${cp_nodes_selector} ${wk_nodes_selector}
+  kdm pkg-repo add ${cp_nodes_selector} ${wk_nodes_selector}
   host-os-detection
 
   interrupt ${RED}start upgrade procedure?${NC}
@@ -1597,7 +1559,7 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
       if [ "${KUBE_INIT_VER}" == "${CURRENT_VER}" ]
         then
           echo -e "${YELLOW}Cluster upgrade procedure${NC}"
-          echo ${cp_nodes} ${wk_nodes} | grep `hostname` &> /dev/null
+          echo ${cp_nodes_selector} ${wk_nodes_selector} | grep `hostname` &> /dev/null
           [ ${?} == 0 ] && echo -e "${YELLOW} - ${first_control_plane} version is already been ${RED}${KUBE_INIT_VER}${NC}"
           continue
       fi
@@ -1719,7 +1681,7 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
       kubectl uncordon ${OCP}
     done
 
-  for wlist in ${wk_nodes}
+  for wlist in ${wk_nodes_selector}
     do
       WORKER_VER=$(kubectl get nodes | grep "${wlist}" | awk '{ print $ 5}')
       if [ "${KUBE_INIT_VER}" == "${WORKER_VER}" ]
@@ -1872,7 +1834,7 @@ cluster-rm) #Remove kubernetes cluster.
   [ "${status}" == "1" ] && kubectl delete all --all --all-namespaces 2> /dev/null
   [ "${status}" == "1" ] && kubectl delete --all namespaces 2> /dev/null
 
-  for wclist in ${wk_nodes} ${cp_nodes}
+  for wclist in ${WK_NODES} ${CP_NODES}
     do
       echo -e "${YELLOW}${wclist} | delete process${NC}"
       ssh ${wclist} 'sudo kubeadm reset -f &> /dev/null'
@@ -1888,9 +1850,9 @@ cluster-rm) #Remove kubernetes cluster.
 
 cri-upgrade) #Update crio package.
   node-selector ${@}
-  interrupt ${RED}Please confirm this command will let${YELLOW} ${cp_nodes} ${wk_nodes} ${RED}cri-o upgrade!${NC}
+  interrupt ${RED}Please confirm this command will let${YELLOW} ${cp_nodes_selector} ${wk_nodes_selector} ${RED}cri-o upgrade!${NC}
 
-  for install_list in ${cp_nodes} ${wk_nodes}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       kubectl drain ${install_list} --ignore-daemonsets 2> /dev/null
       #install & setup cri-o
@@ -1926,7 +1888,7 @@ cri-upgrade) #Update crio package.
 cri-check) #Check CRI running pods.
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
-  for install_list in ${cp_nodes} ${wk_nodes}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo -e "${YELLOW}${install_list} | check list${NC}"
       ssh ${install_list} "sudo crictl ps -a"
@@ -1936,8 +1898,8 @@ cri-check) #Check CRI running pods.
 cri-rm) #Remove CRI running pods.
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
-  interrupt ${RED}Please confirm this command will delete all container via crio on node:${YELLOW} ${cp_nodes} ${wk_nodes}${NC}
-  for install_list in ${cp_nodes} ${wk_nodes}
+  interrupt ${RED}Please confirm this command will delete all container via crio on node:${YELLOW} ${cp_nodes_selector} ${wk_nodes_selector}${NC}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo "${install_list} | check list"
       cri_list=$(ssh ${install_list} sudo crictl ps -a | tail -n +2 | awk '{ print $9 }' | tr -s '\n' ' ')
@@ -1953,13 +1915,13 @@ cri-rm) #Remove CRI running pods.
 
 node-info) #Show host basic information.
   node-selector hosts
-  for cwlist in ${cp_nodes} ${wk_nodes}
+  for cwlist in ${cp_nodes_selector} ${wk_nodes_selector}
     do
         echo "Node name: ${cwlist}"
         #cpu information
         cpu_name=$(ssh ${cwlist} sudo cat /proc/cpuinfo | grep 'model name' | head -n 1 | cut -d ':' -f2 | tr -s '-' ' ' | sed 's/(R)//g; s/(TM)//g; s/@ //g' | sed 's/^.//')
         core_number=$(ssh ${cwlist} sudo cat /proc/cpuinfo | grep 'model name' | wc -l)
-        cpu_architecture=$(ssh ${cwlist} uname -m)
+        cpu_architecture=$(ssh ${cwlist} uname ${CP_SUFFIX})
         echo -e " CPU: ${YELLOW}$cpu_name (core: $core_number) | ${cpu_architecture}${NC}"
         #memory information
         ssh ${cwlist} sudo free -mh | grep Mem: | awk '{ print $2 }' | grep 'Gi' &> /dev/null
@@ -1974,18 +1936,18 @@ node-check) #Check nodes port | hostname. [ hosts | hosts name | hosts port | NE
   while [ 1 ]
     do
       clear
-      node-check $@ && sleep 3
+      node-check ${@} && sleep 3
     done
 ;;
 
 node-reset) #Reset hosts | specify nodes. [ node-reset node ]
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
-  interrupt ${RED}Please confirm this command will destruction node:${YELLOW} ${cp_nodes} ${wk_nodes}${RED}!${NC}
+  interrupt ${RED}Please confirm this command will destruction node:${YELLOW} ${cp_nodes_selector} ${wk_nodes_selector}${RED}!${NC}
 
   echo -n "Processing"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
 
-  for clist in ${cp_nodes}
+  for clist in ${cp_nodes_selector}
     do
       status=0
       etcd_pod=$(kubectl get pods -n kube-system 2> /dev/null | grep 'etcd' | awk '{ print $1 }' | head -n 1)
@@ -2003,7 +1965,7 @@ node-reset) #Reset hosts | specify nodes. [ node-reset node ]
       ssh ${clist} "sudo systemctl enable --now kubelet"
     done
 
-  for wlist in ${wk_nodes}
+  for wlist in ${wk_nodes_selector}
     do
       status=0
       echo -e "${YELLOW}${wlist} | delete process${NC}"
@@ -2075,7 +2037,7 @@ parm-check) #List all script parameter.
   shift
   node-selector ${@}
   shift
-  for install_list in ${cp_nodes} ${wk_nodes}
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo -e "${YELLOW}${install_list} | Result${NC}"
       ssh -o ConnectTimeout=1 -o BatchMode=yes ${install_list} 'hostname' &> /dev/null
@@ -2088,14 +2050,12 @@ parm-check) #List all script parameter.
 
 test-nginx) #Deploy test nginx.
   [ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ deploy | remove ]${NC}" && exit
-  set-environment-variable
   [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
   [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-nginx.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
 ;;
 
 test-apache) #Deploy test apache.
   [ -z ${2} ] && echo -e "Input parameter ${YELLOW}[ deploy | remove ]${NC}" && exit
-  set-environment-variable
   [ "${2}" == "deploy" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-apache.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl apply -f -
   [ "${2}" == "remove" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/Test/test-apache.yaml | sed "s/<storageClassName>/${STORAGE_CLASS}/g" | sed "s/<ingressClass>/${INGRESS_CLASS_NAME}/g" | kubectl delete -f -
 ;;
@@ -2136,7 +2096,7 @@ test-images-push) #Push images to registry.
 
 test-images-rm) #Remove all system images.
   #Pull all system images
-  #sudo kubeadm config images pull --image-repository=registry.k8s.io --kubernetes-version=1.26.3
+  #sudo kubeadm config images pull --image-repositorey=registry.k8s.io --kubernetes-version=1.26.3
   #上述指令要解決 pull x509 憑證問題
   harbor_domain=registry.vattenlab.com
   target_image_list_1=$(sudo podman images --sort repository --format "table {{.Repository}} {{.Tag}}" | tail -n +2 | grep 'registry.vattenlab.com' | tr -s ' ' ':')
@@ -2151,9 +2111,8 @@ pkg-hold-check)
   [ -z ${2} ] && node-message ${@} && exit
   check_list=${@}
   node-selector ${@}
-  interrupt ${RED}Check packages on nodes: ${YELLOW}${cp_nodes} ${wk_nodes}${NC} #&& clear
-  set-environment-variable
-  for install_list in ${cp_nodes} ${wk_nodes}
+  interrupt ${RED}Check packages on nodes: ${YELLOW}${cp_nodes_selector} ${wk_nodes_selector}${NC} #&& clear
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo -e "${YELLOW}${install_list}${NC}"
       package-hold-check ${install_list}
@@ -2164,28 +2123,11 @@ pkg-hold)
   [ -z ${2} ] && node-message ${@} && exit
   check_list=${@}
   node-selector ${@}
-  interrupt ${RED}Check packages on nodes: ${YELLOW}${cp_nodes} ${wk_nodes}${NC} #&& clear
-  set-environment-variable
-  for install_list in ${cp_nodes} ${wk_nodes}
+  interrupt ${RED}Check packages on nodes: ${YELLOW}${cp_nodes_selector} ${wk_nodes_selector}${NC} #&& clear
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       echo -e "${YELLOW}${install_list}${NC}"
       package-hold ${install_list}
-    done
-;;
-
-test)
-  #echo -e "${YELLOW}test${NC}"
-  [ -z ${2} ] && node-message ${@} && exit
-  check_list=${@}
-  node-selector ${@}
-  interrupt ${RED}Install packages on nodes: ${YELLOW}${cp_nodes} ${wk_nodes}${NC} #&& clear
-  set-environment-variable
-  for install_list in ${cp_nodes} ${wk_nodes}
-    do
-      ssh ${install_list} 'hostname' &> /dev/null 2>&1
-      [ ${?} != 0 ] && echo -e " [${RED}●${NC}] This node not available\n" && continue
-      image-repository-setting
-      ssh ${install_list} "cat /etc/containers/registries.conf | grep unqualified-search-registries"
     done
 ;;
 
@@ -2193,7 +2135,7 @@ podman-login)
 GITLAB_DOMAIN='gitlab.vattenlab.com:5050'
 CERT='/usr/local/share/ca-certificates/gitlab.crt'
 
-for list in 91-m1 94-w1 95-w2 96-w3
+for list in ${@}
     do
         echo "${list}"
         ssh ${list} "cat /etc/hosts | grep gitlab.vattenlab.com || echo '192.168.105.220 gitlab.vattenlab.com' | sudo tee -a /etc/hosts"
@@ -2218,6 +2160,13 @@ watch) #Watch kubernetes cluster status for every 3 sec.
       start-info
       sleep 3
     done
+;;
+
+test)
+  echo ${ALL_NODES_EX_LOCALHOST}
+  echo ${ALL_NODES}
+  echo ${CP_NODES}
+  echo ${WK_NODES}
 ;;
 
 "") #Watch kubernetes cluster status.
