@@ -83,8 +83,8 @@ sys-conf) #Configure file & directory.
   [ "${OS_VER}" == "xUbuntu_22.04" ] && sudo timedatectl set-timezone Asia/Taipei
 
   #turn off welcome message
-  cat /etc/profile | grep 'clear'
-  [ ${?} != 0 ] && echo "clear" | sudo tee -a /etc/profile
+  #cat /etc/profile | grep 'clear'
+  #[ ${?} != 0 ] && echo "clear" | sudo tee -a /etc/profile
   touch ~/.hushlogin
   [ "${OS_VER}" == "xUbuntu_22.04" ] && sudo chmod -x /etc/update-motd.d/*
 
