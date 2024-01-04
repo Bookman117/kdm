@@ -8,11 +8,13 @@ function set-environment-variable()
   source ~/bin/kdm_function &> /dev/null
   export KUBE_EDITOR=nano
   LOG_OUTPUT_LEVEL="" #--v=5
+  
   #Package list
   PACKAGE_LIST="cri-o kubelet kubeadm kubectl helm podman"
   #Linux security settings
   SELINUX_MODE="enforcing" #disable | permissive | enforcing
   FIREWALLD_ENABLE="disable" #disable | enable
+  
   #Linux package version control
   HOLD_LIST="cri-o kubectl kubeadm kubelet helm podman skopeo crun runc"
   VER_CONTROL="sub"
@@ -30,25 +32,30 @@ function set-environment-variable()
   KUBE_DAEMON_PATH="/usr/lib/systemd/system/kubelet.service.d" #/etc/systemd/system/kubelet.service.d/
   POD_CIDR=172.16.0.0/17
   SVC_CIDR=172.16.128.0/17
+  
   #Context setup
   CLUSTER_USER=bigred
   CLUSTER_NAME=UB22-T1
   INGRESSCLASS_NAME="ingress-1"
+  
   #Kubernetes CNI
-  KUBE_VIP_VER=v0.6.3 #Previous: v0.6.2
-  CALICO_VER=v3.26.3 #Previous: v3.26.0 無法部署 rook-ceph
+  KUBE_VIP_VER=v0.6.4 #Previous: v0.6.3
+  CALICO_VER=v3.26.3 #Previous: v3.26.3
   FLANNEL_VER=v0.23.0 #Previous: v0.22.3
   CORE_DNS_DOMAIN=cluster.local #Previous: vattensoft.lab.com
   CNI_SOCK="/var/run/crio/crio.sock"
+  
   #Kubernetes CSI
   ROOK_TAG=v1.12.8 #Previous: v1.12.2
   ROOK_GIT_RELEASE='release-1.12'
   STORAGE_CLASS="local-path" #rook-ceph-block | local-path
   CEPH_DASHBOARD_URL="ceph.${CORE_DNS_DOMAIN}"
   LOCAL_PATH_VER=v0.0.25
+  
   #Kubernetes Monitoring
   METRICS_VER=3.11.0
   PROMETHEUSE_VER=52.1.0 #Previous: 47.0.0
+  
   #Kubernetes service
   METALLB_RELEASE=v0.13
   METALLB_VER=$(curl -s https://github.com/metallb/metallb/releases.atom | grep "/releases/tag/${METALLB_RELEASE}" | cut -d '"' -f 6 | head -n 1 | cut -d '/' -f 8)
@@ -60,6 +67,7 @@ function set-environment-variable()
   ECK_VER=8.7.0
   ECK_MASTER_NODE_COUNT=1
   ECK_DATA_NODES_COUNT=3
+  
   #Docker
   HARBOR_VER=v2.8.0
   DOCKER_COMPOSE_VER=2.17.3
@@ -975,7 +983,7 @@ function image-repository-setting()
   ssh ${install_list} "which crio" &> /dev/null && test=1
   #Setup image repository registries
   target='unqualified-search-registries'
-  replace='unqualified-search-registries = \[\"registry.fedoraproject.org\", \"registry.access.redhat.com\", \"docker.io\", \"quay.io\", \"registry.vattenlab.com\", \"gitlab.vattenlab.com:5050\"\]'
+  replace='unqualified-search-registries = \[\"registry.fedoraproject.org\", \"registry.access.redhat.com\", \"docker.io\", \"quay.io\", \"registry.vattenlab.com:443\", \"gitlab.vattenlab.com:5050\"\]'
   
   ssh ${install_list} "sudo sed -i \"s/${target}/# ${target}/g\" /etc/containers/registries.conf"
   ssh ${install_list} "sudo sed -i \"/# ${target}/a ${replace}\" /etc/containers/registries.conf"

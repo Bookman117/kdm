@@ -424,7 +424,18 @@ sync-yaml) #scp yaml to every nodes.
     done
 ;;
 
-sync-kube-config) #scp yaml to every nodes.
+sync-file) #scp .ssh to every nodes.
+  [ -z ${2} ] && echo -e "${RED}Please input parameter. [ filename ]${NC}" && exit
+  node-selector hosts
+  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+    do
+      echo -e "${YELLOW}Send to ${install_list}${NC}"
+      scp -r ${2} ${install_list}: &> /dev/null
+      [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Sync successed" || echo -e "[${RED}○${NC}] Sync unsuccess"
+    done
+;;
+
+sync-kube-config) #scp file to every nodes.
   node-selector hosts
   for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
@@ -670,73 +681,116 @@ daemon-reload) #Reload system daemon.
 ;;
 
 cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
-  #Check papameter [ high | single ]
-  #POD_CIDR 172.16.0.0/17 [ 172.16.0.1 - 172.16.127.254 ]
-  #SVC_CIDR 172.16.128.0/17 [ 172.16.128.1 - 172.16.255.254 ]
-  #kdm cp-init high calico cidr
-  [ ${#} != 3 ] && echo -e "${RED}Please input parameter after ${YELLOW}\"cp-init\" \n > [ high or single | calico or flannel | optional: pod 0.0.0.0/0 | optional: svc 0.0.0.0/0 ]${NC}" && exit
-  test=$(echo ${@} | tr -s ' ' '\n' | grep -vE 'cp-init|high|single|calico|flannel|pod|svc' | tr -s '\n' ' ' | sed 's/.$//')
+  if [ "${#}" == "2" ]
+    then
+      test=$(echo ${@} | tr -s ' ' '\n' | grep -vE 'cp-init|high|single|calico|flannel|pod|svc' | tr -s '\n' ' ' | sed 's/.$//')
 
-  echo "${2}" | grep -E 'high|single' &> /dev/null
-  [ ${?} != 0 ] && echo -e "${YELLOW}\"${2}\"${RED} is not effective parameter! Please input parameter after ${YELLOW}\"cp-init\"\n > [ high or single ]${NC}" && exit
-  echo "${3}" | grep -E 'calico|flannel' &> /dev/null
-  [ ${?} != 0 ] && echo -e "${YELLOW}\"${3}\"${RED} is not effective parameter! Please input parameter after ${YELLOW}\"cp-init\"\n > [ calico or flannel ]${NC}" && exit
+      echo "${2}" | grep -E 'high|single' &> /dev/null
+      [ ${?} != 0 ] && echo -e "${YELLOW}\"${2}\"${RED} is not effective parameter! Please input parameter after ${YELLOW}\"cp-init\"\n > [ high or single ]${NC}" && exit
 
-  interrupt ${RED}Please confirm this command will initialize kubernetes via ${YELLOW}`hostname`.${NC}
+      interrupt ${RED}Please confirm this command will initialize kubernetes via ${YELLOW}`hostname`.${NC}
 
-  #KUBE_VIP setup
-  [ ${2} == "high" ] && ls /etc/kubernetes/manifests &> /dev/null 
-  [ ${?} != 0 ] && [ ${2} == "high" ] && sudo mkdir -p /etc/kubernetes/manifests
-  [ ${2} == "high" ] && curl https://raw.githubusercontent.com/kube-vip/kube-vip/main/docs/manifests/v0.4.1/kube-vip-arp.yaml &> /dev/null
-  [ ${2} == "high" ] && [ ${?} == 0 ] && wget -qO - https://raw.githubusercontent.com/kube-vip/kube-vip/main/docs/manifests/v0.4.1/kube-vip-arp.yaml | sed "s/:v[0-9].[0-9].[0-9]/:${KUBE_VIP_VER}/g" | sed "s|eth0|${KUBE_INTERFACE}|g" | sed "s|192.168.0.1|${KUBE_VIP}|g" | sed "s|imagePullPolicy\: Always|imagePullPolicy\: IfNotPresent|g" | sudo tee /etc/kubernetes/manifests/kube-vip-arp.yaml &> /dev/null
-  [ ${2} == "high" ] && ls ~/yaml/system &> /dev/null
-  [ ${?} != 0 ] && [ ${2} == "high" ] && mkdir -p ~/yaml/system
-  [ ${2} == "high" ] && sudo cp /etc/kubernetes/manifests/kube-vip-arp.yaml ~/yaml/system/
-  [ ${2} == "high" ] && sudo chown ${USER}:${USER} ~/yaml/system/kube-vip-arp.yaml
-  
-  KUBEADM_VER=$(kubeadm version -o yaml | grep "gitVersion:" | head -n 1 | awk '{ print $2 }' | sed 's|v||g')
-  [ "${KUBE_INIT_VER}" != "${KUBEADM_VER}" ] && KUBE_INIT_VER=$(kubeadm version -o yaml | grep "gitVersion:" | head -n 1 | awk '{ print $2 }' | sed 's|v||g')
+      #KUBE_VIP setup
+      [ ${2} == "high" ] && ls /etc/kubernetes/manifests &> /dev/null 
+      [ ${?} != 0 ] && [ ${2} == "high" ] && sudo mkdir -p /etc/kubernetes/manifests
+      [ ${2} == "high" ] && curl https://raw.githubusercontent.com/kube-vip/kube-vip/main/docs/manifests/v0.4.1/kube-vip-arp.yaml &> /dev/null
+      [ ${2} == "high" ] && [ ${?} == 0 ] && wget -qO - https://raw.githubusercontent.com/kube-vip/kube-vip/main/docs/manifests/v0.4.1/kube-vip-arp.yaml | sed "s/:v[0-9].[0-9].[0-9]/:${KUBE_VIP_VER}/g" | sed "s|eth0|${KUBE_INTERFACE}|g" | sed "s|192.168.0.1|${KUBE_VIP}|g" | sed "s|imagePullPolicy\: Always|imagePullPolicy\: IfNotPresent|g" | sudo tee /etc/kubernetes/manifests/kube-vip-arp.yaml &> /dev/null
+      [ ${2} == "high" ] && ls ~/yaml/system &> /dev/null
+      [ ${?} != 0 ] && [ ${2} == "high" ] && mkdir -p ~/yaml/system
+      [ ${2} == "high" ] && sudo cp /etc/kubernetes/manifests/kube-vip-arp.yaml ~/yaml/system/
+      [ ${2} == "high" ] && sudo chown ${USER}:${USER} ~/yaml/system/kube-vip-arp.yaml
+      
+      KUBEADM_VER=$(kubeadm version -o yaml | grep "gitVersion:" | head -n 1 | awk '{ print $2 }' | sed 's|v||g')
+      [ "${KUBE_INIT_VER}" != "${KUBEADM_VER}" ] && KUBE_INIT_VER=$(kubeadm version -o yaml | grep "gitVersion:" | head -n 1 | awk '{ print $2 }' | sed 's|v||g')
 
-  #Kubernetes setup
-  #calico service & pod network
-  [ "${3}" == "calico" ] && POD_CIDR=172.16.0.0/17
-  [ "${3}" == "calico" ] && SVC_CIDR=172.16.128.0/17
-  #[ "${3}" == "calico" ] && POD_CIDR=10.85.0.0/16
-  #[ "${3}" == "calico" ] && SVC_CIDR=10.96.0.0/12
-  [ ${2} == "high" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
-  [ ${2} == "single" ] && [ "${3}" == "calico" ] && sudo kubeadm init --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
-  [ ${?} != 0 ] && [ "${2}" == "calico" ] && interrupt ${RED}\nkubeadm init failure!${NC}
-  [ "${3}" == "calico" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
-  [ "${3}" == "calico" ] && ls ${HOME}/.kube/config &> /dev/null
-  #helm calico network
-  [ "${3}" == "calico" ] && helm repo add projectcalico https://projectcalico.docs.tigera.io/charts
-  [ "${3}" == "calico" ] && kubectl create namespace tigera-operator
-  [ "${3}" == "calico" ] && helm install calico projectcalico/tigera-operator --version ${CALICO_VER} --namespace tigera-operator
-  #[ ${?} != 0 ] && echo -e "kubeadm init failure.\n" && exit
+      #Kubernetes setup
+      #calico service & pod network
+      POD_CIDR=172.16.0.0/17 #Previous: 10.85.0.0/16
+      SVC_CIDR=172.16.128.0/17 #Previous: 10.96.0.0/12
+      [ ${2} == "high" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} --control-plane-endpoint=${KUBE_VIP}:6443 ${LOG_OUTPUT_LEVEL}
+      [ ${2} == "single" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
+      [ ${?} != 0 ] && [ "${2}" == "calico" ] && interrupt ${RED}\nkubeadm init failure!${NC}
 
-  #flannel service & pod network
-  [ "${3}" == "flannel" ] && POD_CIDR=172.16.0.0/17
-  [ "${3}" == "flannel" ] && SVC_CIDR=172.16.128.0/17
-  #[ "${3}" == "flannel" ] && POD_CIDR=10.244.0.0/16
-  #[ "${3}" == "flannel" ] && SVC_CIDR=10.98.0.0/24
-  [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
-  [ ${2} == "single" ] && [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
-  [ ${?} != 0 ] && [ "${2}" == "flannel" ] && interrupt ${RED}\nkubeadm init failure!${NC}
-  [ "${3}" == "flannel" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
-  [ "${3}" == "flannel" ] && ls ${HOME}/.kube/config &> /dev/null
-  [ "${3}" == "flannel" ] && kubectl apply -f https://raw.githubusercontent.com/Bookman117/kdm/master/yaml/kube-flannel.yaml
-  #[ ${?} != 0 ] && echo -e "kubeadm init failure.\n" && exit
+      #Copy kubeconfig
+      mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
 
-  #Change context name & username
-  sed -i "s/kubernetes-admin/${CLUSTER_USER}/g" ~/.kube/config
-  sed -i "s/kubernetes/${CLUSTER_NAME}/g" ~/.kube/config
+      #Change context name & username
+      sed -i "s/kubernetes-admin/${CLUSTER_USER}/g" ~/.kube/config
+      sed -i "s/kubernetes/${CLUSTER_NAME}/g" ~/.kube/config
 
-  #taint setup
-  #KUBE_CURRENT_VER=$(kubectl get nodes | grep "control-plane" | awk '{ print $5 }' | head -n 1)
-  #kubectl taint node `hostname` node-role.kubernetes.io/control-plane:NoSchedule-
-  #echo "${KUBE_CURRENT_VER}" | grep -E '1.25|1.26' &> /dev/null
-  #[ ${?} != 0 ] && kubectl taint node `hostname` node-role.kubernetes.io/master:NoSchedule-
-  echo && k9s -c pods -A
+      #taint setup
+      #KUBE_CURRENT_VER=$(kubectl get nodes | grep "control-plane" | awk '{ print $5 }' | head -n 1)
+      #kubectl taint node `hostname` node-role.kubernetes.io/control-plane:NoSchedule-
+      #echo "${KUBE_CURRENT_VER}" | grep -E '1.25|1.26' &> /dev/null
+      #[ ${?} != 0 ] && kubectl taint node `hostname` node-role.kubernetes.io/master:NoSchedule-
+      echo && k9s -c pods -A
+    else
+      #POD_CIDR 172.16.0.0/17 [ 172.16.0.1 - 172.16.127.254 ]
+      #SVC_CIDR 172.16.128.0/17 [ 172.16.128.1 - 172.16.255.254 ]
+      #kdm cp-init high calico cidr
+      [ ${#} != 3 ] && echo -e "${RED}Please input parameter after ${YELLOW}\"cp-init\" \n > [ high or single | calico or flannel | optional: pod 0.0.0.0/0 | optional: svc 0.0.0.0/0 ]${NC}" && exit
+      test=$(echo ${@} | tr -s ' ' '\n' | grep -vE 'cp-init|high|single|calico|flannel|pod|svc' | tr -s '\n' ' ' | sed 's/.$//')
+
+      echo "${2}" | grep -E 'high|single' &> /dev/null
+      [ ${?} != 0 ] && echo -e "${YELLOW}\"${2}\"${RED} is not effective parameter! Please input parameter after ${YELLOW}\"cp-init\"\n > [ high or single ]${NC}" && exit
+      echo "${3}" | grep -E 'calico|flannel' &> /dev/null
+      [ ${?} != 0 ] && echo -e "${YELLOW}\"${3}\"${RED} is not effective parameter! Please input parameter after ${YELLOW}\"cp-init\"\n > [ calico or flannel ]${NC}" && exit
+
+      interrupt ${RED}Please confirm this command will initialize kubernetes via ${YELLOW}`hostname`.${NC}
+
+      #KUBE_VIP setup
+      [ ${2} == "high" ] && ls /etc/kubernetes/manifests &> /dev/null 
+      [ ${?} != 0 ] && [ ${2} == "high" ] && sudo mkdir -p /etc/kubernetes/manifests
+      [ ${2} == "high" ] && curl https://raw.githubusercontent.com/kube-vip/kube-vip/main/docs/manifests/v0.4.1/kube-vip-arp.yaml &> /dev/null
+      [ ${2} == "high" ] && [ ${?} == 0 ] && wget -qO - https://raw.githubusercontent.com/kube-vip/kube-vip/main/docs/manifests/v0.4.1/kube-vip-arp.yaml | sed "s/:v[0-9].[0-9].[0-9]/:${KUBE_VIP_VER}/g" | sed "s|eth0|${KUBE_INTERFACE}|g" | sed "s|192.168.0.1|${KUBE_VIP}|g" | sed "s|imagePullPolicy\: Always|imagePullPolicy\: IfNotPresent|g" | sudo tee /etc/kubernetes/manifests/kube-vip-arp.yaml &> /dev/null
+      [ ${2} == "high" ] && ls ~/yaml/system &> /dev/null
+      [ ${?} != 0 ] && [ ${2} == "high" ] && mkdir -p ~/yaml/system
+      [ ${2} == "high" ] && sudo cp /etc/kubernetes/manifests/kube-vip-arp.yaml ~/yaml/system/
+      [ ${2} == "high" ] && sudo chown ${USER}:${USER} ~/yaml/system/kube-vip-arp.yaml
+      
+      KUBEADM_VER=$(kubeadm version -o yaml | grep "gitVersion:" | head -n 1 | awk '{ print $2 }' | sed 's|v||g')
+      [ "${KUBE_INIT_VER}" != "${KUBEADM_VER}" ] && KUBE_INIT_VER=$(kubeadm version -o yaml | grep "gitVersion:" | head -n 1 | awk '{ print $2 }' | sed 's|v||g')
+
+      #Kubernetes setup
+      #calico service & pod network
+      [ "${3}" == "calico" ] && POD_CIDR=172.16.0.0/17 #Previous: 10.85.0.0/16
+      [ "${3}" == "calico" ] && SVC_CIDR=172.16.128.0/17 #Previous: 10.96.0.0/12
+      [ ${2} == "high" ] && [ "${3}" == "calico" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
+      [ ${2} == "single" ] && [ "${3}" == "calico" ] && sudo kubeadm init --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
+      [ ${?} != 0 ] && [ "${2}" == "calico" ] && interrupt ${RED}\nkubeadm init failure!${NC}
+      #[ "${3}" == "calico" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
+      [ "${3}" == "calico" ] && ls ${HOME}/.kube/config &> /dev/null
+      #helm calico network
+      [ "${3}" == "calico" ] && helm repo add projectcalico https://projectcalico.docs.tigera.io/charts
+      [ "${3}" == "calico" ] && kubectl create namespace tigera-operator
+      [ "${3}" == "calico" ] && helm install calico projectcalico/tigera-operator --version ${CALICO_VER} --namespace tigera-operator
+      #[ ${?} != 0 ] && echo -e "kubeadm init failure.\n" && exit
+
+      #flannel service & pod network
+      [ "${3}" == "flannel" ] && POD_CIDR=172.16.0.0/17 #Previous: 10.244.0.0/16
+      [ "${3}" == "flannel" ] && SVC_CIDR=172.16.128.0/17 #Previous: 10.98.0.0/24
+      [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --control-plane-endpoint=${KUBE_VIP}:6443 --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
+      [ ${2} == "single" ] && [ "${3}" == "flannel" ] && sudo kubeadm init --image-repository=${KUBE_REGISTRY} --pod-network-cidr=${POD_CIDR} --service-cidr=${SVC_CIDR} --service-dns-domain=${CORE_DNS_DOMAIN} --cri-socket=${CNI_SOCK} --upload-certs --kubernetes-version=${KUBE_INIT_VER} ${LOG_OUTPUT_LEVEL}
+      [ ${?} != 0 ] && [ "${2}" == "flannel" ] && interrupt ${RED}\nkubeadm init failure!${NC}
+      #[ "${3}" == "flannel" ] && mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
+      [ "${3}" == "flannel" ] && ls ${HOME}/.kube/config &> /dev/null
+      [ "${3}" == "flannel" ] && kubectl apply -f https://raw.githubusercontent.com/Bookman117/kdm/master/yaml/kube-flannel.yaml
+      #[ ${?} != 0 ] && echo -e "kubeadm init failure.\n" && exit
+
+      #Copy kubeconfig
+      mkdir -p ${HOME}/.kube && sudo cp -i /etc/kubernetes/admin.conf ${HOME}/.kube/config && sudo chown $(id -u):$(id -g) ${HOME}/.kube/config
+
+      #Change context name & username
+      sed -i "s/kubernetes-admin/${CLUSTER_USER}/g" ~/.kube/config
+      sed -i "s/kubernetes/${CLUSTER_NAME}/g" ~/.kube/config
+
+      #taint setup
+      #KUBE_CURRENT_VER=$(kubectl get nodes | grep "control-plane" | awk '{ print $5 }' | head -n 1)
+      #kubectl taint node `hostname` node-role.kubernetes.io/control-plane:NoSchedule-
+      #echo "${KUBE_CURRENT_VER}" | grep -E '1.25|1.26' &> /dev/null
+      #[ ${?} != 0 ] && kubectl taint node `hostname` node-role.kubernetes.io/master:NoSchedule-
+      echo && k9s -c pods -A
+  fi
 ;;
 
 cp-join) #Let control-plane nodes join cluster. [ hosts | node ]
@@ -760,7 +814,7 @@ cp-join) #Let control-plane nodes join cluster. [ hosts | node ]
   ls ~/yaml &> /dev/null
   [ ${?} != 0 ] && mkdir -p ~/yaml/system && cp /etc/kubernetes/manifests/kube-vip-arp.yaml ~/yaml/system
 
-  certs=$(sudo kubeadm init phase upload-certs --upload-certs | tail -n 1)
+  CERTS=$(sudo kubeadm init phase upload-certs --upload-certs | tail -n 1)
   JOIN=$(echo "sudo `kubeadm token create --print-join-command 2>/dev/null`")
   for clist in ${cp_nodes_selector}
     do
@@ -768,7 +822,7 @@ cp-join) #Let control-plane nodes join cluster. [ hosts | node ]
       ssh ${clist} "ls ~/yaml/system &> /dev/null"
       [ ${?} != 0 ] && ssh ${clist} "mkdir -p ~/yaml/system"
       scp ~/yaml/system/kube-vip-arp.yaml ${clist}:yaml/system/
-      ssh ${clist} "${JOIN} --control-plane --certificate-key ${certs} ${LOG_OUTPUT_LEVEL}"
+      ssh ${clist} "${JOIN} --control-plane --certificate-key ${CERTS} ${LOG_OUTPUT_LEVEL}"
       [ ${?} != 0 ] && interrupt ${RED}\nkubeadm join failure!${NC}
       echo -en "${GREEN}"
 
@@ -843,7 +897,7 @@ cni-rm) #Delete kubernetes CNI. [ calico or flannel ]
         #helm calico network
         helm delete calico -n tigera-operator
         kubectl delete namespace tigera-operator
-        helm repo remove projectcalico
+        #helm repo remove projectcalico
     elif [ ${2} == "flannel" ]
       then
         #flannel network
@@ -1139,7 +1193,7 @@ metrics-deploy) #Deploy metrics-server.
 
 metrics-rm) #Delete metrics-server.
   helm delete metrics-server -n kube-system
-  helm repo remove metrics-server
+  #helm repo remove metrics-server
 ;;
 
 prometheus-deploy) #Deploy prometheus.
@@ -1161,7 +1215,7 @@ prometheus-deploy) #Deploy prometheus.
 
 prometheus-rm) #Delete prometheus.
   helm delete kube-prometheus-stack -n monitoring
-  helm repo remove prometheus-community
+  #helm repo remove prometheus-community
   helm repo update:
 ;;
 
@@ -1330,7 +1384,7 @@ mariadb-galera-rm) #Remove mariadb-galera
       done
   helm delete mariadb-galera -n mariadb-galera
   [ ${?} == 0 ] && kubectl delete ns ${MARIADB_GALERA_NS}
-  helm repo remove bitnami
+  #helm repo remove bitnami
 ;;
 
 harbor-deploy) #Deploy harbor
@@ -1807,11 +1861,11 @@ cluster-rm) #Remove kubernetes cluster.
 
   #Metrics
   [ "${metrics_detection}" == "1" ] && [ "${status}" == "1" ] && helm delete metrics-server -n kube-system
-  [ "${metrics_detection}" == "1" ] && [ "${status}" == "1" ] && helm repo remove metrics-server
+  [ "${metrics_detection}" == "1" ] && [ "${status}" == "1" ] && #helm repo remove metrics-server
   
   #Prometheus
   [ "${prometheus_detection}" == "1" ] && [ "${status}" == "1" ] && helm delete kube-prometheus-stack -n monitoring
-  [ "${prometheus_detection}" == "1" ] && [ "${status}" == "1" ] && helm repo remove prometheus-community
+  [ "${prometheus_detection}" == "1" ] && [ "${status}" == "1" ] && #helm repo remove prometheus-community
 
   #Delete Kibana & Ingress rule
   [ "${elastic_detection}" == "1" ] && [ "${status}" == "1" ] && curl -s https://raw.githubusercontent.com/Bookman117/Kubernetes-yaml/main/ECK/kibana-ingress.yaml | kubectl delete -f -
@@ -1828,7 +1882,7 @@ cluster-rm) #Remove kubernetes cluster.
   #calico
   [ "${calico_detection}" == "1" ] && [ "${status}" == "1" ] && helm delete calico -n tigera-operator
   [ "${calico_detection}" == "1" ] && [ "${status}" == "1" ] && kubectl delete namespace tigera-operator
-  [ "${calico_detection}" == "1" ] && [ "${status}" == "1" ] && helm repo remove projectcalico
+  [ "${calico_detection}" == "1" ] && [ "${status}" == "1" ] && #helm repo remove projectcalico
 
   #delete all namespace
   [ "${status}" == "1" ] && kubectl delete all --all --all-namespaces 2> /dev/null
