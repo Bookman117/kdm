@@ -68,6 +68,10 @@ function set-environment-variable()
   ECK_MASTER_NODE_COUNT=1
   ECK_DATA_NODES_COUNT=3
   
+  #Kubernetes tools
+  K9S_RELEASE='v0.30'
+  K9S_VERSION=$(curl -s https://github.com/derailed/k9s/releases.atom | grep "/releases/tag/${K9S_RELEASE}" | cut -d '"' -f 6 | head -n 1 | cut -d '/' -f 8)
+
   #Docker
   HARBOR_VER=v2.8.0
   DOCKER_COMPOSE_VER=2.17.3
@@ -1063,7 +1067,7 @@ function package-install-k9s()
 {
   #install k9s
   ssh ${install_list} "ls -al ~/bin/k9s" &> /dev/null
-  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| k9s installed" && daemon-enable ${install_list} || curl --max-time 5 -fsSLq https://webinstall.dev/api/installers/k9s@stable.sh &> /dev/null && ssh ${install_list} "curl -sS https://webinstall.dev/k9s | bash" &> /dev/null
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| k9s installed" && daemon-enable ${install_list} || curl --max-time 5 -fsSLq https://webinstall.dev/api/installers/k9s@stable.sh &> /dev/null && ssh ${install_list} "  " &> /dev/null
   #k9s path setup
   ssh ${install_list} "mv ~/.local/bin/k9s ~/bin/" &> /dev/null
   ssh ${install_list} "cat /etc/environment | grep "/home/${USER}/bin" &> /dev/null" &> /dev/null

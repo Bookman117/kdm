@@ -633,7 +633,7 @@ k9s-install) #Install k9s on every control-plane.
     do
       #install k9s
       ssh ${clist} "ls -al ~/bin/k9s" &> /dev/null
-      [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] ${clist} k9s already installed." && continue || ssh ${clist} "curl -sS https://webinstall.dev/k9s | timeout 20 bash" &> /dev/null
+      [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] ${clist} k9s already installed." && continue || ssh ${clist} "curl -sS https://webinstall.dev/k9s@${K9S_VERSION} | timeout 20 bash" &> /dev/null
       #k9s path setup
       ssh ${clist} "mv ~/.local/bin/k9s ~/bin/" &> /dev/null
       ssh ${clist} "cat /etc/environment | grep "/home/${USER}/bin" &> /dev/null" &> /dev/null
