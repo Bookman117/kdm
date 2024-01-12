@@ -233,7 +233,7 @@ function start-info()
   node-selector hosts
   # Kubernetes basic info
   which kubectl &> /dev/null
-  [ ${?} == 0 ] && KUBE_AGE=$(kubectl get nodes 2> /dev/null | grep `hostname` | awk '{ print $4 }') || echo "Checking node status..."
+  [ ${?} == 0 ] && KUBE_AGE=$(kubectl get nodes 2> /dev/null | grep -i `hostname | tr '[A-Z]' '[a-z]'` | awk '{ print $4 }') || echo "Checking node status..."
   for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
     do
       nc -z -w 1 ${install_list} 10250 > /dev/null 2>&1
@@ -246,7 +246,7 @@ function start-info()
   [ ${?} != 0 ] && meassage="\t| ${RED}This node not activate.${NC}" && cluster_ver="--" && KUBE_AGE="--"
   if [ "${status}" == "1" ]
     then
-      echo -e "${GREEN}●${NC} Kubernetes deployed\t| ${cluster_ver} | `hostname` node age: ${GREEN}${KUBE_AGE}${NC}"
+      echo -e "${GREEN}●${NC} Kubernetes deployed\t| ${cluster_ver} | `hostname | tr '[A-Z]' '[a-z]'` node age: ${GREEN}${KUBE_AGE}${NC}"
       #show nodes info
       echo -e "  ├─ Active nodes${meassage}"
       echo ${cluster_list} | grep "${CP_SUFFIX}" &> /dev/null
@@ -276,7 +276,7 @@ function start-info()
       [ ${?} == 0 ] && echo -e "  └─ Monitoring\t\t| ${GREEN}deployed: prometheus${NC}" || echo -e "  └─ Monitoring\t\t| ${YELLOW}Not deploy: prometheus${NC}"
       #echo -e "${YELLOW}\nInput parameter \"help\" display more information.${NC}"
     else
-      echo "${CP_NODES}" | grep "`hostname`" &> /dev/null
+      echo "${CP_NODES}" | grep -i "`hostname`" &> /dev/null
       [ $? != 0 ] && CP_NODES="--" && WK_NODES="--"
       echo -e "${YELLOW}●${NC} Kubernetes not detected"
       echo -e "  └─ Nodes plan list"
