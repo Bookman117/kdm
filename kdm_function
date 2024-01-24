@@ -58,7 +58,7 @@ function set-environment-variable()
   
   #Kubernetes service
   METALLB_RELEASE=v0.13
-  METALLB_VER=$(curl -s https://github.com/metallb/metallb/releases.atom | grep "/releases/tag/${METALLB_RELEASE}" | cut -d '"' -f 6 | head -n 1 | cut -d '/' -f 8)
+  METALLB_VER=$(curl -m 2 -s https://github.com/metallb/metallb/releases.atom | grep "/releases/tag/${METALLB_RELEASE}" | cut -d '"' -f 6 | head -n 1 | cut -d '/' -f 8)
   METALLB_POOL_NAME=metal-1
   INGRESS_NGINX_VER=1.9.4 #Previous: 1.9.1
   INGRESS_NGINX_HELM_VER=4.8.3 #Previous: 4.8.1
@@ -69,8 +69,8 @@ function set-environment-variable()
   ECK_DATA_NODES_COUNT=3
   
   #Kubernetes tools
-  K9S_RELEASE='v0.30'
-  K9S_VERSION=$(curl -s https://github.com/derailed/k9s/releases.atom | grep "/releases/tag/${K9S_RELEASE}" | cut -d '"' -f 6 | head -n 1 | cut -d '/' -f 8)
+  K9S_RELEASE='v0.31'
+  K9S_VERSION=$(curl -m 2 -s https://github.com/derailed/k9s/releases.atom | grep "/releases/tag/${K9S_RELEASE}" | cut -d '"' -f 6 | head -n 1 | cut -d '/' -f 8)
 
   #Docker
   HARBOR_VER=v2.8.0
