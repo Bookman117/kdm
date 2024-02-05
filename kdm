@@ -1216,7 +1216,7 @@ prometheus-deploy) #Deploy prometheus.
 prometheus-rm) #Delete prometheus.
   helm delete kube-prometheus-stack -n monitoring
   #helm repo remove prometheus-community
-  helm repo update:
+  helm repo update
 ;;
 
 eck-deploy) #Deploy ECK
