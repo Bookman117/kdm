@@ -10,7 +10,7 @@ ls ~/kdm/kdm_function &> /dev/null
 
 #Environments pre-setting
 host-os-detection
-setup-network-package
+setup-basic-package
 check-kdm-path
 
 #Variables>>>
@@ -629,26 +629,27 @@ docker-compose-install) #Install docker-compose.
 ;;
 
 k9s-install) #Install k9s on every control-plane.
-  for clist in ${CP_NODES}
+  for install_list in ${CP_NODES}
     do
       #install k9s
-      ssh ${clist} "ls -al ~/bin/k9s" &> /dev/null
-      [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] ${clist} k9s already installed." && continue || ssh ${clist} "curl -sS https://webinstall.dev/k9s@${K9S_VERSION} | timeout 20 bash" &> /dev/null
+      ssh ${install_list} "ls -al ~/bin/k9s" &> /dev/null
+      [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] ${install_list} k9s already installed." && continue || ssh ${install_list} "curl -sS https://webinstall.dev/k9s@${K9S_VERSION} | timeout 20 bash" &> /dev/null
       #k9s path setup
-      ssh ${clist} "mv ~/.local/bin/k9s ~/bin/" &> /dev/null
-      ssh ${clist} "cat /etc/environment | grep "/home/${USER}/bin" &> /dev/null" &> /dev/null
-      [ ${?} != 0 ] && ssh ${clist} "cat /etc/environment | tr -s ':' '\n' | sed 's/\/snap\/bin\"/\/snap\/bin\n\/home\/${USER}\/bin\"/g' | tr -s '\n' ':' | sed '$ s/.$//' | sudo tee /etc/environment &> /dev/null" &> /dev/null
-      ssh ${clist} "cat /etc/profile | grep 'export KUBE_EDITOR=nano' &> /dev/null" &> /dev/null
-      [ ${?} != 0 ] && ssh ${clist} "echo "export KUBE_EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
-      ssh ${clist} "cat /etc/profile | grep 'export K9S_EDITOR=nano' &> /dev/null" &> /dev/null
-      [ ${?} != 0 ] && ssh ${clist} "echo "export K9S_EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
-      ssh ${clist} "rm -r ~/Downloads/" &> /dev/null
-      ssh ${clist} "ls -al ~/bin/k9s" &> /dev/null
-      [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] ${clist} k9s installed"
+      ssh ${install_list} "mv ~/.local/bin/k9s ~/bin/" &> /dev/null
+      ssh ${install_list} "cat /etc/environment | grep "/home/${USER}/bin" &> /dev/null" &> /dev/null
+      [ ${?} != 0 ] && ssh ${install_list} "cat /etc/environment | tr -s ':' '\n' | sed 's/\/snap\/bin\"/\/snap\/bin\n\/home\/${USER}\/bin\"/g' | tr -s '\n' ':' | sed '$ s/.$//' | sudo tee /etc/environment &> /dev/null" &> /dev/null
+      ssh ${install_list} "cat /etc/profile | grep 'export KUBE_EDITOR=nano' &> /dev/null" &> /dev/null
+      [ ${?} != 0 ] && ssh ${install_list} "echo "export KUBE_EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
+      ssh ${install_list} "cat /etc/profile | grep 'export K9S_EDITOR=nano' &> /dev/null" &> /dev/null
+      [ ${?} != 0 ] && ssh ${install_list} "echo "export K9S_EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
+      ssh ${install_list} "rm -r ~/Downloads/" &> /dev/null
+      ssh ${install_list} "ls -al ~/bin/k9s" &> /dev/null
+      [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] ${install_list} k9s installed"
     done
 ;;
 
 k9s-rm) #Remove k9s on every control-plane.
+  set-environment-variable
   for clist in ${CP_NODES}
     do
       #delete k9s
@@ -678,6 +679,18 @@ daemon-reload) #Reload system daemon.
     do
       daemon-reload ${restart_list}
     done
+;;
+
+vip-deploy) #Deploy kube-vip for single control plane node cluster
+  #KUBE_VIP setup
+  ls /etc/kubernetes/manifests &> /dev/null 
+  [ ${?} != 0 ] && sudo mkdir -p /etc/kubernetes/manifests
+  curl https://raw.githubusercontent.com/kube-vip/kube-vip/main/example/deploy/0.3.5.yaml &> /dev/null
+  [ ${?} == 0 ] && wget -qO - https://raw.githubusercontent.com/kube-vip/kube-vip/main/example/deploy/0.3.5.yaml | sed "s/:v[0-9].[0-9].[0-9]/:${KUBE_VIP_VER}/g" | sed "s|eth0|${KUBE_INTERFACE}|g" | sed "s|192.168.0.1|${KUBE_VIP}|g" | sed "s|imagePullPolicy\: Always|imagePullPolicy\: IfNotPresent|g" | sudo tee /etc/kubernetes/manifests/kube-vip-arp.yaml &> /dev/null
+  ls ~/yaml/system &> /dev/null
+  [ ${?} != 0 ] && mkdir -p ~/yaml/system
+  sudo cp /etc/kubernetes/manifests/kube-vip-arp.yaml ~/yaml/system/
+  sudo chown ${USER}:${USER} ~/yaml/system/kube-vip-arp.yaml
 ;;
 
 cp-init) #Init first control-plane node & deploy CNI. [ calico or flannel ]
@@ -812,7 +825,7 @@ cp-join) #Let control-plane nodes join cluster. [ hosts | node ]
   [ "${cp_nodes_selector}" == "none " ] && echo -e "${RED}Command canceled${NC}" && exit
 
   ls ~/yaml &> /dev/null
-  [ ${?} != 0 ] && mkdir -p ~/yaml/system && cp /etc/kubernetes/manifests/kube-vip-arp.yaml ~/yaml/system
+  [ ${?} != 0 ] && mkdir -p ~/yaml/system && sudo cp /etc/kubernetes/manifests/kube-vip-arp.yaml ~/yaml/system
 
   CERTS=$(sudo kubeadm init phase upload-certs --upload-certs | tail -n 1)
   JOIN=$(echo "sudo `kubeadm token create --print-join-command 2>/dev/null`")
@@ -2251,7 +2264,8 @@ help) #Show script parameters information.
   echo
 
   #Kubernetes functions
-  list=" > nodes:| > node-| > pods:| > images:| > image-| > helm-| > cluster-| > cri-| > help:"
+  list="*-deploy|*-rm"
+  #list=" > nodes:| > node-| > pods:| > images:| > image-| > helm-| > cluster-| > cri-| > help:"
   number=$(cat ~/${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)/:/g' | sed 's/^/ > /' | sed 's/#//g' | grep -E "${list}" | wc -l)
   echo -e "Kubernetes-functions | ${YELLOW}$((${number}+2))${NC}"
   service_list=$(cat ~/${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)//g' | grep '\-deploy' | grep -vE 'cni|csi' | sed 's/-deploy//g' | tr -s '#' '\n' | grep -v '^D' | sed ":a;N;s/\n/| /g;ta")

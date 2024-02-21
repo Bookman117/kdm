@@ -7,7 +7,7 @@ function set-environment-variable()
   WK_SUFFIX="\-w"
   source ~/bin/kdm_function &> /dev/null
   export KUBE_EDITOR=nano
-  LOG_OUTPUT_LEVEL="" #--v=5
+  LOG_OUTPUT_LEVEL="--v=5" #--v=5
   
   #Package list
   PACKAGE_LIST="cri-o kubelet kubeadm kubectl helm podman"
@@ -39,7 +39,8 @@ function set-environment-variable()
   INGRESSCLASS_NAME="ingress-1"
   
   #Kubernetes CNI
-  KUBE_VIP_VER=v0.6.4 #Previous: v0.6.3
+  #KUBE_VIP_VER=v0.6.4 #Previous: v0.6.3
+  KUBE_VIP_VER=$(curl -sL https://api.github.com/repos/kube-vip/kube-vip/releases | jq -r ".[0].name")
   CALICO_VER=v3.26.3 #Previous: v3.26.3
   FLANNEL_VER=v0.23.0 #Previous: v0.22.3
   CORE_DNS_DOMAIN=cluster.local #Previous: vattensoft.lab.com
@@ -158,9 +159,9 @@ function check-kdm-path()
   [ ${?} != 0 ] && mkdir ~/yaml
 }
 
-function setup-network-package()
+function setup-basic-package()
 {
-  # Setup basic network package
+  # Setup basic package
   host-os-detection
   install=1
   [ "${OS_VER}" == "CentOS_8_Stream" ] && which wget &> /dev/null && install=0
@@ -168,7 +169,7 @@ function setup-network-package()
   [ "${OS_VER}" == "CentOS_8_Stream" ] && [ "${install}" == "1" ] && sudo dnf update -y && sudo dnf install -y --allowerasing dnf-command\(versionlock\) jq net-tools dnsutils nc wget && clear
   [ "${OS_VER}" == "xUbuntu_22.04" ] && install=2
   [ "${OS_VER}" == "xUbuntu_22.04" ] && which route &> /dev/null && install=0
-  [ "${install}" == "2" ] && sudo apt update -qy && sudo apt install -qy net-tools iputils-ping dnsutils netcat && clear
+  [ "${install}" == "2" ] && sudo apt update -qy && sudo apt install -qy net-tools iputils-ping dnsutils netcat jq && clear
   #[ "${OS_VER}" == "macOS" ] &&
   host-os-detection  
 }
@@ -1067,19 +1068,18 @@ function package-install-k9s()
 {
   #install k9s
   ssh ${install_list} "ls -al ~/bin/k9s" &> /dev/null
-  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| k9s installed" && daemon-enable ${install_list} || curl --max-time 5 -fsSLq https://webinstall.dev/api/installers/k9s@stable.sh &> /dev/null && ssh ${install_list} "  " &> /dev/null
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] ${install_list} k9s already installed." && continue || ssh ${install_list} "curl -sS https://webinstall.dev/k9s@${K9S_VERSION} | timeout 20 bash" &> /dev/null
   #k9s path setup
   ssh ${install_list} "mv ~/.local/bin/k9s ~/bin/" &> /dev/null
   ssh ${install_list} "cat /etc/environment | grep "/home/${USER}/bin" &> /dev/null" &> /dev/null
   [ ${?} != 0 ] && ssh ${install_list} "cat /etc/environment | tr -s ':' '\n' | sed 's/\/snap\/bin\"/\/snap\/bin\n\/home\/${USER}\/bin\"/g' | tr -s '\n' ':' | sed '$ s/.$//' | sudo tee /etc/environment &> /dev/null" &> /dev/null
-  ssh ${install_list} "cat /etc/profile | grep 'export EDITOR=nano' &> /dev/null" &> /dev/null
-  [ ${?} != 0 ] && ssh ${install_list} "echo "export EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
+  ssh ${install_list} "cat /etc/profile | grep 'export KUBE_EDITOR=nano' &> /dev/null" &> /dev/null
+  [ ${?} != 0 ] && ssh ${install_list} "echo "export KUBE_EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
   ssh ${install_list} "cat /etc/profile | grep 'export K9S_EDITOR=nano' &> /dev/null" &> /dev/null
   [ ${?} != 0 ] && ssh ${install_list} "echo "export K9S_EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
   ssh ${install_list} "rm -r ~/Downloads/" &> /dev/null
-
   ssh ${install_list} "ls -al ~/bin/k9s" &> /dev/null
-  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| k9s installed" || echo -e " [${RED}●${NC}] k9s\t| not install"
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] ${install_list} k9s installed"
 }
 
 function package-install-helm()
