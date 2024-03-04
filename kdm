@@ -46,7 +46,7 @@ sys-conf) #Configure file & directory.
   [ "${#}" == "2" ] && [ "${2}" == "hosts" ] && status=1 || status=0
   [ "${status}" == "1" ] && node-selector hosts && status=1
   
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${install_list} system configure${NC}"
       [ "${status}" == "1" ] && ssh ${install_list} 'kdm sys-conf'
@@ -104,7 +104,7 @@ sys-check) #Check node basic status.
 
 sys-date) #Check system time-zone.
   node-selector ${@}
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -en "${YELLOW}${install_list} system time: ${NC}"
       ssh ${install_list} 'date +"%Y-%m-%d %Z %H:%M:%S"'
@@ -373,7 +373,7 @@ set-selinux) #Setting SELinux mod [ set | apply ]
   elif [ "${2}" == "apply" ]
     then
       node-selector hosts
-      for install_list in ${wk_nodes_selector} ${cp_nodes_selector}
+      for install_list in ${WK_NODE_SELECTOR} ${CP_NODE_SELECTOR}
         do
           echo "${OS_VER}" | grep -E "RHEL_8|CentOS_8_Stream" &> /dev/null
           [ ${?} == 0 ] && status=1 || status=0
@@ -391,7 +391,7 @@ set-selinux) #Setting SELinux mod [ set | apply ]
 sync-ssh) #scp .ssh to every nodes.
   rm ~/.ssh/known_hosts
   node-selector hosts
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}Send to ${install_list}${NC}"
       scp -r .ssh ${install_list}: &> /dev/null
@@ -401,7 +401,7 @@ sync-ssh) #scp .ssh to every nodes.
 
 sync-kdm) #scp kdm to every nodes.
   node-selector hosts
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo "${install_list}" | grep "`hostname`" &> /dev/null && continue
       ssh ${install_list} "ls ~/bin &> /dev/null"
@@ -416,7 +416,7 @@ sync-kdm) #scp kdm to every nodes.
 
 sync-yaml) #scp yaml to every nodes.
   node-selector hosts
-  for install_list in ${cp_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR}
     do
       echo -e "${YELLOW}Send to ${install_list}${NC}"
       scp -r yaml ${install_list}: &> /dev/null
@@ -427,7 +427,7 @@ sync-yaml) #scp yaml to every nodes.
 sync-file) #scp .ssh to every nodes.
   [ -z ${2} ] && echo -e "${RED}Please input parameter. [ filename ]${NC}" && exit
   node-selector hosts
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}Send to ${install_list}${NC}"
       scp -r ${2} ${install_list}: &> /dev/null
@@ -437,7 +437,7 @@ sync-file) #scp .ssh to every nodes.
 
 sync-kube-config) #scp file to every nodes.
   node-selector hosts
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}Send to ${install_list}${NC}"
       scp -r .kube ${install_list}: &> /dev/null
@@ -448,7 +448,7 @@ sync-kube-config) #scp file to every nodes.
 pkg-ver) #Check package repositories.
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${install_list} | package repositories check${NC}"
       [ "${OS_VER}" == "RHEL_8" ] && echo -e "${YELLOW}Package enabled repositories:${NC}"
@@ -473,12 +473,12 @@ pkg-repo) #Setup package repositories. [ add | rm ]
 
   node-selector ${@}
 
-  interrupt ${RED}Modify packages repository on nodes: ${YELLOW}${cp_nodes_selector} ${wk_nodes_selector}${NC}
+  interrupt ${RED}Modify packages repository on nodes: ${YELLOW}${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}${NC}
 
   if [ "${2}" == "add" ]
     then
       echo -e "${YELLOW}Prepare to add package repositories.${NC}"
-      for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+      for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
         do
           echo -e "${YELLOW}${install_list} | repositories procedure${NC}"
           package-repository-add-deb && echo
@@ -486,7 +486,7 @@ pkg-repo) #Setup package repositories. [ add | rm ]
     elif [ "${2}" == "rm" ]
       then
         echo -e "${YELLOW}Prepare to remove package repositories.${NC}"
-        for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+        for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
           do
             [ "${OS_VER}" == "RHEL_8" ] && ssh ${install_list} "ls /etc/yum.repos.d/devel:kubic* > /dev/null 2>&1" && ssh ${install_list} "sudo rm /etc/yum.repos.d/devel:kubic*"
             [ "${OS_VER}" == "RHEL_8" ] && ssh ${install_list} "sudo rm /etc/yum.repos.d/kubernetes* > /dev/null 2>&1"
@@ -510,8 +510,8 @@ pkg-install) #Install basic package & setup environment.
 
   check_list=${@}
   node-selector ${@}
-  interrupt ${RED}Install packages on nodes: ${YELLOW}${cp_nodes_selector} ${wk_nodes_selector}${NC} && clear
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  interrupt ${RED}Install packages on nodes: ${YELLOW}${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}${NC} && clear
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       ssh ${install_list} 'hostname' &> /dev/null 2>&1
       #ssh ${install_list} "sudo apt-mark unhold ${HOLD_LIST}" &> /dev/null 2>&1
@@ -572,10 +572,10 @@ pkg-rm) #Remove basic package & setup environment.
 
   node-selector ${@}
 
-  interrupt ${RED}Please confirm this command will destruction node:${YELLOW} ${cp_nodes_selector} ${wk_nodes_selector}!${NC}
+  interrupt ${RED}Please confirm this command will destruction node:${YELLOW} ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}!${NC}
 
   echo -n "Processing"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
-  for remove_list in ${cp_nodes_selector}
+  for remove_list in ${CP_NODE_SELECTOR}
     do
       echo -e "\n${YELLOW}${remove_list} | package removing${NC}"
       package-remove-skopeo
@@ -587,7 +587,7 @@ pkg-rm) #Remove basic package & setup environment.
       package-remove-daemon-reload
     done
 
-  for remove_list in ${wk_nodes_selector}
+  for remove_list in ${WK_NODE_SELECTOR}
     do
       echo -e "\n${YELLOW}${remove_list} | package removing${NC}"
       package-remove-podman
@@ -604,7 +604,7 @@ pkg-check) #Check node package status.
 
 pkg-fix) #Fix Ubuntu pkg.
   node-selector ${@}
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} sudo mv /var/lib/dpkg/info/ /var/lib/dpkg/info_old/
       [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} sudo mkdir /var/lib/dpkg/info/
@@ -617,6 +617,23 @@ pkg-fix) #Fix Ubuntu pkg.
       [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} sudo mv /var/lib/dpkg/info_old/ /var/lib/dpkg/info/
       [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} sudo apt update
       [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh ${install_list} sudo apt upgrade
+    done
+;;
+
+
+podman-install)
+  node-selector ${@}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
+    do
+      package-install-podman
+    done
+;;
+
+podman-rm)
+  node-selector ${@}
+  for remove_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
+    do
+      package-remove-podman
     done
 ;;
 
@@ -663,9 +680,9 @@ daemon-enable) #
 
   check_list=${@}
   node-selector ${@}
-  interrupt ${RED}Install packages on nodes: ${YELLOW}${cp_nodes_selector} ${wk_nodes_selector}${NC} && clear
+  interrupt ${RED}Install packages on nodes: ${YELLOW}${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}${NC} && clear
 
-  for install_list in ${wk_nodes_selector} ${cp_nodes_selector}
+  for install_list in ${WK_NODE_SELECTOR} ${CP_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${install_list} | daemon status${NC}"
       daemon-enable ${install_list}
@@ -675,7 +692,7 @@ daemon-enable) #
 
 daemon-reload) #Reload system daemon.
   node-selector ${@}
-  for restart_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for restart_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       daemon-reload ${restart_list}
     done
@@ -814,22 +831,22 @@ cp-join) #Let control-plane nodes join cluster. [ hosts | node ]
   if [ "${2}" == "hosts" ]
     then
       cluster_list=$(kubectl get nodes | tail -n +2 | awk '{ print $1 }' | tr -s '\n' '|' | sed '$ s/.$//')
-      cp_nodes_selector=$(echo -e "`cat /etc/hosts | grep -vE '#|ip6|${CORE_DNS_DOMAIN}' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list}| tr -s ' ' '\n' | grep "${CP_SUFFIX}" | tr -s '\n' ' '`\n")
-      echo ${cp_nodes_selector} | grep -n '^$' &> /dev/null && cp_nodes_selector="none "
+      CP_NODE_SELECTOR=$(echo -e "`cat /etc/hosts | grep -vE '#|ip6|${CORE_DNS_DOMAIN}' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list}| tr -s ' ' '\n' | grep "${CP_SUFFIX}" | tr -s '\n' ' '`\n")
+      echo ${CP_NODE_SELECTOR} | grep -n '^$' &> /dev/null && CP_NODE_SELECTOR="none "
     else
       shift
       list="${@}"
-      cp_nodes_selector=$(echo "${list}" | tr -s ' ' '\n' | grep "${CP_SUFFIX}" | tr -s '\n' ' ')
+      CP_NODE_SELECTOR=$(echo "${list}" | tr -s ' ' '\n' | grep "${CP_SUFFIX}" | tr -s '\n' ' ')
   fi
-  interrupt ${RED}Please confirm this command will let ${YELLOW}${cp_nodes_selector}${RED}join cluster!${NC}
-  [ "${cp_nodes_selector}" == "none " ] && echo -e "${RED}Command canceled${NC}" && exit
+  interrupt ${RED}Please confirm this command will let ${YELLOW}${CP_NODE_SELECTOR}${RED}join cluster!${NC}
+  [ "${CP_NODE_SELECTOR}" == "none " ] && echo -e "${RED}Command canceled${NC}" && exit
 
   ls ~/yaml &> /dev/null
   [ ${?} != 0 ] && mkdir -p ~/yaml/system && sudo cp /etc/kubernetes/manifests/kube-vip-arp.yaml ~/yaml/system
 
   CERTS=$(sudo kubeadm init phase upload-certs --upload-certs | tail -n 1)
   JOIN=$(echo "sudo `kubeadm token create --print-join-command 2>/dev/null`")
-  for clist in ${cp_nodes_selector}
+  for clist in ${CP_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${clist} | join procedure${NC}"
       ssh ${clist} "ls ~/yaml/system &> /dev/null"
@@ -859,19 +876,19 @@ wk-join) #Let worker nodes join cluster. [ hosts | node ]
   if [ "${2}" == "hosts" ]
     then
       cluster_list=$(kubectl get nodes | tail -n +2 | awk '{ print $1 }' | tr -s '\n' '|' | sed '$ s/.$//')
-      wk_nodes_selector=$(echo -e "`cat /etc/hosts | grep -vE '#|ip6|${CORE_DNS_DOMAIN}' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list}| tr -s ' ' '\n' | grep "${WK_SUFFIX}" | tr -s '\n' ' '`\n")
-      echo ${wk_nodes_selector} | grep -n '^$' &> /dev/null && wk_nodes_selector="none "
+      WK_NODE_SELECTOR=$(echo -e "`cat /etc/hosts | grep -vE '#|ip6|${CORE_DNS_DOMAIN}' | grep "${NETID}" | awk '{ print $2 }' | grep -vE ${cluster_list}| tr -s ' ' '\n' | grep "${WK_SUFFIX}" | tr -s '\n' ' '`\n")
+      echo ${WK_NODE_SELECTOR} | grep -n '^$' &> /dev/null && WK_NODE_SELECTOR="none "
     else
       shift
       list="${@}"
-      wk_nodes_selector=$(echo "${list}" | tr -s ' ' '\n' | grep "${WK_SUFFIX}" | tr -s '\n' ' ')
+      WK_NODE_SELECTOR=$(echo "${list}" | tr -s ' ' '\n' | grep "${WK_SUFFIX}" | tr -s '\n' ' ')
   fi
 
-  interrupt ${RED}Please confirm this command will let ${YELLOW}${wk_nodes_selector}${RED}join cluster!${NC}
-  [ "${wk_nodes_selector}" == "none " ] && echo -e "${RED}Command canceled${NC}" && exit
+  interrupt ${RED}Please confirm this command will let ${YELLOW}${WK_NODE_SELECTOR}${RED}join cluster!${NC}
+  [ "${WK_NODE_SELECTOR}" == "none " ] && echo -e "${RED}Command canceled${NC}" && exit
 
   JOIN=$(echo "sudo `kubeadm token create --print-join-command 2>/dev/null`")
-  for wlist in ${wk_nodes_selector}
+  for wlist in ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${wlist} | join procedure${NC}"
       ssh ${wlist} "${JOIN} ${LOG_OUTPUT_LEVEL}"
@@ -1101,7 +1118,7 @@ csi-rook) #Check rook status or DataDir. [ status | dashboard-pw | data-check | 
       node-selector ${@}
       echo -e "${YELLOW}Check worker disk resource for rook-ceph${NC}"
 
-      for wlist in ${wk_nodes_selector}
+      for wlist in ${WK_NODE_SELECTOR}
         do
           disk_list=$(ssh ${wlist} sudo fdisk -l | grep '^Disk' | grep 'sd' | awk '{ print $2 }' | sed 's/://g;s/\/dev\///g' | tr -s '\n' ' ' | sed 's/.$//' | sed 's/sd/\/dev\/sd/g')
           for ceph_list in ${disk_list}
@@ -1235,7 +1252,7 @@ prometheus-rm) #Delete prometheus.
 eck-deploy) #Deploy ECK
   node-selector hosts
   #Setup vm memory limit
-  for setup_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for setup_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${setup_list} | ECK setup procedure${NC}"
       ssh ${setup_list} "cat /etc/sysctl.conf | grep 'vm.max_map_count=262144'" &> /dev/null
@@ -1287,7 +1304,7 @@ eck-rm) #Remove ECK
   kubectl delete -f https://download.elastic.co/downloads/eck/${ECK_OP_VER}/crds.yaml
     
   #Remove vm memory limit
-  for setup_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for setup_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${setup_list} | ECK remove procedure${NC}"
       ssh ${setup_list} "sudo sed -i '/vm.max_map_count=262144/d' /etc/sysctl.conf" &> /dev/null && echo "Setting remove compelet."
@@ -1526,7 +1543,7 @@ landlord-rm) #Delete landlorsd on kubernetes.
 images) #Check cluster images.
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -en "${YELLOW}${install_list} | images list${NC} | quantity: "
       ssh ${install_list} sudo podman images | grep -v 'REPOSITORY' | wc -l
@@ -1552,10 +1569,10 @@ image-send) #save >> scp >> load target image to every worker node [ <image-name
 image-rm) #Remove dangling images on cluster.
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
-  interrupt ${RED}Please confirm this command will delete unuse images on node:${YELLOW} ${cp_nodes_selector} ${wk_nodes_selector}${RED}!${NC}
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  interrupt ${RED}Please confirm this command will delete unuse images on node:${YELLOW} ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}${RED}!${NC}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
-      ssh ${install_list} 'sudo podman image prune -f'
+      ssh ${install_list} 'podman image prune -f'
       ssh ${install_list} 'sudo podman rmi -a &> /dev/null'
       echo -en "${YELLOW}${install_list} | in-use images list${NC} | quantity: "
       ssh ${install_list} sudo podman images | grep -v 'REPOSITORY' | wc -l
@@ -1599,13 +1616,13 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
   #Exclude non-join nodes
   exclude-non-join
 
-  interrupt ${RED}Please confirm this command will upgrade nodes to ${KUBE_INIT_VER}: ${YELLOW}${cp_nodes_selector} ${wk_nodes_selector}!${NC}
+  interrupt ${RED}Please confirm this command will upgrade nodes to ${KUBE_INIT_VER}: ${YELLOW}${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}!${NC}
 
   first_control_plane=`hostname`
-  other_control_plane=$(echo "${cp_nodes_selector} ${wk_nodes_selector}" | tr -s ' ' '\n' | sed "/`hostname`/d" | grep '${CP_SUFFIX}' | tr -s '\n' ' ')
+  other_control_plane=$(echo "${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}" | tr -s ' ' '\n' | sed "/`hostname`/d" | grep '${CP_SUFFIX}' | tr -s '\n' ' ')
   CURRENT_VER=$(kubectl get nodes | grep `hostname` | awk '{ print $ 5}')
 
-  for checklist in ${first_control_plane} ${other_control_plane} ${wk_nodes_selector}
+  for checklist in ${first_control_plane} ${other_control_plane} ${WK_NODE_SELECTOR}
     do
       CHECK_VER=$(kubectl get nodes | grep ${checklist} | awk '{ print $ 5}')
       echo "${CHECK_VER}" | grep ${KUBE_INIT_VER} &> /dev/null
@@ -1615,8 +1632,8 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
     done
   [ "${status}" == "0" ] && echo && exit
 
-  #[ -z ${2} ] && kdm pkg-repo add hosts || kdm pkg-repo add ${cp_nodes_selector} ${wk_nodes_selector}
-  kdm pkg-repo add ${cp_nodes_selector} ${wk_nodes_selector}
+  #[ -z ${2} ] && kdm pkg-repo add hosts || kdm pkg-repo add ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
+  kdm pkg-repo add ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
   host-os-detection
 
   interrupt ${RED}start upgrade procedure?${NC}
@@ -1626,7 +1643,7 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
       if [ "${KUBE_INIT_VER}" == "${CURRENT_VER}" ]
         then
           echo -e "${YELLOW}Cluster upgrade procedure${NC}"
-          echo ${cp_nodes_selector} ${wk_nodes_selector} | grep `hostname` &> /dev/null
+          echo ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR} | grep `hostname` &> /dev/null
           [ ${?} == 0 ] && echo -e "${YELLOW} - ${first_control_plane} version is already been ${RED}${KUBE_INIT_VER}${NC}"
           continue
       fi
@@ -1748,7 +1765,7 @@ cluster-upgrade) #Upgrade cluster [ upgrade kubeadm、kubectl、kubelet、crio ]
       kubectl uncordon ${OCP}
     done
 
-  for wlist in ${wk_nodes_selector}
+  for wlist in ${WK_NODE_SELECTOR}
     do
       WORKER_VER=$(kubectl get nodes | grep "${wlist}" | awk '{ print $ 5}')
       if [ "${KUBE_INIT_VER}" == "${WORKER_VER}" ]
@@ -1917,9 +1934,9 @@ cluster-rm) #Remove kubernetes cluster.
 
 cri-upgrade) #Update crio package.
   node-selector ${@}
-  interrupt ${RED}Please confirm this command will let${YELLOW} ${cp_nodes_selector} ${wk_nodes_selector} ${RED}cri-o upgrade!${NC}
+  interrupt ${RED}Please confirm this command will let${YELLOW} ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR} ${RED}cri-o upgrade!${NC}
 
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       kubectl drain ${install_list} --ignore-daemonsets 2> /dev/null
       #install & setup cri-o
@@ -1955,7 +1972,7 @@ cri-upgrade) #Update crio package.
 cri-check) #Check CRI running pods.
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${install_list} | check list${NC}"
       ssh ${install_list} "sudo crictl ps -a"
@@ -1965,8 +1982,8 @@ cri-check) #Check CRI running pods.
 cri-rm) #Remove CRI running pods.
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
-  interrupt ${RED}Please confirm this command will delete all container via crio on node:${YELLOW} ${cp_nodes_selector} ${wk_nodes_selector}${NC}
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  interrupt ${RED}Please confirm this command will delete all container via crio on node:${YELLOW} ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}${NC}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo "${install_list} | check list"
       cri_list=$(ssh ${install_list} sudo crictl ps -a | tail -n +2 | awk '{ print $9 }' | tr -s '\n' ' ')
@@ -1982,7 +1999,7 @@ cri-rm) #Remove CRI running pods.
 
 node-info) #Show host basic information.
   node-selector hosts
-  for cwlist in ${cp_nodes_selector} ${wk_nodes_selector}
+  for cwlist in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
         echo "Node name: ${cwlist}"
         #cpu information
@@ -2010,11 +2027,11 @@ node-check) #Check nodes port | hostname. [ hosts | hosts name | hosts port | NE
 node-reset) #Reset hosts | specify nodes. [ node-reset node ]
   [ -z ${2} ] && node-message ${@} && exit
   node-selector ${@}
-  interrupt ${RED}Please confirm this command will destruction node:${YELLOW} ${cp_nodes_selector} ${wk_nodes_selector}${RED}!${NC}
+  interrupt ${RED}Please confirm this command will destruction node:${YELLOW} ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}${RED}!${NC}
 
   echo -n "Processing"; echo -n "."; sleep 0.5; echo -n "."; sleep 0.5; echo "."; sleep 0.5
 
-  for clist in ${cp_nodes_selector}
+  for clist in ${CP_NODE_SELECTOR}
     do
       status=0
       etcd_pod=$(kubectl get pods -n kube-system 2> /dev/null | grep 'etcd' | awk '{ print $1 }' | head -n 1)
@@ -2032,7 +2049,7 @@ node-reset) #Reset hosts | specify nodes. [ node-reset node ]
       ssh ${clist} "sudo systemctl enable --now kubelet"
     done
 
-  for wlist in ${wk_nodes_selector}
+  for wlist in ${WK_NODE_SELECTOR}
     do
       status=0
       echo -e "${YELLOW}${wlist} | delete process${NC}"
@@ -2104,7 +2121,7 @@ parm-check) #List all script parameter.
   shift
   node-selector ${@}
   shift
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${install_list} | Result${NC}"
       ssh -o ConnectTimeout=1 -o BatchMode=yes ${install_list} 'hostname' &> /dev/null
@@ -2178,8 +2195,8 @@ pkg-hold-check)
   [ -z ${2} ] && node-message ${@} && exit
   check_list=${@}
   node-selector ${@}
-  interrupt ${RED}Check packages on nodes: ${YELLOW}${cp_nodes_selector} ${wk_nodes_selector}${NC} #&& clear
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  interrupt ${RED}Check packages on nodes: ${YELLOW}${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}${NC} #&& clear
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${install_list}${NC}"
       package-hold-check ${install_list}
@@ -2190,8 +2207,8 @@ pkg-hold)
   [ -z ${2} ] && node-message ${@} && exit
   check_list=${@}
   node-selector ${@}
-  interrupt ${RED}Check packages on nodes: ${YELLOW}${cp_nodes_selector} ${wk_nodes_selector}${NC} #&& clear
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  interrupt ${RED}Check packages on nodes: ${YELLOW}${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}${NC} #&& clear
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${install_list}${NC}"
       package-hold ${install_list}

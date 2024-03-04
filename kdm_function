@@ -235,7 +235,7 @@ function start-info()
   # Kubernetes basic info
   which kubectl &> /dev/null
   [ ${?} == 0 ] && KUBE_AGE=$(kubectl get nodes 2> /dev/null | grep -i `hostname | tr '[A-Z]' '[a-z]'` | awk '{ print $4 }') || echo "Checking node status..."
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       nc -z -w 1 ${install_list} 10250 > /dev/null 2>&1
       [ ${?} == 0 ] && status=1 || status=0
@@ -366,7 +366,7 @@ function system-check()
   #[ -z ${2} ] && node-selector hosts
   node-selector ${@}
 
-  for install_list in ${cp_nodes_selector} ${wk_nodes_selector}
+  for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${install_list} | System status${NC}"
       nc -z -w 1 ${install_list} 22 > /dev/null 2>&1
@@ -652,18 +652,18 @@ function node-selector()
   if [ "${status}" == "0" ]
     then
       list=$(echo "${CP_NODES} ${WK_NODES}")
-      cp_nodes_selector=$(echo "${list}" | tr -s ' ' '\n' | grep -i "${CP_SUFFIX}" | tr -s '\n' ' ')
-      wk_nodes_selector=$(echo "${list}" | tr -s ' ' '\n' | grep -i "${WK_SUFFIX}" | tr -s '\n' ' ')
+      CP_NODE_SELECTOR=$(echo "${list}" | tr -s ' ' '\n' | grep -i "${CP_SUFFIX}" | tr -s '\n' ' ')
+      WK_NODE_SELECTOR=$(echo "${list}" | tr -s ' ' '\n' | grep -i "${WK_SUFFIX}" | tr -s '\n' ' ')
   elif [ "${status}" == "1" ]
     then
       list=$(hostname)
-      cp_nodes_selector=$(echo "${list}" | tr -s ' ' '\n' | grep -i "${CP_SUFFIX}" | tr -s '\n' ' ')
-      wk_nodes_selector=$(echo "${list}" | tr -s ' ' '\n' | grep -i "${WK_SUFFIX}" | tr -s '\n' ' ')
+      CP_NODE_SELECTOR=$(echo "${list}" | tr -s ' ' '\n' | grep -i "${CP_SUFFIX}" | tr -s '\n' ' ')
+      WK_NODE_SELECTOR=$(echo "${list}" | tr -s ' ' '\n' | grep -i "${WK_SUFFIX}" | tr -s '\n' ' ')
   elif [ "${status}" == "2" ]
     then
       list=${@}
-      cp_nodes_selector=$(echo "${list}" | tr -s ' ' '\n' | grep -i "${CP_SUFFIX}" | tr -s '\n' ' ')
-      wk_nodes_selector=$(echo "${list}" | tr -s ' ' '\n' | grep -i "${WK_SUFFIX}" | tr -s '\n' ' ')
+      CP_NODE_SELECTOR=$(echo "${list}" | tr -s ' ' '\n' | grep -i "${CP_SUFFIX}" | tr -s '\n' ' ')
+      WK_NODE_SELECTOR=$(echo "${list}" | tr -s ' ' '\n' | grep -i "${WK_SUFFIX}" | tr -s '\n' ' ')
   elif [ "${status}" == "3" ]
     then
       parameter=$(echo ${parameter} | sed 's/ /\n/g' | grep -v ${test} | sed ":a;N;s/\\n/ /g;ta")
@@ -676,11 +676,11 @@ function node-selector()
   elif [ "${status}" == "4" ]
     then
       list=$(echo "${CP_NODES} ${WK_NODES}")
-      cp_nodes_selector=$(echo "${list}" | tr -s ' ' '\n' | grep "${CP_SUFFIX}" | tr -s '\n' ' ')
+      CP_NODE_SELECTOR=$(echo "${list}" | tr -s ' ' '\n' | grep "${CP_SUFFIX}" | tr -s '\n' ' ')
   elif [ "${status}" == "5" ]
     then
       list=$(echo "${CP_NODES} ${WK_NODES}")
-      wk_nodes_selector=$(echo "${list}" | tr -s ' ' '\n' | grep "${WK_SUFFIX}" | tr -s '\n' ' ')
+      WK_NODE_SELECTOR=$(echo "${list}" | tr -s ' ' '\n' | grep "${WK_SUFFIX}" | tr -s '\n' ' ')
   fi
 }
 
@@ -718,8 +718,8 @@ function exclude-non-join()
   [ "${status}" == "0" ] && echo -e " [${YELLOW}●${NC}] This node not activate.\n" && exit
   [ "${status}" == "1" ] && cp_nodes_exclude=$(kubectl get nodes | tail -n +2 | awk '{ print $1 }' | grep "${CP_SUFFIX}" | tr -s '\n' '|' | sed '$ s/.$//')
   [ "${status}" == "1" ] && wk_nodes_exclude=$(kubectl get nodes | tail -n +2 | awk '{ print $1 }' | grep "${WK_SUFFIX}" | tr -s '\n' '|' | sed '$ s/.$//')
-  [ "${status}" == "1" ] && cp_nodes_selector=$(echo ${cp_nodes_selector} | tr -s ' ' '\n' | grep -E ${cp_nodes_exclude} | tr -s '\n' ' ')
-  [ "${status}" == "1" ] && wk_nodes_selector=$(echo ${wk_nodes_selector} | tr -s ' ' '\n' | grep -E ${wk_nodes_exclude} | tr -s '\n' ' ')
+  [ "${status}" == "1" ] && CP_NODE_SELECTOR=$(echo ${CP_NODE_SELECTOR} | tr -s ' ' '\n' | grep -E ${cp_nodes_exclude} | tr -s '\n' ' ')
+  [ "${status}" == "1" ] && WK_NODE_SELECTOR=$(echo ${WK_NODE_SELECTOR} | tr -s ' ' '\n' | grep -E ${wk_nodes_exclude} | tr -s '\n' ' ')
 }
 
 function node-power()
@@ -732,10 +732,10 @@ function node-power()
   parameter=$(echo "${@}" | sed 's/ /\n/g' | grep -vwE "reboot|off" | sed ":a;N;s/\\n/ /g;ta")
   node-selector ${parameter}
 
-  cp_nodes_selector=$(echo ${cp_nodes_selector} | tr -s ' ' '\n' | tac | tr -s '\n' ' ')
-  interrupt ${RED}Continue to ${power} nodes:${YELLOW} ${wk_nodes_selector} ${cp_nodes_selector}${NC}
+  CP_NODE_SELECTOR=$(echo ${CP_NODE_SELECTOR} | tr -s ' ' '\n' | tac | tr -s '\n' ' ')
+  interrupt ${RED}Continue to ${power} nodes:${YELLOW} ${WK_NODE_SELECTOR} ${CP_NODE_SELECTOR}${NC}
   echo -e "${YELLOW}nodes ${power} procedure${NC}"
-  for list in ${wk_nodes_selector} ${cp_nodes_selector}
+  for list in ${WK_NODE_SELECTOR} ${CP_NODE_SELECTOR}
     do
       echo -e " [${GREEN}●${NC}] ${list} ${power} execute${NC}"
       sleep 3
@@ -871,7 +871,7 @@ function package-check()
   #kubectl
   kubectl_versio="kubectl version -o yaml 2>&1 | grep -A 9 'clientVersion:' | grep 'gitVersion' | sed 's/v//g'"
 
-  for clist in ${cp_nodes_selector}
+  for clist in ${CP_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${clist} | Package status${NC}"
       ssh ${clist} 'hostname' &> /dev/null 2>&1
@@ -904,7 +904,7 @@ function package-check()
       [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] helm\t| not install" || echo -e " [${GREEN}●${NC}] helm\t| `ssh ${clist} helm version | awk '{ print $1 }' | cut -d '"' -f 2 | sed 's/v//g'`"
       #podman
       ssh ${clist} "which podman" &> /dev/null
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] podman\t| not install" || echo -e " [${GREEN}●${NC}] podman\t| `ssh ${clist} sudo podman version 2> /dev/null | grep '^Version' | awk '{ print $2 }'`"
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] podman\t| not install" || echo -e " [${GREEN}●${NC}] podman\t| `ssh ${clist} podman version 2> /dev/null | grep '^Version' | awk '{ print $2 }'`"
       #skopeo
       ssh ${clist} "which skopeo" &> /dev/null
       [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] skopeo\t| not install" || echo -e " [${GREEN}●${NC}] skopeo\t| `ssh ${clist} sudo skopeo --version 2> /dev/null | awk '{ print $3 }'`"
@@ -913,7 +913,7 @@ function package-check()
       [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] k9s\t| not install" || echo -e " [${GREEN}●${NC}] k9s\t| `ssh ${clist} k9s version -s | grep Version | awk '{ print $2 }' | sed 's/v//g'`"
     done
 
-  for wlist in ${wk_nodes_selector}
+  for wlist in ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${wlist} | Package status${NC}"
       ssh ${wlist} 'hostname' &> /dev/null 2>&1
@@ -938,7 +938,7 @@ function package-check()
       [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] kubeadm\t| not install" || echo -e " [${GREEN}●${NC}] kubeadm\t| `ssh ${wlist} ${kubeadm_version} 2>&1 | awk '{ print $2 }' `"
       #podman
       ssh ${wlist} "which podman" &> /dev/null
-      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] podman\t| not install" || echo -e " [${GREEN}●${NC}] podman\t| `ssh ${wlist} sudo podman version 2> /dev/null | grep '^Version' | awk '{ print $2 }'`"
+      [ ${?} != 0 ] && echo -e " [${YELLOW}●${NC}] podman\t| not install" || echo -e " [${GREEN}●${NC}] podman\t| `ssh ${wlist} podman version 2> /dev/null | grep '^Version' | awk '{ print $2 }'`"
     done
 }
 
@@ -1449,7 +1449,7 @@ function daemon-reload()
 
 function helm-repo-add()
 {
-  for clist in ${cp_nodes_selector}
+  for clist in ${CP_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${clist} helm repositories${NC}"
       ssh ${clist} "helm repo add projectcalico https://projectcalico.docs.tigera.io/charts &> /dev/null" && echo -e "${YELLOW} > helm repository \"projectcalico\" added${NC}" || echo -e "${RED} > helm repository \"projectcalico\" not add${NC}"
@@ -1466,7 +1466,7 @@ function helm-repo-check()
 {
   node-selector local
   helm_repo_list=$(helm repo ls | tail -n +2 | awk '{ print $1 }' | tr -s '\n' ' ' | sed 's/.$//')
-  for clist in ${cp_nodes_selector}
+  for clist in ${CP_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${clist} helm repository list${NC}"
       for list in ${helm_repo_list}
@@ -1481,7 +1481,7 @@ function helm-repo-check()
 
 function helm-repo-update()
 {
-  for clist in ${cp_nodes_selector}
+  for clist in ${CP_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${clist} helm repositories update${NC}"
       ssh ${clist} "helm repo update &> /dev/null" && echo -e "${YELLOW}${install_list} > helm repositories updated${NC}"
@@ -1490,7 +1490,7 @@ function helm-repo-update()
 
 function dir-delete-list()
 {
-  [ "${wclist}" == "" ] && wclist="${wk_nodes_selector} ${cp_nodes_selector}"
+  [ "${wclist}" == "" ] && wclist="${WK_NODE_SELECTOR} ${CP_NODE_SELECTOR}"
 
   ssh ${wclist} "ls ~/.kube" &> /dev/null
   [ ${?} == 0 ] && ssh ${wclist} "sudo rm -r ~/.kube" || echo -e " [${GREEN}●${NC}] Target has been removed: ~/.kube"
@@ -1611,10 +1611,10 @@ function node-check()
 function rook-wipe-data()
 {
   node-selector ${@}
-  interrupt ${RED}Please confirm this command will override disk on ${YELLOW} ${cp_nodes_selector} ${wk_nodes_selector}${NC}
+  interrupt ${RED}Please confirm this command will override disk on ${YELLOW} ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}${NC}
   echo -e "${YELLOW}Rook data wipe procedure${NC}"
   
-  for wlist in ${wk_nodes_selector}
+  for wlist in ${WK_NODE_SELECTOR}
     do
       disk_list=$(ssh ${wlist} sudo fdisk -l | grep '^Disk' | grep 'sd' | awk '{ print $2 }' | sed 's/://g;s/\/dev\///g' | tr -s '\n' ' ' | sed 's/.$//' | sed 's/sd/\/dev\/sd/g')
       for ceph_list in ${disk_list}
@@ -1640,7 +1640,7 @@ function rook-wipe-data()
       [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Data directory has been cleanup" || echo -e " [${RED}●${NC}] Data directory not found"
     done
 
-  for clist in ${cp_nodes_selector};
+  for clist in ${CP_NODE_SELECTOR};
     do
       echo -e "${YELLOW}${clist} data wipe procedure${NC}"
       ssh ${clist} sudo rm -r /var/lib/rook/ &> /dev/null
