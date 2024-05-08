@@ -70,7 +70,7 @@ function set-environment-variable()
   ECK_DATA_NODES_COUNT=3
   
   #Kubernetes tools
-  K9S_RELEASE='v0.31'
+  K9S_RELEASE='v0.32'
   K9S_VERSION=$(curl -m 2 -s https://github.com/derailed/k9s/releases.atom | grep "/releases/tag/${K9S_RELEASE}" | cut -d '"' -f 6 | head -n 1 | cut -d '/' -f 8)
 
   #Docker

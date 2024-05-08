@@ -2111,9 +2111,9 @@ parm-check) #List all script parameter.
   cat ${path} | grep "[a-z])" | sed '/\$/d;/echo/d' | sed 's/)/:/g' | sed 's/^/ > /' | sed 's/#//g'
 ;;
 
-\-) #Check kubernetes objects.
+\-) #Check kubernetes objects via k9s.
   shift
-  nc -z -w 1 ${IP} 10250 > /dev/null 2>&1
+  nc -z -w 1 ${IP} 6443 > /dev/null 2>&1
   [ ${?} == 0 ] && k9s -c ${@} 2> /dev/null || echo -e " [${YELLOW}●${NC}] This node not install k9s." || echo -e " [${YELLOW}●${NC}] This node not activate."
 ;;
 
