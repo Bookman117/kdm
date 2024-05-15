@@ -2020,7 +2020,7 @@ node-check) #Check nodes port | hostname. [ hosts | hosts name | hosts port | NE
   while [ 1 ]
     do
       clear
-      node-check ${@} && sleep 3
+      node-check ${@} && interrupt ${YELLOW}Need to check again?${NC}
     done
 ;;
 
