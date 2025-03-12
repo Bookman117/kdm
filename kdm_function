@@ -85,7 +85,7 @@ function set-version-variable()
   PROMETHEUSE_VER=52.1.0 #Previous: 47.0.0
 
   #Kubernetes tools
-  K9S_RELEASE='v0.32'
+  K9S_RELEASE='v0.40'
   K9S_VERSION=$(curl -m 2 -s https://github.com/derailed/k9s/releases.atom | grep "/releases/tag/${K9S_RELEASE}" | cut -d '"' -f 6 | head -n 1 | cut -d '/' -f 8)
 }
 
