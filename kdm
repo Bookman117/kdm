@@ -4,9 +4,9 @@
 
 #Source function & variable
 ls ~/bin/kdm_function &> /dev/null
-[ ${?} == 0 ] && source ~/bin/kdm_function &> /dev/null
+[ ${?} -eq 0 ] && source ~/bin/kdm_function &> /dev/null
 ls ~/kdm/kdm_function &> /dev/null
-[ ${?} == 0 ] && source ~/kdm/kdm_function &> /dev/null
+[ ${?} -eq 0 ] && source ~/kdm/kdm_function &> /dev/null
 
 # === Environments pre-setting ===
 host-os-detection
@@ -14,14 +14,14 @@ setup-basic-package
 #check-kdm-path
 
 # Variables >>>
+# === Text color ===
+set-text-color-variable
 # === Environment variable ===
 set-environment-variable
 # === Network variable ===
 set-network-variable
 # === Kubernetes node variable ===
 kubernetes-node-variable
-# === Text color ===
-set-text-color-variable
 # === Kubernetes projects namespace variable ===
 kubernetes-namespace-variable
 # <<<
@@ -39,18 +39,18 @@ sys-var) #Check script variables.
 
 sys-conf) #Configure file & directory.
   #Set localhost hostname in hosts
-  cat /etc/hosts | grep '127.0.0.1' | grep ${HOSTNAME} &> /dev/null
+  grep -q '127.0.0.1' /etc/hosts | grep -q ${HOSTNAME}
   [ ${?} != 0 ] &&  sudo sed -i "s|127.0.0.1   |127.0.0.1   ${HOSTNAME} |g" /etc/hosts
   echo -en " [${GREEN}●${NC}] /etc/hosts: "
-  cat /etc/hosts | grep '127.0.0.1' | grep ${HOSTNAME}
+  grep -q '127.0.0.1.*${HOSTNAME}' /etc/hosts
 
-  [ "${#}" == "2" ] && [ "${2}" == "hosts" ] && status=1 || status=0
-  [ "${status}" == "1" ] && node-selector hosts && status=1
+  [ "${#}" -eq 2 ] && [ "${2}" -eq "hosts" ] && status=1 || status=0
+  [ "${status}" -eq 1 ] && node-selector hosts && status=1
   
   for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       echo -e "${YELLOW}${install_list} system configure${NC}"
-      [ "${status}" == "1" ] && ssh -p ${SSH_PORT} ${install_list} 'kdm sys-conf'
+      [ "${status}" -eq "1" ] && ssh -p ${SSH_PORT} ${install_list} 'kdm sys-conf'
     done
   
   [ "${status}" == "1" ] && exit
@@ -523,10 +523,14 @@ pkg-install) #Install basic package & setup environment.
   node-selector ${@}
   interrupt ${RED}Install packages on nodes: ${YELLOW}${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}${NC} && clear
 
+  # Check variable setting
+  #[ -z "${CP_NODES}" ] && echo "CP_NODES 變數為空" || echo "CP_NODES 變數不為空"
+  #[ -z "${WK_NODES}" ] && echo "WK_NODES 變數為空" || echo "WK_NODES 變數不為空"
+
   for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
+      ssh -p ${SSH_PORT} ${install_list} "sudo apt-mark unhold ${HOLD_LIST}" &> /dev/null 2>&1
       ssh -p ${SSH_PORT} ${install_list} 'hostname' &> /dev/null 2>&1
-      #ssh -p ${SSH_PORT} ${install_list} "sudo apt-mark unhold ${HOLD_LIST}" &> /dev/null 2>&1
       [ ${?} != 0 ] && echo -e " [${RED}●${NC}] This node not available\n" && continue
       echo -e "${YELLOW}${install_list} | package install procedure${NC}"
       host-os-detection
@@ -537,7 +541,7 @@ pkg-install) #Install basic package & setup environment.
       system-enable-ipv4-forward
       system-disable-ipv6
 
-      #Add crio、kubernetes package repositories
+      # Add crio、kubernetes package repositories
       [ "${OS_VER}" == "xUbuntu_22.04" ] && package-repository-add-deb-old
       package-install-crio
       package-configure-crio
@@ -545,7 +549,7 @@ pkg-install) #Install basic package & setup environment.
       ssh -p ${SSH_PORT} ${install_list} 'which crio' &> /dev/null 2>&1
       [ ${?} == 0 ] && image-repository-setting
 
-      #Kubernetes package setup
+      # Kubernetes package setup
       #[ "${OS_VER}" == "xUbuntu_22.04" ] && ssh -p ${SSH_PORT} ${install_list} "sudo apt install -qy apt-transport-https --yes" &> /dev/null
 
       cri_current_ver=$(crio version 2>&1 | grep "^Version" | awk '{ print $2 }')

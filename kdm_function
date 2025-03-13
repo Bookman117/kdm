@@ -121,12 +121,16 @@ function set-network-variable()
   [ ${?} == 0 ] && NETWORK_UUID=$(cat /etc/sysconfig/network-scripts/ifcfg-${KUBE_INTERFACE} | grep 'UUID' | cut -d '=' -f 2)
 }
 
+# Function to set variables for Kubernetes nodes and services
 function kubernetes-node-variable()
 {
-  #node & service
+  #Kubernetes control-plane nodes
   CP_NODES=$(cat /etc/hosts | grep -vE '#|ip6' | grep "${NETID}" | awk '{ print $2 }' | grep -i "${CP_SUFFIX}" | tr -s '\n' ' ')
+  #Kubernetes worker nodes
   WK_NODES=$(cat /etc/hosts | grep -vE '#|ip6' | grep "${NETID}" | awk '{ print $2 }' | grep -i "${WK_SUFFIX}" | tr -s '\n' ' ')
+  #Kubernetes all nodes
   ALL_NODES=$(cat /etc/hosts | grep -vE '#|ip6' | grep "${NETID}" | awk '{ print $2 }' | grep -iE "${CP_SUFFIX}|${WK_SUFFIX}" | tr -s '\n' ' ')
+  #Kubernetes all nodes without localhost
   ALL_NODES_EX_LOCALHOST=$(cat /etc/hosts | grep -vE '#|ip6' | grep "${NETID}" | awk '{ print $2 }' | grep -iE "${CP_SUFFIX}|${WK_SUFFIX}" | grep -v `hostname` | tr -s '\n' ' ')
 }
 
@@ -139,7 +143,7 @@ function kubernetes-namespace-variable()
   INGRESS_NGINX_NS="ingress-nginx"
   JENKINS_NS="jenkins"
   QUAY_NS="quay"
-  GRAFANA_NS="grafana" #gf
+  GRAFANA_NS="grafana"
   LANDLORD_NS="landlord"
   ROOK_CEPH_NS="rook-ceph"
   MARIADB_GALERA_NS="mariadb-galera"
@@ -320,7 +324,7 @@ function crio-available-version-check()
 
 function show-version-control()
 {
-  source ~/bin/kdm &> /dev/null && set-environment-variable; set-version-variable
+  source ~/bin/kdm &> /dev/null && set-environment-variable; set-version-variable; kubernetes-node-variable
   CRIO_AVL_VER=`cat /tmp/CRIO_AVL_VER 2> /dev/null | sed /\n/d`
   echo "${CRIO_AVL_VER}" | grep -v [0-9] &> /dev/null
   [ ${?} == 0 ] && CRIO_AVL_VER="Unconfirmed [Configure with set-var parameter]"
@@ -1089,7 +1093,7 @@ function package-install-k9s()
   [ ${?} != 0 ] && ssh -p ${SSH_PORT} ${install_list} "echo "export K9S_EDITOR=nano" | sudo tee -a /etc/profile" &> /dev/null
   ssh -p ${SSH_PORT} ${install_list} "rm -r ~/Downloads/" &> /dev/null
   ssh -p ${SSH_PORT} ${install_list} "ls -al ~/bin/k9s" &> /dev/null
-  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] ${install_list} k9s installed"
+  [ ${?} == 0 ] && echo -e " [${GREEN}●${NC}] Package\t| k9s installed"
 }
 
 function package-install-helm()
