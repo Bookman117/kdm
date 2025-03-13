@@ -552,7 +552,7 @@ pkg-install) #Install basic package & setup environment.
       [ "${OS_VER}" == "CentOS_8_Stream" ] && sudo dnf provides kubectl --disableexcludes=kubernetes | grep 'Provide' | grep ${CRIO_RELEASE} | cut -d '=' -f 2 | grep ${cri_current_ver} &> /dev/null
       [ ${?} == 0 ] && KUBE_SUBVER=${cri_current_ver}
 
-      echo ${install_list} | grep "${CP_SUFFIX}" #&> /dev/null
+      echo ${install_list} | grep "${CP_SUFFIX}" &> /dev/null
       [ ${?} == 0 ] && install="1" || install="0"
       if [ "${install}" == "1" ]
         then
