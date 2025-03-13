@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-#Purpose: Deploy kubernetes on ubuntu server 20.04/22.04 LTS & Rocky Linux 8/9 & RHEL 8/9.
-#Create-Date: 2022-08-10
+# Purpose: Deploy kubernetes on ubuntu server 20.04/22.04 LTS & Rocky Linux 8/9 & RHEL 8/9.
+# Create-Date: 2022-08-10
 
 #Source function & variable
 ls ~/bin/kdm_function &> /dev/null
@@ -523,10 +523,6 @@ pkg-install) #Install basic package & setup environment.
   node-selector ${@}
   interrupt ${RED}Install packages on nodes: ${YELLOW}${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}${NC} && clear
 
-  # Check variable setting
-  #[ -z "${CP_NODES}" ] && echo "CP_NODES 變數為空" || echo "CP_NODES 變數不為空"
-  #[ -z "${WK_NODES}" ] && echo "WK_NODES 變數為空" || echo "WK_NODES 變數不為空"
-
   for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       ssh -p ${SSH_PORT} ${install_list} "sudo apt-mark unhold ${HOLD_LIST}" &> /dev/null 2>&1
@@ -556,7 +552,7 @@ pkg-install) #Install basic package & setup environment.
       [ "${OS_VER}" == "CentOS_8_Stream" ] && sudo dnf provides kubectl --disableexcludes=kubernetes | grep 'Provide' | grep ${CRIO_RELEASE} | cut -d '=' -f 2 | grep ${cri_current_ver} &> /dev/null
       [ ${?} == 0 ] && KUBE_SUBVER=${cri_current_ver}
 
-      echo ${install_list} | grep "${CP_NODES}" &> /dev/null
+      echo ${install_list} | grep "${CP_SUFFIX}" #&> /dev/null
       [ ${?} == 0 ] && install="1" || install="0"
       if [ "${install}" == "1" ]
         then
@@ -569,7 +565,7 @@ pkg-install) #Install basic package & setup environment.
           daemon-enable ${install_list}
       fi
 
-      echo ${install_list} | grep "${WK_NODES}" &> /dev/null
+      echo ${install_list} | grep "${WK_SUFFIX}" &> /dev/null
       [ ${?} == 0 ] && install="1" || install="0"
       if [ "${install}" == "1" ]
         then

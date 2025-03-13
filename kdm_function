@@ -1,5 +1,5 @@
-#Purpose: kdm environment pre-setting & function setup.
-#Create-Date: 2022-10-1
+# Purpose: kdm environment pre-setting & function setup.
+# Create-Date: 2022-10-1
 function set-environment-variable() 
 {
   SSH_PORT='22'
