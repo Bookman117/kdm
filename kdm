@@ -8,22 +8,23 @@ ls ~/bin/kdm_function &> /dev/null
 ls ~/kdm/kdm_function &> /dev/null
 [ ${?} == 0 ] && source ~/kdm/kdm_function &> /dev/null
 
-#Environments pre-setting
+# === Environments pre-setting ===
 host-os-detection
 setup-basic-package
 #check-kdm-path
 
-#Variables>>>
-#Environment variable
+# Variables >>>
+# === Environment variable ===
 set-environment-variable
-#Network variable
+# === Network variable ===
 set-network-variable
-#Kubernetes node variable
+# === Kubernetes node variable ===
 kubernetes-node-variable
-#Text color
+# === Text color ===
 set-text-color-variable
-#Kubernetes projects namespace variable
+# === Kubernetes projects namespace variable ===
 kubernetes-namespace-variable
+# <<<
 
 #Program >>>
 case ${1} in
@@ -521,6 +522,7 @@ pkg-install) #Install basic package & setup environment.
   check_list=${@}
   node-selector ${@}
   interrupt ${RED}Install packages on nodes: ${YELLOW}${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}${NC} && clear
+
   for install_list in ${CP_NODE_SELECTOR} ${WK_NODE_SELECTOR}
     do
       ssh -p ${SSH_PORT} ${install_list} 'hostname' &> /dev/null 2>&1
@@ -630,7 +632,6 @@ pkg-fix) #Fix Ubuntu pkg.
       [ "${OS_VER}" == "xUbuntu_22.04" ] && ssh -p ${SSH_PORT} ${install_list} sudo apt upgrade
     done
 ;;
-
 
 podman-install)
   node-selector ${@}

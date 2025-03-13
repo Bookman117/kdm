@@ -7,7 +7,7 @@ function set-environment-variable()
   CP_SUFFIX="\-m"
   WK_SUFFIX="\-w"
   source ~/bin/kdm_function &> /dev/null
-  export KUBE_EDITOR=nano
+  export KUBE_EDITOR='nano'
   LOG_OUTPUT_LEVEL="--v=5"
   
   #Package list
@@ -116,7 +116,7 @@ function set-network-variable()
   #Kube-VIP
   VIP_TARGET=$(($(cat /etc/hosts | grep "${NETID}" | head -n 1 | awk '{ print $1 }' | cut -d '.' -f 4)-1))
   KUBE_VIP="${NETID}.${VIP_TARGET}"
-  KUBE_INTERFACE=$(ip a | grep -B 3 "${IP}" | grep 'ens' | head -n 1 | awk '{ print $2 }' | sed 's/://g')
+  KUBE_INTERFACE=$(ip a | grep -B 3 "${IP}" | grep 'en' | head -n 1 | awk '{ print $2 }' | sed 's/://g')
   echo "${OS_VERSION}" | grep 'Rocky Linux 8' &> /dev/null
   [ ${?} == 0 ] && NETWORK_UUID=$(cat /etc/sysconfig/network-scripts/ifcfg-${KUBE_INTERFACE} | grep 'UUID' | cut -d '=' -f 2)
 }
