@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+KDM_ENTRY_DIR="${BASH_SOURCE[0]%/*}"
+KDM_ROOT="$(cd -P -- "${KDM_ENTRY_DIR}/.." && pwd)"
+readonly KDM_ROOT
+
+# Load shared constants and CLI contract before dependent libraries.
+# shellcheck source=../lib/core.sh
+source "${KDM_ROOT}/lib/core.sh"
+# shellcheck source=../lib/log.sh
+source "${KDM_ROOT}/lib/log.sh"
+# shellcheck source=../lib/config.sh
+source "${KDM_ROOT}/lib/config.sh"
+# shellcheck source=../lib/validation.sh
+source "${KDM_ROOT}/lib/validation.sh"
+# shellcheck source=../lib/ssh.sh
+source "${KDM_ROOT}/lib/ssh.sh"
+# shellcheck source=../lib/safety.sh
+source "${KDM_ROOT}/lib/safety.sh"
+kdm_dispatch "$@"

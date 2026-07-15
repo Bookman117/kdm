@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -u
+
+ROOT="$(cd -P -- "${BASH_SOURCE[0]%/*}/../.." && pwd)"
+source "${ROOT}/tests/test_helper.sh"
+
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+log_file="${tmp_dir}/calls.log"
+mkdir -p "${tmp_dir}/bin"
+
+for command_name in sudo ssh kubectl apt apt-get dnf yum helm; do
+  cat >"${tmp_dir}/bin/${command_name}" <<SCRIPT
+#!/usr/bin/env bash
+printf '%s\\n' '${command_name}' >>'${log_file}'
+exit 99
+SCRIPT
+  chmod +x "${tmp_dir}/bin/${command_name}"
+done
+
+safe_path="${tmp_dir}/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+PATH="$safe_path" /bin/bash "${KDM_BIN}" help >/dev/null || fail 'help failed under side-effect sentinels'
+PATH="$safe_path" /bin/bash "${KDM_BIN}" version >/dev/null || fail 'version failed under side-effect sentinels'
+PATH="$safe_path" /bin/bash "${KDM_BIN}" doctor >/dev/null || fail 'doctor failed under side-effect sentinels'
+
+[ ! -s "$log_file" ] || fail "read-only commands executed a mutating/external command: $(tr '\n' ' ' <"$log_file")"
+pass 'help/version/doctor perform no sudo/SSH/Kubernetes/package-manager calls'
