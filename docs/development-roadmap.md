@@ -112,6 +112,26 @@ make test
 
 **Acceptance:** 不需 sudo、SSH server 或 Kubernetes cluster；所有測試通過。
 
+## Phase 1.5：Repository 品質閘門
+
+### 實作狀態（2026-07-16）
+
+- [x] 新增 `tests/unit/log.sh`，驗證 INFO/WARN/ERROR 只寫 stderr 且 prefix 穩定。
+- [x] 將 logging test 納入 `make lint` 與 `make test`。
+- [x] 新增 `.github/workflows/ci.yml`。
+- [x] GitHub Actions 使用最小 `contents: read` 權限。
+- [x] `actions/checkout` 固定至 v4 tag 當前 commit SHA，不使用可漂移 branch。
+- [x] CI 僅執行 ShellCheck 與本機 unit/smoke tests，不連線節點或叢集。
+- [ ] Push 後確認 GitHub Actions `Bash quality gates` 實際通過。
+
+### 驗收命令
+
+```bash
+make test
+yq eval '.' .github/workflows/ci.yml >/dev/null
+git diff --check
+```
+
 ## Phase 2：Inventory 與 SSH orchestration
 
 - [ ] 定義 inventory schema 與 example。

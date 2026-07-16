@@ -9,6 +9,7 @@ V2_SHELL_FILES := \
 	lib/ssh.sh \
 	lib/safety.sh \
 	tests/test_helper.sh \
+	tests/unit/log.sh \
 	tests/unit/safety.sh \
 	tests/smoke/cli.sh \
 	tests/smoke/doctor.sh \
