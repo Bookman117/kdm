@@ -45,8 +45,8 @@
 | OS | v1 宣稱 | v2 目前 | 升級條件 |
 |---|---|---|---|
 | Ubuntu 20.04 | 支援 | Legacy | 不建議作新 baseline；需另行決定維護期 |
-| Ubuntu 22.04 | 支援 | Candidate 待選 | 完成 package/bootstrap/integration test |
-| Ubuntu 24.04 | 未列 | Candidate 待選 | 完成 CRI-O/kubeadm 多節點測試 |
+| Ubuntu 22.04 | 支援 | Deferred | 第一版不投入 integration 資源；未宣告 unsupported |
+| Ubuntu 24.04 ARM64 | 未列 | Candidate selected | 完成 host bootstrap、kubeadm 與多節點測試後再升級 Supported |
 | Rocky Linux 8 | 調整中 | Experimental | 修正 OS detection 與 repository provider |
 | Rocky Linux 9 | 調整中 | Experimental | 獨立 provider 與 SELinux 測試 |
 | RHEL 8/9 | 調整中 | Unsupported until tested | subscription/repository/sudoers 流程需獨立驗證 |
@@ -84,18 +84,30 @@
 | upstream `main` 直接 apply | 無法重現 | 固定 tag/commit/checksum |
 | `k8s.gcr.io` 舊映像路徑 | 已遷移且 manifest 過時 | 由新版 chart/upstream manifest 提供 |
 
-## 第一個支援組合：待決策
+## 第一個 Candidate 組合：已決策
 
-建議候選，不代表已採用：
+Phase 3 設計 baseline；不代表已宣告 Supported：
 
 ```text
 Control OS: macOS（只跑 CLI）
-Node OS: Ubuntu 24.04 LTS 或 Ubuntu 22.04 LTS
-Kubernetes: 目前受支援 minor 中選定一版並固定 patch
-Runtime: 同 minor CRI-O
+Node OS: Ubuntu 24.04.4 LTS ARM64
+Kernel observed: 6.8.0-134-generic
+Kubernetes: v1.35.6 / package 1.35.6-1.1
+Runtime: CRI-O v1.35.5 / package 1.35.5-1.1
 Bootstrap: kubeadm
 HA endpoint: kube-vip 或外部 LB（二選一）
 CNI: Calico 或 Flannel（二選一）
 ```
 
-正式決策需有一筆 ADR 或在本文件更新「Supported」列。
+Kubernetes 1.35 選為目前 N-1 minor；CRI-O 與 Kubernetes保持同 minor，patch cadence可不同。Repository固定為：
+
+```text
+https://pkgs.k8s.io/core:/stable:/v1.35/deb/
+https://download.opensuse.org/repositories/isv:/cri-o:/stable:/v1.35/deb/
+```
+
+完整 repository key、KDM-owned files與 plan/apply邊界見：
+
+[`plans/2026-07-16-phase-3-host-bootstrap.md`](plans/2026-07-16-phase-3-host-bootstrap.md)
+
+正式 Supported仍需完成 host bootstrap idempotency、kubeadm、CNI與多節點 integration。

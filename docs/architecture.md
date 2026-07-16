@@ -226,6 +226,7 @@ Phase 1 先實作 0、2、3、4、5；遠端執行錯誤碼於後續 Phase 完�
 - [x] 第一個 candidate OS：Ubuntu 24.04 ARM64；正式支援仍需完成 bootstrap/kubeadm integration。
 - [x] 第一個 integration lab：Multipass；目前先建立單節點，磁碟足夠後擴成三節點。
 - [x] Inventory 使用 YAML 與 Mike Farah `yq` v4；版本不符時 fail closed。
+- [x] Phase 3 candidate：Ubuntu 24.04.4 ARM64 + Kubernetes 1.35.6 + CRI-O 1.35.5；仍待 bootstrap/kubeadm integration。
 - [ ] HA endpoint 預設使用 kube-vip，或允許外部 load balancer？
 - [ ] CNI 首個正式支援項目選 Calico 或 Flannel？
 - [ ] Rook/Ceph 是否納入 v2 核心，或作獨立擴充套件？

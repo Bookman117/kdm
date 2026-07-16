@@ -158,14 +158,21 @@ Lab 基線：[`lab-multipass.md`](lab-multipass.md)
 
 ## Phase 3：Host bootstrap
 
-- [ ] 選定一個正式 baseline OS。
+詳細設計：[`plans/2026-07-16-phase-3-host-bootstrap.md`](plans/2026-07-16-phase-3-host-bootstrap.md)
+
+- [x] 選定 Ubuntu 24.04.4 LTS ARM64 candidate baseline。
+- [x] 固定 Kubernetes 1.35.6、CRI-O 1.35.5 與 exact Debian package versions。
+- [x] 確認官方 repository、key fingerprint lock 與 KDM-owned file namespace。
+- [x] 確認 plan/apply、exact target、idempotency、rollback、credential 與 capacity邊界。
 - [ ] 實作 OS/version detection。
 - [ ] 建立 KDM 專屬 modules-load/sysctl/repository 檔案。
-- [ ] 現代化 Kubernetes/CRI-O repository。
+- [ ] 實作 Kubernetes/CRI-O repository renderer與 key verification。
 - [ ] 實作 package plan/apply 與 idempotency check。
 - [ ] 在 disposable VM 驗證重複 apply。
 
-驗收：第二次 apply 無非預期變更；不刪除非 KDM repository；help/doctor 仍零副作用。
+目前 blocker：host約 14 GiB free、guest約 6.7 GiB free；Phase 3B apply前需至少 host 20 GiB、guest 10 GiB，並另行授權 lab-only bootstrap credential。
+
+驗收：第二次 apply為 NO CHANGE；不刪除非 KDM repository；help/doctor仍零副作用；未完成前維持 Candidate。
 
 ## Phase 4：Cluster lifecycle
 
