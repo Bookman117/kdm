@@ -46,7 +46,7 @@ done
 assert_invalid_inventory "${FIXTURES}/does-not-exist.yaml"
 
 set +e
-PATH='/usr/bin:/bin' kdm_require_yq_v4 >/dev/null 2>&1
+PATH='' kdm_require_yq_v4 >/dev/null 2>&1
 status=$?
 set -e
 assert_status "$status" "$KDM_EXIT_PREREQUISITE" 'missing yq v4 must fail as a prerequisite'
