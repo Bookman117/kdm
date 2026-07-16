@@ -73,10 +73,10 @@ keyring_record() {
     return 0
   fi
 
-  [ -r "$path" ] && [ -f "$path" ] || {
+  if [ ! -r "$path" ] || [ ! -f "$path" ]; then
     printf 'host-facts: unreadable keyring: %s\n' "$path" >&2
     return 4
-  }
+  fi
   while IFS=: read -r record_type _ _ _ _ _ _ _ _ current_fingerprint _; do
     if [ "$record_type" = fpr ]; then
       fingerprint="$current_fingerprint"

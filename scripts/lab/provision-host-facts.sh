@@ -20,10 +20,10 @@ ROOT="$(cd -P -- "${BASH_SOURCE[0]%/*}/../.." && pwd)"
 }
 
 read -r key_type key_material _ <"$KDM_LAB_HOST_FACTS_PUBLIC_KEY"
-[ "$key_type" = ssh-ed25519 ] && [ -n "$key_material" ] || {
+if [ "$key_type" != ssh-ed25519 ] || [ -z "$key_material" ]; then
   printf 'host-facts public key is invalid\n' >&2
   exit 3
-}
+fi
 
 remote_collector='/tmp/kdm-host-facts.provision'
 remote_public_key='/tmp/kdm-host-facts.pub.provision'
