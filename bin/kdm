@@ -20,4 +20,12 @@ source "${KDM_ROOT}/lib/validation.sh"
 source "${KDM_ROOT}/lib/ssh.sh"
 # shellcheck source=../lib/safety.sh
 source "${KDM_ROOT}/lib/safety.sh"
+# shellcheck source=../providers/os/ubuntu-24.04.sh
+source "${KDM_ROOT}/providers/os/ubuntu-24.04.sh"
+# shellcheck source=../providers/runtime/crio.sh
+source "${KDM_ROOT}/providers/runtime/crio.sh"
+# shellcheck source=../lib/host.sh
+source "${KDM_ROOT}/lib/host.sh"
+# shellcheck source=../commands/host.sh
+source "${KDM_ROOT}/commands/host.sh"
 kdm_dispatch "$@"

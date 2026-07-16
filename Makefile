@@ -9,11 +9,17 @@ V2_SHELL_FILES := \
 	lib/validation.sh \
 	lib/ssh.sh \
 	lib/safety.sh \
+	lib/host.sh \
+	providers/os/ubuntu-24.04.sh \
+	providers/runtime/crio.sh \
+	commands/host.sh \
 	tests/test_helper.sh \
 	tests/helpers/fake-ssh \
 	tests/helpers/lab-ssh \
 	tests/integration/ssh-lab.sh \
 	tests/unit/config.sh \
+	tests/unit/host-preflight.sh \
+	tests/unit/host-plan.sh \
 	tests/unit/inventory.sh \
 	tests/unit/log.sh \
 	tests/unit/safety.sh \

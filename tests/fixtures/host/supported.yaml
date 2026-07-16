@@ -1,0 +1,40 @@
+apiVersion: kdm.io/v2alpha1
+kind: HostFacts
+metadata:
+  name: cp-1
+spec:
+  os:
+    id: ubuntu
+    version: "24.04"
+  architecture: arm64
+  kernel: 6.8.0-134-generic
+  cgroupVersion: v2
+  swapActive: false
+  rootFreeMiB: 12288
+  modules:
+    overlay: false
+    brNetfilter: false
+  sysctl:
+    net.bridge.bridge-nf-call-iptables: 0
+    net.bridge.bridge-nf-call-ip6tables: 0
+    net.ipv4.ip_forward: 0
+  files: {}
+  packages:
+    ca-certificates: absent
+    curl: absent
+    gpg: absent
+    cri-o: absent
+    kubelet: absent
+    kubeadm: absent
+    kubectl: absent
+  holds:
+    cri-o: false
+    kubelet: false
+    kubeadm: false
+    kubectl: false
+  services:
+    crio:
+      enabled: false
+      active: false
+    kubelet:
+      enabled: false

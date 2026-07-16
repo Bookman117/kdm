@@ -1,7 +1,7 @@
 # KDM Phase 3 Host Bootstrap Design Baseline
 
 > 日期：2026-07-16
-> 狀態：設計已確認；尚未撰寫或執行安裝程式
+> 狀態：Phase 3A planner/preflight 已實作；apply installer 尚未撰寫或執行
 > 適用範圍：Ubuntu 24.04 LTS ARM64 candidate、Kubernetes 1.35、CRI-O 1.35
 
 ## 結論
@@ -457,12 +457,14 @@ kubeadm init/join
 
 ### Phase 3A：Planner/preflight（下一個 coding phase）
 
-- OS/arch/cgroup/swap/disk read-only model。
-- Desired files renderer。
-- Repository/version/key lock data。
-- Human-readable deterministic plan。
-- Unit fixtures：supported、wrong OS、active swap、low disk、repo drift。
-- 不實作 apply。
+- [x] OS/arch/cgroup/swap/disk HostFacts model。
+- [x] Desired files renderer與 canonical LF SHA-256。
+- [x] Repository/version/key compatibility lock。
+- [x] Human-readable deterministic plan與 full NO_CHANGE fixture。
+- [x] Unit fixtures：supported、wrong OS/arch/cgroup、active swap、low disk、repo drift。
+- [x] `--apply` fail closed；沒有 apply executor。
+
+目前 HostFacts由 local YAML提供；真實 SSH facts collector尚未實作。這是刻意的 Phase 3A transport boundary，不得宣稱已自動偵測 remote host。
 
 ### Phase 3B：Single-node apply
 
@@ -504,5 +506,39 @@ kubeadm init/join
 - [x] Machine-readable compatibility lock與 inventory profile reference確認。
 - [x] Phase 3A exact file plan與 non-goals確認。
 - [x] Credential與capacity blocker明確記錄。
-- [ ] Phase 3A production code：尚未開始。
+- [x] Phase 3A planner/preflight code與 plan-only CLI完成。
 - [ ] Phase 3B lab apply：尚未授權且容量不足。
+
+## 16. Phase 3A implementation result
+
+CLI：
+
+```bash
+bin/kdm host bootstrap \
+  -f config/inventory.example.yaml \
+  --node cp-1 \
+  --facts-file tests/fixtures/host/supported.yaml
+```
+
+安全邊界：
+
+- HostFacts只從local YAML讀取。
+- 不呼叫 SSH、sudo、apt、kubectl或systemd。
+- `--apply`固定回傳 safety exit 5。
+- `--all`、`--role`與多個 `--node`不允許。
+- Lock缺欄位、minor不一致、HTTP URL、fingerprint/SHA格式錯誤時 fail closed。
+- Lock同時驗證 profile/minor/version/packageVersion/repository/key URL語意一致性。
+- Unsupported OS/arch/cgroup、active swap、容量不足、foreign KDM path時回傳 config exit 3。
+- HostFacts採 map-key allowlist；未知或credential-like欄位一律拒絕。
+- Repository prerequisites `ca-certificates`、`curl`、`gpg`納入presence plan。
+- CRI-O service分別比較 enabled與active，避免錯誤NO_CHANGE。
+
+驗證：
+
+```text
+host preflight fixtures: PASS
+deterministic plan: PASS
+full NO_CHANGE plan: PASS
+CLI apply fail closed: PASS
+no-side-effect sentinels: PASS
+```

@@ -1,0 +1,12 @@
+apiVersion: kdm.io/v2alpha1
+kind: HostFacts
+metadata:
+  name: cp-1
+spec:
+  os: {id: debian, version: "12"}
+  architecture: arm64
+  kernel: 6.8.0
+  cgroupVersion: v2
+  swapActive: false
+  rootFreeMiB: 12288
+  files: {}

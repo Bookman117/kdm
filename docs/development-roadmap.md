@@ -164,13 +164,21 @@ Lab 基線：[`lab-multipass.md`](lab-multipass.md)
 - [x] 固定 Kubernetes 1.35.6、CRI-O 1.35.5 與 exact Debian package versions。
 - [x] 確認官方 repository、key fingerprint lock 與 KDM-owned file namespace。
 - [x] 確認 plan/apply、exact target、idempotency、rollback、credential 與 capacity邊界。
-- [ ] 實作 OS/version detection。
+- [x] 實作 local HostFacts schema、OS/version/arch/cgroup/swap/capacity preflight。
+- [x] 實作 machine-readable compatibility lock validation。
+- [x] 實作 deterministic plan與 full NO_CHANGE idempotency model。
+- [x] 將 repository prerequisites與 CRI-O enabled/active狀態納入 idempotency model。
+- [x] HostFacts schema allowlist與 keyring foreign/fingerprint drift fail closed。
+- [x] 加入 plan-only CLI；`--apply` fail closed且 no-side-effect smoke通過。
+- [ ] 實作真實 SSH HostFacts collector。
 - [ ] 建立 KDM 專屬 modules-load/sysctl/repository 檔案。
 - [ ] 實作 Kubernetes/CRI-O repository renderer與 key verification。
 - [ ] 實作 package plan/apply 與 idempotency check。
 - [ ] 在 disposable VM 驗證重複 apply。
 
-目前 blocker：host約 14 GiB free、guest約 6.7 GiB free；Phase 3B apply前需至少 host 20 GiB、guest 10 GiB，並另行授權 lab-only bootstrap credential。
+Phase 3A完成；目前 HostFacts由local YAML提供，不代表remote detection已完成。
+
+Phase 3B blocker：host約 14 GiB free、guest約 6.7 GiB free；apply前需至少host 20 GiB、guest 10 GiB，並另行授權lab-only bootstrap credential。
 
 驗收：第二次 apply為 NO CHANGE；不刪除非 KDM repository；help/doctor仍零副作用；未完成前維持 Candidate。
 

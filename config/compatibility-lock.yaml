@@ -1,0 +1,27 @@
+apiVersion: kdm.io/v2alpha1
+kind: CompatibilityLock
+profiles:
+  ubuntu-24.04-arm64-k8s-1.35:
+    os:
+      id: ubuntu
+      version: "24.04"
+      architecture: arm64
+      minRootFreeMiB: 10240
+      cgroupVersion: v2
+    kubernetes:
+      minor: v1.35
+      version: v1.35.6
+      packageVersion: 1.35.6-1.1
+      repository: https://pkgs.k8s.io/core:/stable:/v1.35/deb/
+      keyUrl: https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key
+      keyFingerprint: DE15B14486CD377B9E876E1A234654DA9A296436
+      keySha256: 7627818cf7bae52f9008c93e8b1f961f53dea11d40891778de216fb1b43be54d
+    runtime:
+      name: crio
+      minor: v1.35
+      version: v1.35.5
+      packageVersion: 1.35.5-1.1
+      repository: https://download.opensuse.org/repositories/isv:/cri-o:/stable:/v1.35/deb/
+      keyUrl: https://download.opensuse.org/repositories/isv:/cri-o:/stable:/v1.35/deb/Release.key
+      keyFingerprint: 85B67D5C50100B1AC8CEFE49CBA9C85640A2B579
+      keySha256: 4e1f851eccaad9068a8287332a3b615f9a8243cb53dc3c084109c701caa684bc

@@ -19,11 +19,11 @@ kdm_usage() {
     '  kdm inventory targets -f <inventory.yaml> --all' \
     '  kdm inventory targets -f <inventory.yaml> --role <control-plane|worker>' \
     '  kdm inventory targets -f <inventory.yaml> --node <name> [--node <name> ...]' \
+    '  kdm host bootstrap -f <inventory.yaml> --node <name> --facts-file <host-facts.yaml>' \
     '' \
-    'Phase 2A scope:' \
-    '  - inventory validation and target selection are read-only' \
-    '  - SSH orchestration is library-only and tested with a fake executor' \
-    '  - no production SSH, host mutation, or Kubernetes workflow is exposed' \
+    'Phase 3A scope:' \
+    '  - host bootstrap renders a deterministic plan from local HostFacts' \
+    '  - --apply is disabled; no sudo, package manager, SSH, or host mutation' \
     '' \
     'Legacy v1 remains available in the repository root and is not sourced by v2.'
 }
@@ -162,6 +162,10 @@ kdm_dispatch() {
     inventory)
       shift
       kdm_dispatch_inventory "$@"
+      ;;
+    host)
+      shift
+      kdm_dispatch_host "$@"
       ;;
     *)
       kdm_error "unknown command: ${command_name}"

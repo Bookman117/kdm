@@ -1,0 +1,59 @@
+apiVersion: kdm.io/v2alpha1
+kind: HostFacts
+metadata:
+  name: cp-1
+spec:
+  os:
+    id: ubuntu
+    version: "24.04"
+  architecture: arm64
+  kernel: 6.8.0-134-generic
+  cgroupVersion: v2
+  swapActive: false
+  rootFreeMiB: 12288
+  modules:
+    overlay: true
+    brNetfilter: true
+  sysctl:
+    net.bridge.bridge-nf-call-iptables: 1
+    net.bridge.bridge-nf-call-ip6tables: 1
+    net.ipv4.ip_forward: 1
+  files:
+    /etc/modules-load.d/kdm-kubernetes.conf:
+      ownership: managed
+      sha256: a645aa985f6a043a4a1f8e9aa6567281c38eb1d1db0efeb7a58070ce43cd4776
+    /etc/sysctl.d/99-kdm-kubernetes.conf:
+      ownership: managed
+      sha256: 9e8da9128a50493c624a0bb5fc5cc9a21c7a3f6f62ec5ccd9017792d70bab691
+    /etc/apt/sources.list.d/kdm-kubernetes-v1.35.list:
+      ownership: managed
+      sha256: 2b187c6dca8898f71b35b44b40d6aecfaa1b23138d27181ad012354dac2a7515
+    /etc/apt/sources.list.d/kdm-crio-v1.35.list:
+      ownership: managed
+      sha256: 4d245c382471f05d6a3b4d08b65ed55e8346bd10ff73ccef3cd3b03f6886348a
+  keyrings:
+    kubernetes:
+      ownership: managed
+      fingerprint: DE15B14486CD377B9E876E1A234654DA9A296436
+    crio:
+      ownership: managed
+      fingerprint: 85B67D5C50100B1AC8CEFE49CBA9C85640A2B579
+  packages:
+    ca-certificates: present
+    curl: present
+    gpg: present
+    cri-o: 1.35.5-1.1
+    kubelet: 1.35.6-1.1
+    kubeadm: 1.35.6-1.1
+    kubectl: 1.35.6-1.1
+  holds:
+    cri-o: true
+    kubelet: true
+    kubeadm: true
+    kubectl: true
+  services:
+    crio:
+      enabled: true
+      active: true
+    kubelet:
+      enabled: true

@@ -3,6 +3,7 @@ kind: Inventory
 metadata:
   name: lab
 spec:
+  profile: ubuntu-24.04-arm64-k8s-1.35
   ssh:
     user: ubuntu
     port: 22
