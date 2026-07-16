@@ -53,11 +53,8 @@ status=$?
 set -e
 assert_status "$status" "$KDM_EXIT_EXECUTION" 'forced collector must reject arbitrary SSH command'
 
-set +e
-preflight_output="$(kdm_host_preflight "$inventory" "$node_name" "$facts" "$LOCK" 2>&1)"
-status=$?
-set -e
-assert_status "$status" "$KDM_EXIT_CONFIG" 'undersized disposable VM must fail capacity preflight'
-assert_contains "$preflight_output" 'insufficient root disk'
+root_free_mib="$(yq -r '.spec.rootFreeMiB' "$facts")"
+[ "$root_free_mib" -ge 10240 ] || fail "disposable VM root capacity is below baseline: ${root_free_mib} MiB"
+kdm_host_preflight "$inventory" "$node_name" "$facts" "$LOCK" || fail 'real HostFacts compatibility preflight failed'
 
-pass 'real SSH HostFacts collection, strict parsing, and capacity fail-closed gate'
+pass 'real SSH HostFacts collection, strict parsing, and capacity preflight'

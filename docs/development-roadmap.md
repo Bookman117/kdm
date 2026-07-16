@@ -171,6 +171,8 @@ Lab 基線：[`lab-multipass.md`](lab-multipass.md)
 - [x] HostFacts schema allowlist與 keyring foreign/fingerprint drift fail closed。
 - [x] 加入 plan-only CLI；`--apply` fail closed且 no-side-effect smoke通過。
 - [x] 實作真實 SSH HostFacts collector；使用獨立forced-command identity與strict v1 protocol。
+- [x] Phase 3B capacity remediation：host達20 GiB free、guest擴至20 GiB disk且rootFreeMiB超過10240。
+- [ ] 設計並授權lab-only bootstrap credential。
 - [ ] 建立 KDM 專屬 modules-load/sysctl/repository 檔案。
 - [ ] 實作 Kubernetes/CRI-O repository renderer與 key verification。
 - [ ] 實作 package plan/apply 與 idempotency check。
@@ -178,7 +180,7 @@ Lab 基線：[`lab-multipass.md`](lab-multipass.md)
 
 Phase 3A與3A.5完成；HostFacts可由local YAML或gated disposable-VM SSH collector提供。普通`make test`與公開CLI仍不連remote host。
 
-Phase 3B blocker：host約 13 GiB free、guest實測 6752 MiB free；apply前需至少host 20 GiB、guest 10 GiB，並另行授權lab-only bootstrap credential。
+Phase 3B capacity gate已解除；剩餘blocker為lab-only bootstrap credential與single-node apply明確授權。
 
 驗收：第二次 apply為 NO CHANGE；不刪除非 KDM repository；help/doctor仍零副作用；未完成前維持 Candidate。
 

@@ -475,7 +475,8 @@ Phase 3A的普通CLI仍只讀local YAML；remote transport保持在明確gated i
 - [x] Local parser轉換成既有HostFacts schema並再次allowlist validation。
 - [x] Strict unknown → accept-new → strict host-key sequence通過。
 - [x] `make integration-host-facts`真實收集Ubuntu 24.04 ARM64 facts。
-- [x] 收集後preflight因guest `rootFreeMiB=6752`如預期fail closed。
+- [x] 擴容前preflight因guest `rootFreeMiB=6752`如預期fail closed。
+- [x] Capacity remediation後guest擴至20 GiB，real HostFacts preflight通過10 GiB free gate。
 - [x] 原`make integration-ssh`仍通過。
 
 Phase 3A.5不包含sudo probe、package mutation、apply executor或公開任意remote exec。
@@ -498,7 +499,7 @@ make integration-host-facts
 
 ### Phase 3B：Single-node apply
 
-前提：容量與 lab bootstrap credential另外確認。
+前提：capacity gate已解除；lab bootstrap credential仍需另外設計與授權。
 
 - KDM-owned atomic files。
 - Exact package transaction。
@@ -574,6 +575,7 @@ CLI apply fail closed: PASS
 no-side-effect sentinels: PASS
 strict HostFacts protocol parser: PASS
 real SSH HostFacts collector: PASS
-capacity fail-closed gate: PASS (6752 MiB < 10240 MiB)
+capacity fail-closed gate before resize: PASS (6752 MiB < 10240 MiB)
+capacity preflight after resize: PASS (rootFreeMiB >= 10240)
 Phase 2B hostname integration regression: PASS
 ```
