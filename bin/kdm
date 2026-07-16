@@ -12,6 +12,8 @@ source "${KDM_ROOT}/lib/core.sh"
 source "${KDM_ROOT}/lib/log.sh"
 # shellcheck source=../lib/config.sh
 source "${KDM_ROOT}/lib/config.sh"
+# shellcheck source=../lib/inventory.sh
+source "${KDM_ROOT}/lib/inventory.sh"
 # shellcheck source=../lib/validation.sh
 source "${KDM_ROOT}/lib/validation.sh"
 # shellcheck source=../lib/ssh.sh

@@ -5,12 +5,17 @@ V2_SHELL_FILES := \
 	lib/core.sh \
 	lib/log.sh \
 	lib/config.sh \
+	lib/inventory.sh \
 	lib/validation.sh \
 	lib/ssh.sh \
 	lib/safety.sh \
 	tests/test_helper.sh \
+	tests/helpers/fake-ssh \
+	tests/unit/config.sh \
+	tests/unit/inventory.sh \
 	tests/unit/log.sh \
 	tests/unit/safety.sh \
+	tests/unit/ssh.sh \
 	tests/smoke/cli.sh \
 	tests/smoke/doctor.sh \
 	tests/smoke/no-side-effects.sh
@@ -30,6 +35,11 @@ lint:
 		shellcheck -x -P SCRIPTDIR bin/kdm tests/unit/*.sh tests/smoke/*.sh; \
 	else \
 		printf 'SKIP shellcheck (not installed)\n'; \
+	fi; \
+	if command -v actionlint >/dev/null 2>&1; then \
+		actionlint .github/workflows/*.yml; \
+	else \
+		printf 'SKIP actionlint (not installed)\n'; \
 	fi
 
 smoke:

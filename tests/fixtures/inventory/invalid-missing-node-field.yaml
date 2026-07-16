@@ -1,0 +1,10 @@
+apiVersion: kdm.io/v2alpha1
+kind: Inventory
+metadata:
+  name: missing-node-field
+spec:
+  ssh:
+    user: ubuntu
+  nodes:
+    - name: cp-1
+      role: control-plane

@@ -18,10 +18,14 @@ SCRIPT
   chmod +x "${tmp_dir}/bin/${command_name}"
 done
 
+ln -s "$(command -v yq)" "${tmp_dir}/bin/yq"
+
 safe_path="${tmp_dir}/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 PATH="$safe_path" /bin/bash "${KDM_BIN}" help >/dev/null || fail 'help failed under side-effect sentinels'
 PATH="$safe_path" /bin/bash "${KDM_BIN}" version >/dev/null || fail 'version failed under side-effect sentinels'
 PATH="$safe_path" /bin/bash "${KDM_BIN}" doctor >/dev/null || fail 'doctor failed under side-effect sentinels'
+PATH="$safe_path" /bin/bash "${KDM_BIN}" config validate -f "${ROOT}/tests/fixtures/inventory/valid-single.yaml" >/dev/null || fail 'config validate failed under side-effect sentinels'
+PATH="$safe_path" /bin/bash "${KDM_BIN}" inventory targets -f "${ROOT}/tests/fixtures/inventory/valid-single.yaml" --all >/dev/null || fail 'inventory targets failed under side-effect sentinels'
 
 [ ! -s "$log_file" ] || fail "read-only commands executed a mutating/external command: $(tr '\n' ' ' <"$log_file")"
-pass 'help/version/doctor perform no sudo/SSH/Kubernetes/package-manager calls'
+pass 'read-only CLI commands perform no sudo/SSH/Kubernetes/package-manager calls'

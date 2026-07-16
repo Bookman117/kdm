@@ -1,0 +1,12 @@
+apiVersion: kdm.io/v2alpha1
+kind: Inventory
+metadata:
+  name: invalid-port
+spec:
+  ssh:
+    user: ubuntu
+    port: 70000
+  nodes:
+    - name: cp-1
+      address: 192.0.2.11
+      role: control-plane

@@ -1,0 +1,14 @@
+apiVersion: kdm.io/v2alpha1
+kind: Inventory
+metadata:
+  name: duplicate-name
+spec:
+  ssh:
+    user: ubuntu
+  nodes:
+    - name: cp-1
+      address: 192.0.2.11
+      role: control-plane
+    - name: cp-1
+      address: 192.0.2.12
+      role: worker

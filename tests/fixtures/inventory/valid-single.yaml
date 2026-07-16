@@ -1,0 +1,11 @@
+apiVersion: kdm.io/v2alpha1
+kind: Inventory
+metadata:
+  name: single
+spec:
+  ssh:
+    user: ubuntu
+  nodes:
+    - name: cp-1
+      address: 192.0.2.11
+      role: control-plane

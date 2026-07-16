@@ -1,0 +1,7 @@
+apiVersion: kdm.io/v2alpha1
+kind: Inventory
+metadata:
+  name: missing-nodes
+spec:
+  ssh:
+    user: ubuntu

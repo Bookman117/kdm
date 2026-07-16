@@ -1,0 +1,20 @@
+apiVersion: kdm.io/v2alpha1
+kind: Inventory
+metadata:
+  name: multi
+spec:
+  ssh:
+    user: operator
+    port: 2222
+    connectTimeoutSeconds: 7
+    hostKeyPolicy: 'yes'
+  nodes:
+    - name: cp-1
+      address: cp-1.example.test
+      role: control-plane
+    - name: cp-2
+      address: 192.0.2.12
+      role: control-plane
+    - name: wk-1
+      address: 2001:db8::21
+      role: worker

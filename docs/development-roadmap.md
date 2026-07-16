@@ -122,7 +122,7 @@ make test
 - [x] GitHub Actions 使用最小 `contents: read` 權限。
 - [x] `actions/checkout` 固定至 v4 tag 當前 commit SHA，不使用可漂移 branch。
 - [x] CI 僅執行 ShellCheck 與本機 unit/smoke tests，不連線節點或叢集。
-- [ ] Push 後確認 GitHub Actions `Bash quality gates` 實際通過。
+- [x] GitHub Actions `Bash quality gates` 已在 run `29467957372` 實際通過。
 
 ### 驗收命令
 
@@ -134,12 +134,25 @@ git diff --check
 
 ## Phase 2：Inventory 與 SSH orchestration
 
-- [ ] 定義 inventory schema 與 example。
-- [ ] 先寫 validation fixtures 與失敗案例。
-- [ ] 實作 node/role/target resolution。
-- [ ] 統一 SSH option、timeout、host-key policy。
-- [ ] 實作 per-node result 與 aggregate exit status。
-- [ ] 禁止傳送 private key 與管理者 kubeconfig。
+詳細計畫：[`plans/2026-07-16-phase-2-inventory-ssh.md`](plans/2026-07-16-phase-2-inventory-ssh.md)
+
+Lab 基線：[`lab-multipass.md`](lab-multipass.md)
+
+### Phase 2A：Inventory 與 mock SSH
+
+- [x] 定義 inventory schema 與 example。
+- [x] 先寫 validation fixtures 與失敗案例。
+- [x] 實作 node/role/target resolution。
+- [x] 統一 mock SSH option、timeout、host-key policy。
+- [x] 實作 mock per-node result 與 aggregate exit status。
+- [x] Inventory 拒絕 credential/kubeconfig 欄位，且未提供檔案傳送能力。
+
+### Phase 2B：Disposable VM 真實 SSH
+
+- [ ] 建立一般 SSH user/key policy，不使用 Multipass internal key。
+- [ ] 以固定 read-only probe 驗證 BatchMode、host key 與 timeout。
+- [ ] 驗證 reachable/unreachable per-node result 與 aggregate exit status。
+- [ ] 真實 SSH 驗證完成前，不公開 `node exec` CLI。
 
 驗收：fixture 測試覆蓋重複 node、未知 role、無效 IP/hostname、空 target；mock SSH 可重現部分節點失敗。
 

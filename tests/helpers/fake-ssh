@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -u
+
+log_file="${FAKE_SSH_LOG:?FAKE_SSH_LOG is required}"
+printf '%s\n' "$*" >>"$log_file"
+
+case "$*" in
+  *"${FAKE_SSH_TIMEOUT_TARGET:-__never__}"*) exit 124 ;;
+  *"${FAKE_SSH_FAIL_TARGET:-__never__}"*) exit 42 ;;
+esac
+
+exit 0
