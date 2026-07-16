@@ -90,10 +90,10 @@ Phase 2A inventory 只引用 identity label；不放 private-key path。真實 S
 
 ### 正規化輸出
 
-`kdm_inventory_records` 每行固定五欄，以 tab 分隔：
+`kdm_inventory_records` 每行固定七欄，以 tab 分隔：
 
 ```text
-name<TAB>role<TAB>address<TAB>ssh_user<TAB>ssh_port
+name<TAB>role<TAB>address<TAB>ssh_user<TAB>ssh_port<TAB>connect_timeout<TAB>host_key_policy
 ```
 
 不得使用 `eval`、source inventory 或產生 shell assignments。
@@ -133,7 +133,7 @@ bin/kdm inventory targets -f <inventory> --node cp-1
 
 ### SSH orchestration
 
-Phase 2A 不公開可執行任意遠端命令的 production CLI。SSH orchestration 只作 library + mock tests；Phase 2B 經真實 lab 驗證後再定義受控 CLI。
+Phase 2A 不公開可執行任意遠端命令的 production CLI。Phase 2B 以 gated integration target 驗證固定 read-only probe；完成後仍不公開任意 `node exec` CLI。
 
 ## 4. File plan
 
@@ -306,6 +306,7 @@ yaml/
 ```text
 ssh
 -o BatchMode=yes
+-o StdinNull=yes
 -o ConnectTimeout=5
 -o StrictHostKeyChecking=accept-new
 -p 22
@@ -375,7 +376,7 @@ git diff --check
 5. 驗證 per-node output 與 aggregate exit。
 6. 不執行任意 shell；只測試固定 read-only probe，例如 `hostname`。
 
-Phase 2B 完成前，KDM 不公開真實 `node exec` CLI。
+Phase 2B 使用 `tests/integration/ssh-lab.sh` 與明確 `make integration-ssh` target；一般 `make test` 不連線 VM。Phase 2B 完成後仍不公開任意 `node exec` CLI。
 
 ## 7. Risks and controls
 
@@ -402,3 +403,13 @@ Phase 2B 完成前，KDM 不公開真實 `node exec` CLI。
 - [x] `make test`、actionlint、YAML parse、diff check 通過。
 - [x] Legacy files 無變更。
 - [x] Phase 2A 不連線 `kdm-lab-cp1`。
+
+### Phase 2B completion
+
+- [x] Lab identity、local inventory 與 known_hosts 不進 Git。
+- [x] `kdm-probe` 密碼鎖定、無 sudo、authorized key 使用 `restrict` 與 forced `hostname`。
+- [x] Strict unknown host fail → accept-new → strict match。
+- [x] Real reachable/unreachable probe 繼續 fan-out，aggregate failure 為 10。
+- [x] SSH 使用 `StdinNull=yes`，不會消耗 orchestration TSV stdin。
+- [x] 一般 `make test` 保持 offline；只有明確 `make integration-ssh` 連線 lab。
+- [x] 未公開任意 `node exec` CLI。

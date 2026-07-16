@@ -12,12 +12,14 @@ log_file="$(mktemp)"
 trap 'rm -f "$log_file"' EXIT
 export FAKE_SSH_LOG="$log_file"
 
-records=$'cp-1\tcontrol-plane\t192.0.2.11\tubuntu\t22\nwk-1\tworker\t192.0.2.21\tubuntu\t22'
+records=$'cp-1\tcontrol-plane\t192.0.2.11\tubuntu\t22\t7\tyes\nwk-1\tworker\t192.0.2.21\tubuntu\t22\t7\tyes'
 
 kdm_ssh_orchestrate "$fake_ssh" "$records" hostname >/dev/null 2>&1 || fail 'all-success mock orchestration failed'
 log_text="$(<"$log_file")"
 assert_contains "$log_text" 'BatchMode=yes'
-assert_contains "$log_text" 'StrictHostKeyChecking=accept-new'
+assert_contains "$log_text" 'StdinNull=yes'
+assert_contains "$log_text" 'ConnectTimeout=7'
+assert_contains "$log_text" 'StrictHostKeyChecking=yes'
 assert_contains "$log_text" 'ubuntu@192.0.2.11'
 assert_contains "$log_text" 'ubuntu@192.0.2.21'
 

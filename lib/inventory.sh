@@ -4,7 +4,7 @@ kdm_inventory_records() {
   local path="${1:-}"
 
   kdm_config_validate_file "$path" || return "$?"
-  yq -r '.spec as $s | $s.nodes[] | [.name, .role, .address, $s.ssh.user, ($s.ssh.port // 22)] | @tsv' "$path"
+  yq -r '.spec as $s | $s.nodes[] | [.name, .role, .address, $s.ssh.user, ($s.ssh.port // 22), ($s.ssh.connectTimeoutSeconds // 5), ($s.ssh.hostKeyPolicy // "accept-new")] | @tsv' "$path"
 }
 
 kdm_inventory_targets() {

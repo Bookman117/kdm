@@ -11,6 +11,8 @@ V2_SHELL_FILES := \
 	lib/safety.sh \
 	tests/test_helper.sh \
 	tests/helpers/fake-ssh \
+	tests/helpers/lab-ssh \
+	tests/integration/ssh-lab.sh \
 	tests/unit/config.sh \
 	tests/unit/inventory.sh \
 	tests/unit/log.sh \
@@ -20,7 +22,7 @@ V2_SHELL_FILES := \
 	tests/smoke/doctor.sh \
 	tests/smoke/no-side-effects.sh
 
-.PHONY: doctor lint smoke unit test
+.PHONY: doctor lint smoke unit integration-ssh test
 
 doctor:
 	@./bin/kdm doctor
@@ -32,7 +34,7 @@ lint:
 		printf 'PASS bash -n %s\n' "$$file"; \
 	done; \
 	if command -v shellcheck >/dev/null 2>&1; then \
-		shellcheck -x -P SCRIPTDIR bin/kdm tests/unit/*.sh tests/smoke/*.sh; \
+		shellcheck -x -P SCRIPTDIR bin/kdm tests/helpers/* tests/integration/*.sh tests/unit/*.sh tests/smoke/*.sh; \
 	else \
 		printf 'SKIP shellcheck (not installed)\n'; \
 	fi; \
@@ -53,5 +55,8 @@ unit:
 	for test_file in tests/unit/*.sh; do \
 		bash "$$test_file"; \
 	done
+
+integration-ssh:
+	@bash tests/integration/ssh-lab.sh
 
 test: lint unit smoke

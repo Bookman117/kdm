@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+: "${KDM_LAB_IDENTITY:?KDM_LAB_IDENTITY is required}"
+: "${KDM_LAB_KNOWN_HOSTS:?KDM_LAB_KNOWN_HOSTS is required}"
+
+[ -r "$KDM_LAB_IDENTITY" ] || {
+  printf 'lab SSH identity is not readable\n' >&2
+  exit 4
+}
+
+exec /usr/bin/ssh \
+  -i "$KDM_LAB_IDENTITY" \
+  -o IdentitiesOnly=yes \
+  -o "UserKnownHostsFile=${KDM_LAB_KNOWN_HOSTS}" \
+  "$@"

@@ -22,6 +22,7 @@ kdm_ssh_run_node() {
   argv=(
     "$executor"
     -o 'BatchMode=yes'
+    -o 'StdinNull=yes'
     -o "ConnectTimeout=${timeout}"
     -o "StrictHostKeyChecking=${host_key_policy}"
     -p "$port"
@@ -37,7 +38,7 @@ kdm_ssh_orchestrate() {
   local executor="${1:-}"
   local records="${2:-}"
   shift 2 || true
-  local node_name node_role node_address ssh_user ssh_port
+  local node_name node_role node_address ssh_user ssh_port ssh_timeout host_key_policy
   local aggregate_status=0
   local node_count=0
 
@@ -50,10 +51,10 @@ kdm_ssh_orchestrate() {
     return "$KDM_EXIT_CONFIG"
   fi
 
-  while IFS=$'\t' read -r node_name node_role node_address ssh_user ssh_port; do
+  while IFS=$'\t' read -r node_name node_role node_address ssh_user ssh_port ssh_timeout host_key_policy; do
     [ -n "$node_name" ] || continue
     node_count=$((node_count + 1))
-    if kdm_ssh_run_node "$executor" "$ssh_user" "$node_address" "$ssh_port" 5 accept-new "$@"; then
+    if kdm_ssh_run_node "$executor" "$ssh_user" "$node_address" "$ssh_port" "$ssh_timeout" "$host_key_policy" "$@"; then
       kdm_info "SSH result: ${node_name} (${node_role}) success"
     else
       kdm_error "SSH result: ${node_name} (${node_role}) failed"

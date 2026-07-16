@@ -149,12 +149,12 @@ Lab 基線：[`lab-multipass.md`](lab-multipass.md)
 
 ### Phase 2B：Disposable VM 真實 SSH
 
-- [ ] 建立一般 SSH user/key policy，不使用 Multipass internal key。
-- [ ] 以固定 read-only probe 驗證 BatchMode、host key 與 timeout。
-- [ ] 驗證 reachable/unreachable per-node result 與 aggregate exit status。
-- [ ] 真實 SSH 驗證完成前，不公開 `node exec` CLI。
+- [x] 建立 `kdm-probe` 一般使用者與 lab 專用 key；不使用 Multipass internal key，且不授予 sudo。
+- [x] 以 forced `hostname` probe 驗證 BatchMode、StdinNull、strict unknown fail、accept-new 與後續 strict match。
+- [x] 驗證 reachable/unreachable per-node result 與 aggregate exit status 10。
+- [x] 真實 SSH 只由明確 `make integration-ssh` 執行；未公開 `node exec` CLI。
 
-驗收：fixture 測試覆蓋重複 node、未知 role、無效 IP/hostname、空 target；mock SSH 可重現部分節點失敗。
+驗收：fixture 測試覆蓋重複 node、未知 role、無效 IP/hostname、空 target；mock SSH 可重現部分節點失敗與 timeout；disposable VM 真實 SSH read-only probe、host-key policy 與 failure aggregation 通過。
 
 ## Phase 3：Host bootstrap
 

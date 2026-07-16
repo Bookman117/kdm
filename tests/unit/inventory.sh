@@ -11,8 +11,8 @@ source "${ROOT}/lib/config.sh"
 source "${ROOT}/lib/inventory.sh"
 
 records="$(kdm_inventory_records "$FIXTURE")" || fail 'failed to normalize inventory'
-assert_contains "$records" $'cp-1\tcontrol-plane\tcp-1.example.test\toperator\t2222'
-assert_contains "$records" $'wk-1\tworker\t2001:db8::21\toperator\t2222'
+assert_contains "$records" $'cp-1\tcontrol-plane\tcp-1.example.test\toperator\t2222\t7\tyes'
+assert_contains "$records" $'wk-1\tworker\t2001:db8::21\toperator\t2222\t7\tyes'
 
 all_targets="$(kdm_inventory_targets "$FIXTURE" all)" || fail 'all target resolution failed'
 assert_contains "$all_targets" 'cp-1'
