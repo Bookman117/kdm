@@ -1,0 +1,41 @@
+KDM_HOST_FACTS_V1
+metadata.name	cp-1
+os.id	ubuntu
+os.version	24.04
+architecture	arm64
+kernel	6.8.0-134-generic
+cgroupVersion	v2
+swapActive	false
+rootFreeMiB	12288
+module.overlay	false
+module.brNetfilter	false
+sysctl.net.bridge.bridge-nf-call-iptables	0
+sysctl.net.bridge.bridge-nf-call-ip6tables	0
+sysctl.net.ipv4.ip_forward	0
+file.modulesLoad.ownership	absent
+file.modulesLoad.sha256	
+file.sysctl.ownership	absent
+file.sysctl.sha256	
+file.kubernetesRepository.ownership	absent
+file.kubernetesRepository.sha256	
+file.crioRepository.ownership	absent
+file.crioRepository.sha256	
+keyring.kubernetes.ownership	absent
+keyring.kubernetes.fingerprint	
+keyring.crio.ownership	absent
+keyring.crio.fingerprint	
+package.ca-certificates	present
+package.curl	present
+package.gpg	present
+package.cri-o	absent
+package.kubelet	absent
+package.kubeadm	absent
+package.kubectl	absent
+hold.cri-o	false
+hold.kubelet	false
+hold.kubeadm	false
+hold.kubectl	false
+service.crio.enabled	false
+service.crio.active	false
+service.kubelet.enabled	false
+KDM_HOST_FACTS_END

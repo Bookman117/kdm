@@ -2,7 +2,7 @@
 
 > 版本：0.1
 > 日期：2026-07-16
-> 狀態：Phase 3A plan-only host bootstrap
+> 狀態：Phase 3A.5 real SSH read-only HostFacts
 > 目的：定義 KDM v2 的責任邊界、安全模型與可漸進移植架構；既有 `kdm` 與 `kdm_function` 視為 legacy v1。
 
 ---
@@ -46,6 +46,9 @@ bin/kdm ── CLI dispatch；help/version/doctor 必須零副作用
     ├── lib/safety.sh       plan/apply 與 destructive gate
     ├── lib/ssh.sh          遠端執行介面
     ├── lib/host.sh         HostFacts preflight與deterministic plan
+    ├── lib/host-facts.sh   Strict remote facts protocol parser
+    ├── scripts/guest/      Root-owned fixed read-only collector
+    ├── scripts/lab/        Explicit disposable-lab provisioner
     └── lib/log.sh          可讀輸出與錯誤碼
     │
     ▼
@@ -58,7 +61,7 @@ providers/                  OS / runtime / CNI 差異實作
 節點與 Kubernetes API
 ```
 
-Phase 3A 已加入 local HostFacts preflight與 plan-only host bootstrap；尚未加入remote facts collector、apply executor或 Kubernetes API操作。
+Phase 3A/3A.5已加入HostFacts preflight、plan-only bootstrap與gated real SSH fixed collector；尚未加入apply executor或Kubernetes API操作。
 
 ## 3. KDM v2 不是什麼
 

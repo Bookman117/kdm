@@ -455,7 +455,7 @@ kubeadm init/join
 
 ## 13. Implementation phases
 
-### Phase 3A：Planner/preflight（下一個 coding phase）
+### Phase 3A：Planner/preflight
 
 - [x] OS/arch/cgroup/swap/disk HostFacts model。
 - [x] Desired files renderer與 canonical LF SHA-256。
@@ -464,7 +464,37 @@ kubeadm init/join
 - [x] Unit fixtures：supported、wrong OS/arch/cgroup、active swap、low disk、repo drift。
 - [x] `--apply` fail closed；沒有 apply executor。
 
-目前 HostFacts由 local YAML提供；真實 SSH facts collector尚未實作。這是刻意的 Phase 3A transport boundary，不得宣稱已自動偵測 remote host。
+Phase 3A的普通CLI仍只讀local YAML；remote transport保持在明確gated integration之外。
+
+### Phase 3A.5：Real SSH HostFacts collector
+
+- [x] 獨立ignored Ed25519 lab identity，不覆寫Phase 2B hostname identity。
+- [x] Root-owned fixed collector `/usr/local/libexec/kdm-host-facts`。
+- [x] 非sudo `kdm-probe` forced-command key；拒絕任意SSH command。
+- [x] Strict `KDM_HOST_FACTS_V1` protocol：unknown、duplicate、missing、invalid type全部fail closed。
+- [x] Local parser轉換成既有HostFacts schema並再次allowlist validation。
+- [x] Strict unknown → accept-new → strict host-key sequence通過。
+- [x] `make integration-host-facts`真實收集Ubuntu 24.04 ARM64 facts。
+- [x] 收集後preflight因guest `rootFreeMiB=6752`如預期fail closed。
+- [x] 原`make integration-ssh`仍通過。
+
+Phase 3A.5不包含sudo probe、package mutation、apply executor或公開任意remote exec。
+
+Lab provision與驗證：
+
+```bash
+identity='.kdm/lab/host_facts_id_ed25519'
+[ -f "$identity" ] || ssh-keygen -q -t ed25519 -N '' -C 'kdm-host-facts-lab' -f "$identity"
+
+KDM_LAB_VM='kdm-lab-cp1' \
+KDM_LAB_HOST_FACTS_PUBLIC_KEY="${identity}.pub" \
+KDM_LAB_PROVISION_CONFIRM='kdm-lab-cp1' \
+make provision-host-facts
+
+KDM_LAB_INVENTORY='.kdm/lab/inventory.yaml' \
+KDM_LAB_IDENTITY="$identity" \
+make integration-host-facts
+```
 
 ### Phase 3B：Single-node apply
 
@@ -507,6 +537,7 @@ kubeadm init/join
 - [x] Phase 3A exact file plan與 non-goals確認。
 - [x] Credential與capacity blocker明確記錄。
 - [x] Phase 3A planner/preflight code與 plan-only CLI完成。
+- [x] Phase 3A.5 real SSH read-only HostFacts collector與gated integration完成。
 - [ ] Phase 3B lab apply：尚未授權且容量不足。
 
 ## 16. Phase 3A implementation result
@@ -541,4 +572,8 @@ deterministic plan: PASS
 full NO_CHANGE plan: PASS
 CLI apply fail closed: PASS
 no-side-effect sentinels: PASS
+strict HostFacts protocol parser: PASS
+real SSH HostFacts collector: PASS
+capacity fail-closed gate: PASS (6752 MiB < 10240 MiB)
+Phase 2B hostname integration regression: PASS
 ```

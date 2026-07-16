@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+export LC_ALL=C
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+original_command="${SSH_ORIGINAL_COMMAND:-}"
+[[ "$original_command" =~ ^host-facts[[:space:]]--node[[:space:]][a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || {
+  printf 'host-facts: command rejected\n' >&2
+  exit 5
+}
+node_name="${original_command##* }"
+
+emit() {
+  printf '%s\t%s\n' "$1" "$2"
+}
+
+bool_command() {
+  if "$@" >/dev/null 2>&1; then printf 'true\n'; else printf 'false\n'; fi
+}
+
+package_version() {
+  local package_name="$1"
+  local record
+  record="$(dpkg-query -W -f='${db:Status-Abbrev}\t${Version}' "$package_name" 2>/dev/null || true)"
+  case "$record" in
+    ii*$'\t'*) printf '%s\n' "${record#*$'\t'}" ;;
+    *) printf 'absent\n' ;;
+  esac
+}
+
+package_held() {
+  local package_name="$1"
+  local record selection
+  record="$(dpkg --get-selections "$package_name" 2>/dev/null || true)"
+  selection="${record##*[[:space:]]}"
+  if [ "$selection" = hold ]; then printf 'true\n'; else printf 'false\n'; fi
+}
+
+file_record() {
+  local alias="$1"
+  local path="$2"
+  local first_line='' ownership sha='' owner=''
+  if [ -L "$path" ]; then
+    ownership=foreign
+  elif [ ! -e "$path" ]; then
+    ownership=absent
+  elif [ ! -r "$path" ] || [ ! -f "$path" ]; then
+    printf 'host-facts: unreadable KDM path: %s\n' "$path" >&2
+    return 4
+  else
+    owner="$(stat -c '%U' "$path")"
+    IFS= read -r first_line <"$path" || true
+    if [ "$owner" = root ] && [ "$first_line" = '# Managed by KDM v2' ]; then ownership=managed; else ownership=foreign; fi
+    sha="$(sha256sum "$path")"
+    sha="${sha%% *}"
+  fi
+  emit "file.${alias}.ownership" "$ownership"
+  emit "file.${alias}.sha256" "$sha"
+}
+
+keyring_record() {
+  local alias="$1"
+  local path="$2"
+  local fingerprint='' ownership owner
+  if [ -L "$path" ]; then
+    printf 'host-facts: keyring symlink rejected: %s\n' "$path" >&2
+    return 4
+  fi
+  if [ ! -e "$path" ]; then
+    emit "keyring.${alias}.ownership" absent
+    emit "keyring.${alias}.fingerprint" ''
+    return 0
+  fi
+
+  [ -r "$path" ] && [ -f "$path" ] || {
+    printf 'host-facts: unreadable keyring: %s\n' "$path" >&2
+    return 4
+  }
+  while IFS=: read -r record_type _ _ _ _ _ _ _ _ current_fingerprint _; do
+    if [ "$record_type" = fpr ]; then
+      fingerprint="$current_fingerprint"
+      break
+    fi
+  done < <(gpg --batch --with-colons --show-keys "$path" 2>/dev/null)
+  [[ "$fingerprint" =~ ^[A-F0-9]{40}$ ]] || {
+    printf 'host-facts: invalid keyring: %s\n' "$path" >&2
+    return 4
+  }
+  owner="$(stat -c '%U' "$path")"
+  if [ "$owner" = root ]; then ownership=managed; else ownership=foreign; fi
+  emit "keyring.${alias}.ownership" "$ownership"
+  emit "keyring.${alias}.fingerprint" "$fingerprint"
+}
+
+# shellcheck source=/dev/null
+. /etc/os-release
+architecture="$(dpkg --print-architecture)"
+kernel="$(uname -r)"
+if [ -r /sys/fs/cgroup/cgroup.controllers ]; then cgroup_version=v2; else cgroup_version=v1; fi
+if [ -n "$(swapon --noheadings --show=NAME 2>/dev/null)" ]; then swap_active=true; else swap_active=false; fi
+root_free_mib="$(df -Pm / | tr -s ' ' | cut -d' ' -f4 | tail -n 1)"
+module_overlay="$(bool_command test -d /sys/module/overlay)"
+module_br_netfilter="$(bool_command test -d /sys/module/br_netfilter)"
+sysctl_iptables="$(sysctl -n net.bridge.bridge-nf-call-iptables 2>/dev/null || printf '0\n')"
+sysctl_ip6tables="$(sysctl -n net.bridge.bridge-nf-call-ip6tables 2>/dev/null || printf '0\n')"
+sysctl_ipv4_forward="$(sysctl -n net.ipv4.ip_forward 2>/dev/null || printf '0\n')"
+
+printf 'KDM_HOST_FACTS_V1\n'
+emit metadata.name "$node_name"
+emit os.id "$ID"
+emit os.version "$VERSION_ID"
+emit architecture "$architecture"
+emit kernel "$kernel"
+emit cgroupVersion "$cgroup_version"
+emit swapActive "$swap_active"
+emit rootFreeMiB "$root_free_mib"
+emit module.overlay "$module_overlay"
+emit module.brNetfilter "$module_br_netfilter"
+emit sysctl.net.bridge.bridge-nf-call-iptables "$sysctl_iptables"
+emit sysctl.net.bridge.bridge-nf-call-ip6tables "$sysctl_ip6tables"
+emit sysctl.net.ipv4.ip_forward "$sysctl_ipv4_forward"
+file_record modulesLoad /etc/modules-load.d/kdm-kubernetes.conf
+file_record sysctl /etc/sysctl.d/99-kdm-kubernetes.conf
+file_record kubernetesRepository /etc/apt/sources.list.d/kdm-kubernetes-v1.35.list
+file_record crioRepository /etc/apt/sources.list.d/kdm-crio-v1.35.list
+keyring_record kubernetes /etc/apt/keyrings/kdm-kubernetes-v1.35.gpg
+keyring_record crio /etc/apt/keyrings/kdm-crio-v1.35.gpg
+for package_name in ca-certificates curl gpg cri-o kubelet kubeadm kubectl; do
+  emit "package.${package_name}" "$(package_version "$package_name")"
+done
+for package_name in cri-o kubelet kubeadm kubectl; do
+  emit "hold.${package_name}" "$(package_held "$package_name")"
+done
+emit service.crio.enabled "$(bool_command systemctl is-enabled crio.service)"
+emit service.crio.active "$(bool_command systemctl is-active crio.service)"
+emit service.kubelet.enabled "$(bool_command systemctl is-enabled kubelet.service)"
+printf 'KDM_HOST_FACTS_END\n'
